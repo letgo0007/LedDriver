@@ -231,8 +231,10 @@ uint8_t Iw7027_updateFrequency(enum Iw7027_Frequency freq);
 
 
 /**********************************************************
- * @Brief Iw7027_updateFrequency
- * *******/
+ * @Brief Iw7027_updateDelayTable
+ *
+ * On working.
+ * ********************************************************/
 uint8_t Iw7027_updateDelayTable(enum Iw7027_Delay delay);
 
 /**********************************************************
