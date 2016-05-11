@@ -112,7 +112,7 @@ uint8_t Iw7027_checkReadWithTimeout(uint8_t chipsel, uint8_t regaddress , uint8_
 uint8_t Iw7027_init(const uint8_t *workmodetable)
 {
 	uint8_t status = 0;
-	uint8_t i;
+	uint8_t i = 0;
 
 #if debuglog
 	PrintTime(&System_Time);
@@ -120,22 +120,14 @@ uint8_t Iw7027_init(const uint8_t *workmodetable)
 #endif
 
 	//Step 1 : Check Power & turn on iw7027 power.
-	do{
-		Board_getBoardInfo(&System_BoardInfo);
-
-#if debuglog
-		PrintTime(&System_Time);
-		PrintString("Check DC Power , NO.");
-		PrintChar(i++);
-		PrintString("\r\nD60V = ");
-		PrintCharBCD(System_BoardInfo.boardD60V);
-		PrintString("  D13V = ");
-		PrintCharBCD(System_BoardInfo.boardD13V);
-		PrintEnter();
-		delay_ms(100);
-#endif
-
-	}while( ( System_BoardInfo.boardD60V < 50 ) || ( System_BoardInfo.boardD13V < 10 ) );
+	while( Adc_getResult(ADCPORT_DC60V) < 0x0200 )
+	{
+		;
+	}
+	while( Adc_getResult(ADCPORT_DC13V) < 0x0200 )
+	{
+		;
+	}
 
 	//Force IW7027 to power off for 200ms to ensure power reset.
 	delay_ms(200);
@@ -143,13 +135,15 @@ uint8_t Iw7027_init(const uint8_t *workmodetable)
 	delay_ms(200);
 
 	i = 0;
-	//Step 1: check chip ID to ensure IW7027 is working .
+	//Step 2: check chip ID to ensure IW7027 is working .
 	do{
 		status = Iw7027_checkReadWithTimeout( IW_ALL , 0x6B , 0x24 , 0xFF );
+#if debuglog
 		PrintTime(&System_Time);
 		PrintString("Check IW7027 CHIP ID NO.");
 		PrintChar(i++);
 		PrintEnter();
+#endif
 	}while (status == 0);
 
 	//Step 2 : Write Initial setting in sequence  from chip IW0 to IW_N
@@ -165,13 +159,12 @@ uint8_t Iw7027_init(const uint8_t *workmodetable)
 	//Step 3 :wait STB
 #if 0
 	do{
-		Board_getBoardInfo(&System_BoardInfo);
 #if debuglog
 		PrintTime(&System_Time);
 		PrintString("Waiting STB...\r\n");
 		delay_ms(100);
 #endif
-	}while( GPIO_getInputPinValue(GPIOPORT_STB_HW,GPIOPIN_STB_HW) == 0 );
+	}while( GET_STB_IN == 0 );
 #endif
 
 	//Step 4 : Delay & turn on IW7027

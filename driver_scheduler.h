@@ -14,8 +14,9 @@ typedef struct Scheduler
 	uint8_t	 taskFlagSpiRx;
 	uint8_t	 taskFlagSpiTx;
 	uint8_t	 taskFlagI2c;
-	uint8_t  taskFlagGpioCheck;
-	uint8_t  taskFlagErrorHandle;
+	uint8_t  taskFlagBoardCheck;
+	uint8_t  testFlag1Hz;
+	uint8_t  testFlag60Hz;
 	uint16_t cpuTickCount;
 	uint8_t  cpuLoad;
 }Scheduler;

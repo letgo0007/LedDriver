@@ -100,12 +100,12 @@ void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
     	case 4://CC2
     		//GPIO Check tick = 100Hz / 10ms
     		TB0CCR2 += System_Schedule.schGpioCheckTPeriod ;
-    		System_Schedule.taskFlagGpioCheck = 1;
+    		System_Schedule.taskFlagBoardCheck = 1;
     		break;
     	case 6://CC3
     		//Error Handle tick = 10Hz / 100ms
     		TB0CCR3 += System_Schedule.schErrorHandlePeriod ;
-    		System_Schedule.taskFlagErrorHandle = 1;
+    		System_Schedule.testFlag1Hz = 1;
     		break;
     	case 8://CC4
     		break;

@@ -37,6 +37,8 @@
 #define SET_LED_G_ON					(GPIO_setOutputHighOnPin(GPIO_PORT_P4 , GPIO_PIN7));
 #define SET_LED_G_OFF					(GPIO_setOutputLowOnPin(GPIO_PORT_P4 , GPIO_PIN7));
 #define TOGGLE_LED_G					(GPIO_toggleOutputOnPin(GPIO_PORT_P4 , GPIO_PIN7));
+#define SET_ERROR_OUT_HIGH				(GPIO_setOutputHighOnPin(GPIO_PORT_P4 , GPIO_PIN6));
+#define SET_ERROR_OUT_LOW				(GPIO_setOutputLowOnPin(GPIO_PORT_P4 , GPIO_PIN6));
 
 //Struct
 typedef struct BoardInfo
@@ -94,7 +96,7 @@ void 	Mcu_reset(void);
  * @Return
  * 		NONE
  **********************************************************/
-void 	Board_getBoardInfo(BoardInfo *outputinfo);
+void 	Mcu_setErrorOut(BoardInfo *outputinfo);
 
 /**********************************************************
  * @Brief Clock_init

@@ -29,7 +29,7 @@ uint8_t Mcu_init(void)
 	return STATUS_SUCCESS;
 }
 
-void Board_getBoardInfo(BoardInfo *outputinfo)
+void Mcu_setErrorOut(BoardInfo *outputinfo)
 {
 	uint32_t adctemp ;
 

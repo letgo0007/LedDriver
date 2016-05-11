@@ -18,10 +18,10 @@ int main(void) {
     	WDT_A_resetTimer(WDT_A_BASE);
 
     	//1 Check GPIO & ADC status
-    	if(System_Schedule.taskFlagGpioCheck)
+    	if(System_Schedule.taskFlagBoardCheck)
     	{
-    		Board_getBoardInfo(&System_BoardInfo);
-    		System_Schedule.taskFlagGpioCheck = 0;
+    		Mcu_setErrorOut(&System_BoardInfo);
+    		System_Schedule.taskFlagBoardCheck = 0;
     	}
 
     	//2 Handle I2C event
@@ -60,16 +60,15 @@ int main(void) {
         		System_Schedule.taskFlagSpiTx = 0;
         	}
     	}
-    	//Manual Mode , update Manual duty buff content to IW7027
+    	//3' Manual Mode
     	else
     	{
-    		//Lower cpu tick to 60Hz;
-//    		System_Schedule.schCpuTickPeriod = UCS_getACLK()/60;
+    		//Update Manual duty buff content to IW7027 ,default is BLCAK MUTE. Duty = 0x00.
             Iw7027_updateDuty( (uint16_t*)System_ManualDutyBuff , Iw7027_LedSortMap_70XU30A_78CH);
     	}
 
-    	//4 Error handle & report .
-    	if(System_Schedule.taskFlagErrorHandle)
+    	//4 Test only & report
+    	if(System_Schedule.testFlag1Hz)
     	{
 
     		PrintTime(&System_Time);
@@ -85,7 +84,7 @@ int main(void) {
     		PrintCharBCD(System_Schedule.cpuLoad);
     		PrintString(" % \r\n");
 
-    		System_Schedule.taskFlagErrorHandle = 0;
+    		System_Schedule.testFlag1Hz = 0;
     	}
 
     	//Finish all task , turn off cpu.
