@@ -5,11 +5,11 @@
  *      Author: Red Scarf 2
  */
 
-#ifndef FACTORY_H_
-#define FACTORY_H_
+#ifndef APP_FACTORY_H_
+#define APP_FACTORY_H_
 
 
 
 
 
-#endif /* FACTORY_H_ */
+#endif /* APP_FACTORY_H_ */

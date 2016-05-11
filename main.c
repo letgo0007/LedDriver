@@ -1,12 +1,13 @@
 #include "driverlib.h"
-#include "board.h"
-#include "scheduler.h"
-#include "iw7027.h"
-#include "error.h"
-#include "dpl.h"
-#include "i2cslave.h"
-#include "uartdebug.h"
-#include "i2cslave.h"
+
+#include "app_dpl.h"
+#include "app_i2c_interface.h"
+#include "app_i2c_interface.h"
+#include "app_uartdebug.h"
+#include "driver_errorhandle.h"
+#include "driver_iw7027.h"
+#include "driver_mcu.h"
+#include "driver_scheduler.h"
 
 
 int main(void) {
@@ -42,8 +43,6 @@ int main(void) {
     	//3 Local Dimming Mode
     	if(System_Schedule.schLocalDimmingOn)
     	{
-    		System_Schedule.schCpuTickPeriod = UCS_getACLK()/1000;
-
     		//3.1 Rx data handle
         	if(System_Schedule.taskFlagSpiRx)
         	{

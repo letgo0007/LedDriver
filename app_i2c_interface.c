@@ -1,5 +1,6 @@
-#include "i2cslave.h"
-#include "dpl.h"
+#include "app_i2c_interface.h"
+
+#include "app_dpl.h"
 
 /*****************************************************************
  * SPI_Rx_Format_Convert

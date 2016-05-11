@@ -1,5 +1,5 @@
-#ifndef SCHEDULER_H_
-#define SCHEDULER_H_
+#ifndef DRIVER_SCHEDULER_H_
+#define DRIVER_SCHEDULER_H_
 
 #include "driverlib.h"
 
@@ -31,4 +31,4 @@ uint8_t Sch_init(void);
 void Sch_CpuOff(void);
 
 
-#endif /* SCHEDULER_H_ */
+#endif /* DRIVER_SCHEDULER_H_ */

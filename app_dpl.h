@@ -1,5 +1,5 @@
-#ifndef DPL_H_
-#define DPL_H_
+#ifndef APP_DPL_H_
+#define APP_DPL_H_
 
 #include "driverlib.h"
 //Define const
@@ -176,4 +176,4 @@ static const DPL_Prama DPL_Param_70XU30A_80CH_250ma_12bit = {
 		},
 };
 
-#endif /* DPL_H_ */
+#endif /* APP_DPL_H_ */

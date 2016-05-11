@@ -1,5 +1,5 @@
-#include "scheduler.h"
-#include "dpl.h"
+#include "driver_scheduler.h"
+#include "app_dpl.h"
 
 #ifndef ACLK_F
 #define ACLK_F 		(32768)

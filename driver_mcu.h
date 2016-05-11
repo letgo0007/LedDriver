@@ -1,9 +1,9 @@
-#ifndef BOARD_H_
-#define BOARD_H_
+#ifndef DRIVER_MCU_H_
+#define DRIVER_MCU_H_
 
+#include "app_uartdebug.h"
 #include "driverlib.h"
 #include "string.h"
-#include "uartdebug.h"
 
 //Board Hardware Const
 #define SOFTWARE_VERSION				(0x1605030A)							//Software Version Info
@@ -300,4 +300,4 @@ void 	PwmOut_init(uint8_t initfreq ,uint16_t delay);
 void 	PwmOut_sync(void);
 
 
-#endif /* BOARD_H_ */
+#endif /* DRIVER_MCU_H_ */

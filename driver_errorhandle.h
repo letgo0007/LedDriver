@@ -1,9 +1,9 @@
-#ifndef ERROR_H_
-#define ERROR_H_
+#ifndef DRIVER_ERRORHANDLE_H_
+#define DRIVER_ERRORHANDLE_H_
 
 #include "driverlib.h"
-#include "board.h"
-#include "iw7027.h"
+#include "driver_iw7027.h"
+#include "driver_mcu.h"
 
 #define	ERROR_SEGMENT_PTR	 ( 0x1800 )		//Flash segment pointer to store error info
 
@@ -20,4 +20,4 @@ ErrorInfo System_ErrorInfo ;
 uint8_t Error_storeErrorInfo(ErrorInfo error);
 ErrorInfo Error_readErrorInfo(void);
 
-#endif /* ERROR_H_ */
+#endif /* DRIVER_ERRORHANDLE_H_ */

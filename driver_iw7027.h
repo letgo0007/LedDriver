@@ -1,8 +1,8 @@
-#ifndef IW7027_H_
-#define IW7027_H_
+#ifndef DRIVER_IW7027_H_
+#define DRIVER_IW7027_H_
 
+#include "driver_mcu.h"
 #include "driverlib.h"
-#include "board.h"
 
 // IW7027 Hardware info
 #define IW7027_DEVICE_AMOUNT			(5)		//IW7027 IC chip amount
@@ -249,4 +249,4 @@ Iw7027_ErrorInfo Iw7027_getErrorStatus(void);
 
 
 
-#endif /* IW7027_H_ */
+#endif /* DRIVER_IW7027_H_ */

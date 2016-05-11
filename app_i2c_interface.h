@@ -1,10 +1,10 @@
-#ifndef I2CSLAVE_H_
-#define I2CSLAVE_H_
+#ifndef APP_I2C_INTERFACE_H_
+#define APP_I2C_INTERFACE_H_
 
 #include "driverlib.h"
-#include "board.h"
-#include "iw7027.h"
-#include "scheduler.h"
+#include "driver_iw7027.h"
+#include "driver_mcu.h"
+#include "driver_scheduler.h"
 
 //Struct
 enum SpiRxFormatModel
@@ -19,4 +19,4 @@ uint8_t SpiSlave_Handler(uint8_t *spirx, uint16_t *outputduty, enum SpiRxFormatM
 uint8_t I2cSlave_handleMap(uint8_t *i2cmap);
 uint8_t I2cSlave_initMap(uint8_t *i2cmap);
 
-#endif /* I2CSLAVE_H_ */
+#endif /* APP_I2C_INTERFACE_H_ */

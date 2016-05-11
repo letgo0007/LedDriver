@@ -1,5 +1,6 @@
-#include "uartdebug.h"
-#include "board.h"
+#include "app_uartdebug.h"
+
+#include "driver_mcu.h"
 
 //Need access to Uart rxed buffer
 extern unsigned char Uart_Monitor_Rx_Buffer[256];

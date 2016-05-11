@@ -1,8 +1,8 @@
-#ifndef UARTDEBUG_H_
-#define UARTDEBUG_H_
+#ifndef APP_UARTDEBUG_H_
+#define APP_UARTDEBUG_H_
 
+#include "driver_scheduler.h"
 #include "driverlib.h"
-#include "scheduler.h"
 #define UART_CONSOLE_VER	(1)
 //Main program for uart cosole
 void Uart_Console(void);
@@ -44,4 +44,4 @@ static const unsigned char HEX_ASCII_TABLE[16]={
 		0x45	,	//E
 		0x46		//F
 };
-#endif /* UARTDEBUG_H_ */
+#endif /* APP_UARTDEBUG_H_ */

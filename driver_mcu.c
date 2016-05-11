@@ -1,5 +1,6 @@
-#include "board.h"
-#include "scheduler.h"
+#include "driver_mcu.h"
+
+#include "driver_scheduler.h"
 
 #define debuglog (1)
 
