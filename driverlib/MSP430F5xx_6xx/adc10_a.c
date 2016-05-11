@@ -67,7 +67,7 @@ bool ADC10_A_init(uint16_t baseAddress,
 
     //Set ADC10_A Control 2
     HWREG16(baseAddress + OFS_ADC10CTL2) =
-        (clockSourceDivider & ADC10PDIV_2) //Set Clock Pre-Divider
+        (clockSourceDivider & ADC10PDIV_3) //Set Clock Pre-Divider
         + ADC10RES; //Default resolution to 10-bits
 
     return (retVal);

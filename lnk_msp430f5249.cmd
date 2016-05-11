@@ -1,5 +1,5 @@
 /* ============================================================================ */
-/* Copyright (c) 2016, Texas Instruments Incorporated                           */
+/* Copyright (c) 2015, Texas Instruments Incorporated                           */
 /*  All rights reserved.                                                        */
 /*                                                                              */
 /*  Redistribution and use in source and binary forms, with or without          */
@@ -31,7 +31,7 @@
 /* ============================================================================ */
 
 /******************************************************************************/
-/* lnk_msp430f5247.cmd - LINKER COMMAND FILE FOR LINKING MSP430F5247 PROGRAMS     */
+/* lnk_msp430f5249.cmd - LINKER COMMAND FILE FOR LINKING MSP430F5249 PROGRAMS     */
 /*                                                                            */
 /*   Usage:  lnk430 <obj files...>    -o <out file> -m <map file> lnk.cmd     */
 /*           cl430  <src files...> -z -o <out file> -m <map file> lnk.cmd     */
@@ -44,7 +44,7 @@
 /* -heap   0x0100                                   HEAP AREA SIZE            */
 /*                                                                            */
 /*----------------------------------------------------------------------------*/
-/* Version: 1.185                                                             */
+/* Version: 1.180                                                             */
 /*----------------------------------------------------------------------------*/
 
 /****************************************************************************/
@@ -62,7 +62,7 @@ MEMORY
     INFOC                   : origin = 0x1880, length = 0x0080
     INFOD                   : origin = 0x1800, length = 0x0080
     FLASH                   : origin = 0x4400, length = 0xBB80
-    FLASH2                  : origin = 0x10000,length = 0x4400
+    FLASH2                  : origin = 0x10000,length = 0x14400
     INT00                   : origin = 0xFF80, length = 0x0002
     INT01                   : origin = 0xFF82, length = 0x0002
     INT02                   : origin = 0xFF84, length = 0x0002
@@ -142,33 +142,23 @@ SECTIONS
     .stack      : {} > RAM (HIGH)           /* Software system stack             */
 
 #ifndef __LARGE_DATA_MODEL__
-    .text       : {} > FLASH                /* Code                              */
+    .text       : {}>> FLASH                /* Code                              */
 #else
-    .text       : {} >> FLASH2 | FLASH      /* Code                              */
+    .text       : {}>> FLASH2 | FLASH       /* Code                              */
 #endif
     .text:_isr  : {} > FLASH                /* ISR Code space                    */
     .cinit      : {} > FLASH                /* Initialization tables             */
 #ifndef __LARGE_DATA_MODEL__
     .const      : {} > FLASH                /* Constant data                     */
 #else
-    .const      : {} >> FLASH | FLASH2      /* Constant data                     */
+    .const      : {} > FLASH | FLASH2       /* Constant data                     */
 #endif
     .cio        : {} > RAM                  /* C I/O Buffer                      */
 
     .pinit      : {} > FLASH                /* C++ Constructor tables            */
-    .binit      : {} > FLASH                /* Boot-time Initialization tables   */
     .init_array : {} > FLASH                /* C++ Constructor tables            */
     .mspabi.exidx : {} > FLASH              /* C++ Constructor tables            */
     .mspabi.extab : {} > FLASH              /* C++ Constructor tables            */
-#ifdef __TI_COMPILER_VERSION
-  #if __TI_COMPILER_VERSION >= 15009000
-    #ifndef __LARGE_DATA_MODEL__
-    .TI.ramfunc : {} load=FLASH, run=RAM, table(BINIT)
-    #else
-    .TI.ramfunc : {} load=FLASH | FLASH2, run=RAM, table(BINIT)
-    #endif
-  #endif
-#endif
 
     .infoA     : {} > INFOA              /* MSP430 INFO FLASH Memory segments */
     .infoB     : {} > INFOB
@@ -246,5 +236,5 @@ SECTIONS
 /* Include peripherals memory map                                           */
 /****************************************************************************/
 
--l msp430f5247.cmd
+-l msp430f5249.cmd
 
