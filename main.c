@@ -1,14 +1,5 @@
-#include "driverlib.h"
-
-#include "app_dpl.h"
-#include "app_i2c_interface.h"
-#include "app_i2c_interface.h"
-#include "app_uartdebug.h"
-#include "driver_errorhandle.h"
-#include "driver_iw7027.h"
-#include "driver_mcu.h"
-#include "driver_scheduler.h"
-
+#include "driver.h"
+#include "app.h"
 
 int main(void) {
 	//MCU init
@@ -47,7 +38,7 @@ int main(void) {
         	if(System_Schedule.taskFlagSpiRx)
         	{
         		//Check Spi Rx data validation
-        		System_BoardInfo.boardSpiRxValid = SpiSlave_Handler ( SpiSlave_RxBuff , System_InputDutyBuff , CITRUS_12BIT_78CH );
+        		System_BoardInfo.boardSpiRxValid = SpiSlave_handle ( SpiSlave_RxBuff , System_InputDutyBuff , CITRUS_12BIT_78CH );
 
         		//Do Spi Rx data process when format correct.
         		if ( System_BoardInfo.boardSpiRxValid )

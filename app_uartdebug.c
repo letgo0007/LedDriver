@@ -1,90 +1,71 @@
 #include "app_uartdebug.h"
-
 #include "driver_mcu.h"
+#include "string.h"
 
-//Need access to Uart rxed buffer
-extern unsigned char Uart_Monitor_Rx_Buffer[256];
 
-void Uart_Console(void)
+void Uart_Console(uint8_t *uartrxbuf)
 {
-
-
-    //Compare buffer for certain command
-	if(	Uart_Buffer_Compare("test"))
+	if( ! memcmp(uartrxbuf , "test" , 4) )
 	{
-		PrintStringL("test ok");
+		PrintString("\r\nTEST\r\n");
+	}
+	else if( ! memcmp(uartrxbuf , "spi" , 3) )
+	{
+		PrintString("\r\nSpi Slave buffer:\r\n");
 		PrintArray(SpiSlave_RxBuff,256);
 	}
-	else if(Uart_Buffer_Compare("i2cw "))
+	else if( ! memcmp(uartrxbuf , "i2c" , 3) )
 	{
-		Printi2cw();
+		PrintString("\r\nI2C Slave buffer:\r\n");
+		PrintArray(I2cSlave_Map,256);
 	}
-	else if(Uart_Buffer_Compare("time"))
+	else if( ! memcmp(uartrxbuf , "input" , 5) )
 	{
-		PrintTime(&System_Time);
+		uint8_t i;
+		PrintString("\r\n Input Duty Buffer: \r\n");
+		for(i = 0 ; i < 80 ; i ++ )
+		{
+			PrintString(" ");
+			PrintInt(System_InputDutyBuff[i]);
+			if( i % 6 == 5)
+			{
+				PrintString("\r\n");
+			}
+		}
+		PrintString("\r\n");
 	}
-	else if(Uart_Buffer_Compare("reboot"))
+	else if( ! memcmp(uartrxbuf , "output" , 6) )
 	{
-		WDT_A_initWatchdogTimer(	WDT_A_BASE,		//Set watch dog timer to 64 cpu cycles
-		                            WDT_A_CLOCKSOURCE_SMCLK,
-									WDT_A_CLOCKDIVIDER_64);
-		WDT_A_start(WDT_A_BASE);
-		__delay_cycles(100);						//Wait watch dog reboot system
+		uint8_t i;
+		PrintString("\r\n Out Duty Buffer: \r\n");
+		for(i = 0 ; i < 80 ; i ++ )
+		{
+			PrintString(" ");
+			PrintInt(System_OutputDutyBuff[i]);
+			if( i % 6 == 5)
+			{
+				PrintString("\r\n");
+			}
+		}
+		PrintString("\r\n");
+	}
+	else if( ! memcmp(uartrxbuf , "reboot" , 6) )
+	{
+		PrintString("\r\n MCU manual reboot. \r\n");
+		Board_reset();
 	}
 	else
 	{
-		PrintHelp();
+		PrintString("\r\n Help: \r\n");
 	}
-
-
 }
 
-/* Compare Uart buffer with certain string
- * If all same , return 1
- * any byte different, return 0
- */
-unsigned char Uart_Buffer_Compare(char *string)
-{
-
-
-	unsigned char i=0;
-
-	while(*string)
-	{
-		if(Uart_RxBuff[i++]==*string++){
-			;
-		}
-		else{
-			return 0;
-		}
-
-	}
-
-	return 1;
-}
-
-
-void PrintHelp(void){
-	PrintString(
-			"CONSOLE HELP:\r\n"
-			"test1\r\n"
-			"test2\r\n"
-			);
-}
-
-void Printi2cw(void)
-{
-	//				   123456789ABCDEF
-	//command format : i2cw A0 55 42 43
-	PrintString("I2C Write Dev:");
-
-}
 
 /* Brief	: Uart Send 1 byte
  * Example	:
  *  - Uart_Monitor_Send_Char(0x0D);  	--> 0x0D
  */
-void Uart_Monitor_Send_Char(unsigned char data)
+void UartSendChar(unsigned char data)
 {
 	USCI_A_UART_transmitData(USCI_A1_BASE,
 							data
@@ -94,7 +75,7 @@ void Uart_Monitor_Send_Char(unsigned char data)
  * Example	:
  *  - PrintChar(0xABCD);				-->  0xAB 0xCD
  */
-void Uart_Monitor_Send_Int(unsigned int data)
+void UartSendInt(unsigned int data)
 {
 	USCI_A_UART_transmitData(USCI_A1_BASE,		//Send High byte
 			(unsigned char)(data>>4)
@@ -110,8 +91,8 @@ void Uart_Monitor_Send_Int(unsigned int data)
  */
 void PrintChar(unsigned char data)
 {
-	Uart_Monitor_Send_Char(HEX_ASCII_TABLE[data>>4]);		//high 4 bits
-	Uart_Monitor_Send_Char(HEX_ASCII_TABLE[data&0x0F]);		//low 4 bits
+	UartSendChar(HEX_ASCII_TABLE[data>>4]);		//high 4 bits
+	UartSendChar(HEX_ASCII_TABLE[data&0x0F]);		//low 4 bits
 }
 
 void PrintCharBCD(unsigned char data)
@@ -120,9 +101,9 @@ void PrintCharBCD(unsigned char data)
 	 uint8_t b = (data/10) % 10;
 	 uint8_t c = data%10;
 
-	Uart_Monitor_Send_Char(HEX_ASCII_TABLE[a]);
-	Uart_Monitor_Send_Char(HEX_ASCII_TABLE[b]);
-	Uart_Monitor_Send_Char(HEX_ASCII_TABLE[c]);
+	UartSendChar(HEX_ASCII_TABLE[a]);
+	UartSendChar(HEX_ASCII_TABLE[b]);
+	UartSendChar(HEX_ASCII_TABLE[c]);
 }
 
 /* Brief	: "Enter" in windows format
@@ -134,8 +115,8 @@ void PrintEnter(void)
 	// windows 	: CR + LF
 	// Mac		: CR
 	// Linux	: LF
-	Uart_Monitor_Send_Char('\r');
-	Uart_Monitor_Send_Char('\n');
+	UartSendChar('\r');
+	UartSendChar('\n');
 
 }
 
@@ -170,22 +151,10 @@ void PrintString(unsigned char *string)
 {
 	while(*string)
 	{
-		Uart_Monitor_Send_Char(*string++);
+		UartSendChar(*string++);
 	}
 }
 
-/* Brief	: Uart send a string end with en enter
- * Example	:
- *  - PrintString("Good");		-->  0x47 0x6F 0x6F 0x64 ("Good")
- */
-void PrintStringL(unsigned char *string)
-{
-	while(*string)
-	{
-		Uart_Monitor_Send_Char(*string++);
-	}
-	PrintEnter();
-}
 
 void PrintTime(Calendar *time)
 {
@@ -196,7 +165,6 @@ void PrintTime(Calendar *time)
 	PrintString(":");
 	PrintChar(time->Seconds);
 	PrintString("]");
-
 }
 
 

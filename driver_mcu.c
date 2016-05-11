@@ -691,7 +691,7 @@ void __attribute__ ((interrupt(USCI_B0_VECTOR))) I2cSlave_isr (void)
 uint8_t Uart_init(uint32_t baudrate)
 {
 	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P4 , GPIO_PIN4);
-	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1 , GPIO_PIN5);
+	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P4 , GPIO_PIN5);
 
     //Baudrate = UART_BAUDRATE , clock freq = SMCLK_F
     USCI_A_UART_initParam param = {0};
@@ -755,7 +755,7 @@ void __attribute__ ((interrupt(USCI_A1_VECTOR))) Uart_isr (void)
 	        	    _EINT();
 	        	    //Disable Uart until
 	        	    USCI_A_UART_disableInterrupt(USCI_A1_BASE,USCI_A_UART_RECEIVE_INTERRUPT);
-		        	Uart_Console();
+		        	Uart_Console(Uart_RxBuff);
 		            USCI_A_UART_enableInterrupt(USCI_A1_BASE,USCI_A_UART_RECEIVE_INTERRUPT);
 #endif
 		        	Uart_RxCount = 0;

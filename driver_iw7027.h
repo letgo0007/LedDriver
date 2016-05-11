@@ -7,7 +7,7 @@
 // IW7027 Hardware info
 #define IW7027_DEVICE_AMOUNT			(5)		//IW7027 IC chip amount
 #define IW7027_LED_CHANNEL				(78)	//Total valid LED channel number
-#define IW7027_SPI_MASTER_TRANS_START_DELAY	(50)	//CS -> SPI delay(unit:us) , see IW7027 application note
+#define IW7027_SPI_MASTER_TRANS_START_DELAY		(50)	//CS -> SPI delay(unit:us) , see IW7027 application note
 #define IW7027_SPI_MASTER_TRANS_STOP_DELAY		(10)	//SPI -> CS delay(unit:us) , see IW7027 application note
 #define IW_0							(BIT0)	//Chip Select bit ,orderd from BIT0~BIT7
 #define IW_1							(BIT1)
@@ -19,29 +19,29 @@
 //Struct
 enum Iw7027_Current
 {
-	i100mA,
-	i150mA,
-	i200mA,
-	i250mA,
-	i300mA,
-	i350mA,
-	i400mA
+	i100mA = 0,
+	i150mA = 1,
+	i200mA = 2,
+	i250mA = 3,
+	i300mA = 4,
+	i350mA = 5,
+	i400mA = 6
 };
 
 enum Iw7027_Frequency
 {
-	f50Hz,//0
-	f60Hz,
-	f100Hz,
-	f120Hz
+	f50Hz = 0,
+	f60Hz = 1,
+	f100Hz = 2,
+	f120Hz = 3
 };
 
 enum Iw7027_Delay
 {
-	d2D,
-	d3D,
-	d2Dscan,
-	d3Dscan,
+	d2D = 0,
+	d3D = 1,
+	d2Dscan = 2,
+	d3Dscan = 3,
 };
 
 typedef struct Iw7027_ErrorInfo
@@ -53,8 +53,6 @@ typedef struct Iw7027_ErrorInfo
 }Iw7027_ErrorInfo;
 
 //Buffers & Const Tables
-
-
 static const uint8_t Iw7027_DefaultRegMap_70XU30A_78CH[ IW7027_DEVICE_AMOUNT * 0x60 ] =
 {
 /*IW_0		0		1		2		3		4		5		6		7		8		9		A		B		C		D		E		F	*/
