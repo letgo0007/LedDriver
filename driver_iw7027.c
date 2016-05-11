@@ -119,7 +119,7 @@ uint8_t Iw7027_init(const uint8_t *workmodetable)
 	PrintString("Start IW7027 Initial Sequence.\r\n");
 #endif
 
-	//Step 1 : Check Power
+	//Step 1 : Check Power & turn on iw7027 power.
 	do{
 		Board_getBoardInfo(&System_BoardInfo);
 
@@ -136,6 +136,11 @@ uint8_t Iw7027_init(const uint8_t *workmodetable)
 #endif
 
 	}while( ( System_BoardInfo.boardD60V < 50 ) || ( System_BoardInfo.boardD13V < 10 ) );
+
+	//Force IW7027 to power off for 200ms to ensure power reset.
+	delay_ms(200);
+	SET_IW7027_POWER_ON;
+	delay_ms(200);
 
 	i = 0;
 	//Step 1: check chip ID to ensure IW7027 is working .

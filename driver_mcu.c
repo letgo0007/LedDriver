@@ -4,7 +4,7 @@
 
 #define debuglog (1)
 
-uint8_t Board_init(void)
+uint8_t Mcu_init(void)
 {
 	//16s watch dog time for MCU initial
 	WDT_A_initWatchdogTimer(WDT_A_BASE,WDT_A_CLOCKSOURCE_ACLK,WDT_A_CLOCKDIVIDER_512K);
@@ -33,7 +33,7 @@ void Board_getBoardInfo(BoardInfo *outputinfo)
 {
 	uint32_t adctemp ;
 
-	if( GPIO_getInputPinValue(GPIOPORT_STB_HW,GPIOPIN_STB_HW) )
+	if( GET_STB_IN )
 	{
 		outputinfo->boardStb = 1;
 	}
@@ -42,7 +42,7 @@ void Board_getBoardInfo(BoardInfo *outputinfo)
 		outputinfo->boardStb = 0;
 	}
 
-	if( GPIO_getInputPinValue(GPIOPORT_IW7027_FAULT_IN,GPIOPIN_IW7027_FAULT_IN) )
+	if( GET_IW7027_FAULT_IN )
 	{
 		outputinfo->boardIw7027Falut = 1;
 	}
@@ -54,14 +54,23 @@ void Board_getBoardInfo(BoardInfo *outputinfo)
 	adctemp = Adc_getResult(ADCPORT_DC60V);
 	outputinfo->boardD60V =  adctemp * 84 / 0x3FF ;
 
+	if(outputinfo->boardD60V <= 50)
+	{
+		PrintString("DC60V low power detect\r\n");
+	}
+
 	adctemp = Adc_getResult(ADCPORT_DC13V);
 	outputinfo->boardD13V =  adctemp * 19 / 0x3FF ;
 
+	if(outputinfo->boardD13V <= 10)
+	{
+		PrintString("DC13V low power detect\r\n");
+	}
 	outputinfo->boardTemprature = Adc_getMcuTemperature();
 
 }
 
-void Board_reset(void)
+void Mcu_reset(void)
 {
 	//Set watch dog timer to 64 cpu cycles.
 	WDT_A_initWatchdogTimer(WDT_A_BASE,WDT_A_CLOCKSOURCE_SMCLK,WDT_A_CLOCKDIVIDER_512);
@@ -96,7 +105,9 @@ uint8_t Gpio_init(void)
 	//P1.6 IW7027_POWER_ON , GPIO_OUT
 	//	[0] = IW7027 13V off (default)
 	//	[1] = IW7027 13V on
-	GPIO_setOutputHighOnPin(GPIO_PORT_P1 , GPIO_PIN6);
+	// Note 2016/3/2	: 	Default set IW7027 power off to avoid some dip problem.
+	// 						IW7027 is forced to Power on reset together with MCU
+	GPIO_setOutputLowOnPin(GPIO_PORT_P1 , GPIO_PIN6);
 	GPIO_setAsOutputPin(GPIO_PORT_P1 , GPIO_PIN6);
 	//P1.7 NC
 
@@ -243,10 +254,10 @@ uint16_t Adc_getResult(uint8_t port)
     return ADC10_A_getResults (ADC10_A_BASE) ;
 }
 
-uint8_t Adc_getMcuTemperature(void)
+int8_t Adc_getMcuTemperature(void)
 {
 	uint16_t adcval;
-	uint32_t temperature;
+	int32_t temperature;
 
 	//Select Internal temp sensor , internal 1.5V referance
     ADC10_A_configureMemory(ADC10_A_BASE, ADC10_A_INPUT_TEMPSENSOR ,ADC10_A_VREFPOS_INT,ADC10_A_VREFNEG_AVSS);
@@ -264,10 +275,10 @@ uint8_t Adc_getMcuTemperature(void)
 
     //Calculate temperature according to internal caliberation infor.
     adcval = ADC10_A_getResults (ADC10_A_BASE) ;
-    temperature = (((uint32_t)adcval - ADCCAL_15V_30C) * (85 - 30)) / (ADCCAL_15V_85C - ADCCAL_15V_30C) + 30;
+    temperature = (((int32_t)adcval - ADCCAL_15V_30C) * (85 - 30)) / (ADCCAL_15V_85C - ADCCAL_15V_30C) + 30;
 
     //return temperature
-	return  ( (uint8_t) temperature);
+	return  ( (int8_t) temperature);
 }
 
 //P1 GPIO ISR

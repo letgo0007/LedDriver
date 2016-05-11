@@ -28,16 +28,15 @@
 #define ADCPORT_DC60V					(ADC10_A_INPUT_A4)
 #define ADCPORT_DC13V					(ADC10_A_INPUT_A5)
 #define ADCPORT_TEMPSENSOR				(ADC10_A_INPUT_TEMPSENSOR)
-#define GPIOPORT_STB_HW					(GPIO_PORT_P1)
-#define GPIOPIN_STB_HW					(GPIO_PIN1)
-#define GPIOPORT_IW7027_FAULT_IN		(GPIO_PORT_P6)
-#define GPIOPIN_IW7027_FAULT_IN			(GPIO_PIN0)
-#define GPIOPORT_IW7027_POWER_ON		(GPIO_PORT_P1)
-#define GPIOPIN_IW7027_POWER_ON			(GPIO_PIN6)
-#define GPIO_PIN_ALL					(0xFFFF)
-#define LED_G_ON						(GPIO_setOutputHighOnPin(GPIO_PORT_P4 , GPIO_PIN7));
-#define LED_G_OFF						(GPIO_setOutputLowOnPin(GPIO_PORT_P4 , GPIO_PIN7));
-#define LED_G_TOGGLE					(GPIO_toggleOutputOnPin(GPIO_PORT_P4 , GPIO_PIN7));
+
+#define GPIO_PIN_ALL					(0xFF)
+#define GET_STB_IN						(GPIO_getInputPinValue(GPIO_PORT_P1,GPIO_PIN1))
+#define GET_IW7027_FAULT_IN				(GPIO_getInputPinValue(GPIO_PORT_P6,GPIO_PIN0))
+#define SET_IW7027_POWER_ON				(GPIO_setOutputHighOnPin(GPIO_PORT_P1 , GPIO_PIN6))
+#define SET_IW7027_POWER_OFF			(GPIO_setOutputLowOnPin(GPIO_PORT_P1 , GPIO_PIN6))
+#define SET_LED_G_ON					(GPIO_setOutputHighOnPin(GPIO_PORT_P4 , GPIO_PIN7));
+#define SET_LED_G_OFF					(GPIO_setOutputLowOnPin(GPIO_PORT_P4 , GPIO_PIN7));
+#define TOGGLE_LED_G					(GPIO_toggleOutputOnPin(GPIO_PORT_P4 , GPIO_PIN7));
 
 //Struct
 typedef struct BoardInfo
@@ -73,7 +72,7 @@ uint8_t Uart_RxBuff[256];
  * 		STATUS_SUCCESS 	: MCU Normal
  * 		STATUS_FAIL		: MCU or Hardware demage
  **********************************************************/
-uint8_t Board_init(void);
+uint8_t Mcu_init(void);
 
 /**********************************************************
  * @Brief Board_reset
@@ -84,7 +83,7 @@ uint8_t Board_init(void);
  * @Return
  * 		NONE
  **********************************************************/
-void 	Board_reset(void);
+void 	Mcu_reset(void);
 
 /**********************************************************
  * @Brief Board_reset
@@ -147,7 +146,7 @@ uint16_t Adc_getResult(uint8_t port);
  * @Return
  * 		Temprature value , unit in C .
  **********************************************************/
-uint8_t Adc_getMcuTemperature(void);
+int8_t Adc_getMcuTemperature(void);
 
 /**********************************************************
  * @Brief SpiMaster_init

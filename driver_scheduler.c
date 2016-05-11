@@ -1,10 +1,6 @@
 #include "driver_scheduler.h"
 #include "app_dpl.h"
 
-#ifndef ACLK_F
-#define ACLK_F 		(32768)
-#endif
-
 extern DPL_Prama System_DplParam;
 
 uint8_t Sch_init(void)
@@ -76,7 +72,6 @@ void Sch_CpuOff(void)
 	__bis_SR_register(LPM0_bits);
 }
 
-
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=TIMER0_B1_VECTOR
 __interrupt void Sch_ISR_TimerB0(void)
@@ -94,14 +89,13 @@ void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
     		//CPU wake up tick = 1000Hz / 1ms
     		TB0CCR1 += System_Schedule.schCpuTickPeriod ;
     		System_Schedule.cpuTickCount ++;
-
+    		//If CpuOnMark not set , its first time cpu on.
     		if(Sch_CpuOnMark == 0)
     		{
     			Sch_CpuOnMark = TB0R;
     		}
     		//Turn on CPU
     		__bic_SR_register_on_exit(LPM0_bits);
-
     		break;
     	case 4://CC2
     		//GPIO Check tick = 100Hz / 10ms
@@ -120,7 +114,9 @@ void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
     	case 12://CC6
     		break;
     	case 14://Overflow
-    		System_Schedule.cpuLoad = (Sch_CpuWorkTime>>8 / 100)>>8 ;
+    		//Calculate cpu load = CPU work time * 100 / 0x10000
+    		System_Schedule.cpuLoad = Sch_CpuWorkTime * 100 / 0x10000 ;
+    		//Reset Cpu work time
     		Sch_CpuWorkTime = 0;
     		break;
     	default:
@@ -131,9 +127,9 @@ void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
 
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=RTC_VECTOR
-__interrupt void Sch_ISR_RTC(void)
+__interrupt void Sch_ISR_Rrc(void)
 #elif defined(__GNUC__)
-void __attribute__ ((interrupt(RTC_VECTOR))) RTC_A_ISR (void)
+void __attribute__ ((interrupt(RTC_VECTOR))) Sch_ISR_Rrc (void)
 #else
 #error Compiler not supported!
 #endif
@@ -143,7 +139,9 @@ void __attribute__ ((interrupt(RTC_VECTOR))) RTC_A_ISR (void)
         case 0: //No interrupts
         	break;
         case 2: //1 sec
+        	//Update system time
         	System_Time = RTC_A_getCalendarTime( RTC_A_BASE );
+        	//Trigger dpl sample function
         	System_DplParam.dplStartSample = 1;
             break;
         case 4: //1 min

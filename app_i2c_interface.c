@@ -1,6 +1,5 @@
-#include "app_i2c_interface.h"
-
-#include "app_dpl.h"
+#include "app.h"
+#include "driver.h"
 
 
 

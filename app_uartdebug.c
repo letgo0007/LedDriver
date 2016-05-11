@@ -52,7 +52,7 @@ void Uart_Console(uint8_t *uartrxbuf)
 	else if( ! memcmp(uartrxbuf , "reboot" , 6) )
 	{
 		PrintString("\r\n MCU manual reboot. \r\n");
-		Board_reset();
+		Mcu_reset();
 	}
 	else
 	{

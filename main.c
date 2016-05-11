@@ -2,8 +2,8 @@
 #include "app.h"
 
 int main(void) {
-	//MCU init
-    Board_init();
+	//MCU & Scheduler initial
+    Mcu_init();
     Sch_init();
     //Init IW7027
     Iw7027_init(Iw7027_DefaultRegMap_70XU30A_78CH);
@@ -64,7 +64,7 @@ int main(void) {
     	else
     	{
     		//Lower cpu tick to 60Hz;
-    		System_Schedule.schCpuTickPeriod = UCS_getACLK()/60;
+//    		System_Schedule.schCpuTickPeriod = UCS_getACLK()/60;
             Iw7027_updateDuty( (uint16_t*)System_ManualDutyBuff , Iw7027_LedSortMap_70XU30A_78CH);
     	}
 
@@ -80,7 +80,7 @@ int main(void) {
 
     		//System_Schedule.schLocalDimmingOn = !(System_Schedule.schLocalDimmingOn);
 
-    		LED_G_TOGGLE;
+    		TOGGLE_LED_G;
     		PrintString("CPU Locd = ");
     		PrintCharBCD(System_Schedule.cpuLoad);
     		PrintString(" % \r\n");
@@ -94,7 +94,7 @@ int main(void) {
 
 
     //System main loop can only be stoped by i2c
-    Board_reset();
+    Mcu_reset();
 
 }
 

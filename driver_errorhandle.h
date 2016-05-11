@@ -1,9 +1,7 @@
 #ifndef DRIVER_ERRORHANDLE_H_
 #define DRIVER_ERRORHANDLE_H_
 
-#include "driverlib.h"
-#include "driver_iw7027.h"
-#include "driver_mcu.h"
+#include "driver.h"
 
 #define	ERROR_SEGMENT_PTR	 ( 0x1800 )		//Flash segment pointer to store error info
 

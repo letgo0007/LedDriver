@@ -24,7 +24,7 @@ typedef struct Scheduler
 Scheduler System_Schedule;
 Calendar System_Time ;
 uint16_t Sch_CpuOnMark;
-uint16_t Sch_CpuWorkTime;
+uint32_t Sch_CpuWorkTime;
 
 //Function Calls
 uint8_t Sch_init(void);
