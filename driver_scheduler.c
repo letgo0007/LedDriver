@@ -57,6 +57,13 @@ uint8_t Sch_init(void)
     //Start RTC Clock
     RTC_A_startClock(RTC_A_BASE);
 
+    //Set default scheduler timer
+    System_Schedule.schCpuTickPeriod = 32 ;		//1ms	1kHz
+    System_Schedule.schBoardCheckPeriod = 327 ;	//10ms	100Hz
+    System_Schedule.schManualModePeriod = 547 ;	//16.7ms 60Hz
+    System_Schedule.schSystemOn = 1;			//System On
+    System_Schedule.schLocalDimmingOn = 1;		//Local Dimming On
+
 	return STATUS_SUCCESS;
 }
 
@@ -86,7 +93,7 @@ void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
     	case 0://No interrupt
     		break;
     	case 2://CC1
-    		//CPU wake up tick = 1000Hz / 1ms
+    		//CPU wake up tick.
     		TB0CCR1 += System_Schedule.schCpuTickPeriod ;
     		System_Schedule.cpuTickCount ++;
     		//If CpuOnMark not set , its first time cpu on.
@@ -98,14 +105,14 @@ void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
     		__bic_SR_register_on_exit(LPM0_bits);
     		break;
     	case 4://CC2
-    		//GPIO Check tick = 100Hz / 10ms
-    		TB0CCR2 += System_Schedule.schGpioCheckTPeriod ;
+    		//GPIO Check cycle.
+    		TB0CCR2 += System_Schedule.schBoardCheckPeriod ;
     		System_Schedule.taskFlagBoardCheck = 1;
     		break;
     	case 6://CC3
-    		//Error Handle tick = 10Hz / 100ms
-    		TB0CCR3 += System_Schedule.schErrorHandlePeriod ;
-    		System_Schedule.testFlag1Hz = 1;
+    		//Manual Mode cycle.
+    		TB0CCR3 += System_Schedule.schManualModePeriod ;
+    		System_Schedule.taskFlagManualMode = 1;
     		break;
     	case 8://CC4
     		break;
@@ -143,6 +150,8 @@ void __attribute__ ((interrupt(RTC_VECTOR))) Sch_ISR_Rrc (void)
         	System_Time = RTC_A_getCalendarTime( RTC_A_BASE );
         	//Trigger dpl sample function
         	System_DplParam.dplStartSample = 1;
+
+    		System_Schedule.testFlag1Hz = 1;
             break;
         case 4: //1 min
             break;

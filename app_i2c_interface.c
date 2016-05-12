@@ -113,8 +113,8 @@ uint8_t I2cSlave_handleMap(uint8_t *i2cmap)
 	 * 				0x94	[CpuTickPeriod_L]
 	 * 				0x95	[GpioCheckPeriod_H]
 	 * 				0x96	[GpioCheckPeriod_L]
-	 * 				0x97	[ErrorHandlePeriod_H]
-	 * 				0x98	[ErrorHandlePeriod_L]
+	 * 				0x97	[ManualModePeriod_H]
+	 * 				0x98	[ManualModePeriod_L]
 	 * 				0x99	[CPU_Load]
 	 */
 	if( i2cmap[0x90] & BIT7 ) //active
@@ -123,8 +123,8 @@ uint8_t I2cSlave_handleMap(uint8_t *i2cmap)
 		System_Schedule.schSystemOn = i2cmap[0x91];
 		System_Schedule.schLocalDimmingOn 	= i2cmap[0x92];
 		System_Schedule.schCpuTickPeriod = 0x0100 * i2cmap[0x93] + i2cmap[0x94];
-		System_Schedule.schGpioCheckTPeriod = 0x0100 * i2cmap[0x95] + i2cmap[0x96];
-		System_Schedule.schErrorHandlePeriod = 0x0100 * i2cmap[0x97] + i2cmap[0x98];
+		System_Schedule.schBoardCheckPeriod = 0x0100 * i2cmap[0x95] + i2cmap[0x96];
+		System_Schedule.schManualModePeriod = 0x0100 * i2cmap[0x97] + i2cmap[0x98];
 		i2cmap[0x99] = System_Schedule.cpuLoad;
 
 		//Reset mark, run only once.
@@ -133,18 +133,21 @@ uint8_t I2cSlave_handleMap(uint8_t *i2cmap)
 
 	 /* 0xA0: Backlight Control
 	 * 				0xA0	[ENABLE]
-	 * 				0xA1 	[Freq]
-	 * 				0xA2	[Current]
-	 * 				0xA3	[DelayTableSel]
+	 * 				0xA1 	[IW_Freq]
+	 * 				0xA2	[IW_Current]
+	 * 				0xA3	[IW_DelayTableSel]
 	 * 				0xA4	[Vsync_F]
 	 * 				0xA5	[Vsync_Delay]
 	 */
 	if( i2cmap[0xA0] & BIT7 ) //active
 	{
-	    Iw7027_updateFrequency((enum Iw7027_Frequency)i2cmap[0xA1]);
-	    Iw7027_updateCurrent((enum Iw7027_Current)i2cmap[0xA2]);
-	    Iw7027_updateDelayTable((enum Iw7027_Delay)i2cmap[0xA3]);
-	    PwmOut_init(i2cmap[0xA4],i2cmap[0xA5]);
+		System_Iw7027Param.iwFrequency = (enum Iw7027_Frequency)i2cmap[0xA1];
+		System_Iw7027Param.iwCurrent = (enum Iw7027_Current)i2cmap[0xA2];
+		System_Iw7027Param.iwDelayTableSelet = (enum Iw7027_Delay)i2cmap[0xA3];
+		System_Iw7027Param.iwVsyncFrequency = i2cmap[0xA4];
+		System_Iw7027Param.iwVsyncDelay = i2cmap[0xA5];
+
+		Iw7027_updateWorkParams(&System_Iw7027Param);
 		//Reset mark, run only once.
 		i2cmap[0xA0] = 0x00 ;
 	}
@@ -262,19 +265,19 @@ uint8_t I2cSlave_initMap(uint8_t *i2cmap)
 	 * 				0x94	[CpuTickPeriod_L]
 	 * 				0x95	[GpioCheckPeriod_H]
 	 * 				0x96	[GpioCheckPeriod_L]
-	 * 				0x97	[ErrorHandlePeriod_H]
-	 * 				0x98	[ErrorHandlePeriod_L]
+	 * 				0x97	[ManualModePeriod_H]
+	 * 				0x98	[ManualModePeriod_L]
 	 * 				0x99	[CPU_Load]
 	 */
 	i2cmap[0x90] = 0x80;
 	i2cmap[0x91] = 1;
 	i2cmap[0x92] = 1;
-	i2cmap[0x93] = (33)>>8;
+	i2cmap[0x93] = (33)>>8;		//1000Hz for Cpu wake up
 	i2cmap[0x94] = (33)&0xFF;
-	i2cmap[0x95] = (328)>>8;
+	i2cmap[0x95] = (328)>>8;	//100Hz for Gpio check
 	i2cmap[0x96] = (328)&0xFF;
-	i2cmap[0x97] = (32767)>>8;
-	i2cmap[0x98] = (32767)&0xFF;
+	i2cmap[0x97] = (273)>>8;	//60Hz for Manual mode
+	i2cmap[0x98] = (273)&0xFF;
 
 	 /* 0xA0: Backlight Control
 	 * 				0xA0	[ENABLE]

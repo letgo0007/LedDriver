@@ -10,7 +10,6 @@ typedef struct ErrorInfo
 	uint8_t errorCount;
 	BoardInfo errorBoard;
 	Calendar errorTime;
-	Iw7027_ErrorInfo errorIW7027;
 }ErrorInfo;
 
 ErrorInfo System_ErrorInfo ;

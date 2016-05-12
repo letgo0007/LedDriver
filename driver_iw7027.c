@@ -167,9 +167,36 @@ uint8_t Iw7027_init(const uint8_t *workmodetable)
 	}while( GET_STB_IN == 0 );
 #endif
 
-	//Step 4 : Delay & turn on IW7027
-	delay_ms(500);
+
+
+	//Step 5 : Delay & turn on IW7027
+	delay_ms(200);
 	Iw7027_writeSingleByte(IW_ALL,0x00,0x07);
+	delay_ms(200);
+
+	//Step 4 : Set initial IW7027 status ;
+	System_Iw7027Param.iwCurrent = i200mA;
+	System_Iw7027Param.iwFrequency = f120Hz;
+	System_Iw7027Param.iwVsyncFrequency = 120;
+	System_Iw7027Param.iwVsyncDelay = 1;
+	System_Iw7027Param.iwRunErrorCheck = 1 ;
+
+	Iw7027_updateWorkParams(&System_Iw7027Param);
+
+#if debuglog
+	PrintString("\r\nIW7027 Error Pin    :");
+	PrintChar(GET_IW7027_FAULT_IN);
+	PrintString("\r\nIW7027 Error check  :");
+	PrintChar(System_Iw7027Param.iwIsError);
+	PrintString("\r\nIW7027 Short check  :");
+	PrintArray(&System_Iw7027Param.iwShort[0][0],10);
+	PrintString("\r\nIW7027 Open check   :");
+	PrintArray(&System_Iw7027Param.iwOpen[0][0],10);
+	PrintString("\r\nIW7027 DsShort check:");
+	PrintArray(&System_Iw7027Param.iwDsShort[0][0],10);
+	PrintEnter();
+#endif
+
 
 	return STATUS_SUCCESS;
 }
@@ -286,40 +313,76 @@ uint8_t Iw7027_updateDelayTable(enum Iw7027_Delay delay)
 	return STATUS_SUCCESS;
 }
 
-
-Iw7027_ErrorInfo Iw7027_getErrorStatus(void)
+uint8_t Iw7027_updateWorkParams(Iw7027_WorkParam *param_in)
 {
-	uint8_t i;
-	uint16_t temph,templ;
-	Iw7027_ErrorInfo errortemp = {0} ;
+	static Iw7027_WorkParam param_now ;
 
-	//Enable Error Read
-	Iw7027_writeSingleByte(IW_ALL,0x78, 0x80);
-
-	//Loop check from IW_0 -> IW_N
-	for( i = 0 ; i < IW7027_DEVICE_AMOUNT ; i++ )
+	//Update IW7027_PLL & Vsync_Out when changed.
+	if(param_now.iwFrequency != param_in->iwFrequency)
 	{
-		templ = Iw7027_readSingleByte ( IW_0<<1 , 0x85) ;
-		temph = Iw7027_readSingleByte ( IW_0<<1 , 0x86) ;
-		errortemp.iwShort[i] = temph << 8 + templ ;
-
-		templ = Iw7027_readSingleByte ( IW_0<<1 , 0x87) ;
-		temph = Iw7027_readSingleByte ( IW_0<<1 , 0x88) ;
-		errortemp.iwOpen[i] = temph << 8 + templ ;
-
-		templ = Iw7027_readSingleByte ( IW_0<<1 , 0x89) ;
-		temph = Iw7027_readSingleByte ( IW_0<<1 , 0x8A) ;
-		errortemp.iwDsShort[i] = temph << 8 + templ ;
-
-		//If detect any error , set iwIsError flag
-		if( errortemp.iwShort[i] || errortemp.iwShort[i] || errortemp.iwShort[i] )
-		{
-			errortemp.iwIsError = 0x01 ;
-		}
+		param_now.iwFrequency = param_in->iwFrequency ;
+		Iw7027_updateFrequency(param_now.iwFrequency);
 	}
 
-	//Disable Error¡¡Read
-	Iw7027_writeSingleByte(IW_ALL,0x78, 0x00);
+	if( (param_now.iwVsyncFrequency != param_in->iwVsyncFrequency) || (param_now.iwVsyncDelay != param_in->iwVsyncDelay) )
+	{
+		param_now.iwVsyncFrequency = param_in->iwVsyncFrequency ;
+		param_now.iwVsyncDelay = param_in->iwVsyncDelay ;
+		PwmOut_init(param_now.iwVsyncFrequency ,param_now.iwVsyncDelay);
+	}
 
-	return errortemp;
+	//Update current when changed.
+	if(param_now.iwCurrent != param_in->iwCurrent)
+	{
+		param_now.iwCurrent = param_in->iwCurrent ;
+		Iw7027_updateCurrent(param_now.iwCurrent);
+	}
+
+	//Update delay table when changed.
+	if(param_now.iwDelayTableSelet != param_in->iwDelayTableSelet)
+	{
+		param_now.iwDelayTableSelet = param_in->iwDelayTableSelet ;
+		Iw7027_updateDelayTable(param_now.iwDelayTableSelet);
+	}
+
+	if(param_in->iwRunErrorCheck)
+	{
+		//Reset Is error
+		param_in->iwIsError = 0;
+		uint8_t i;
+
+		//Enable Error Read
+		Iw7027_writeSingleByte(IW_ALL,0x78, 0x80);
+
+		//Loop check Short / Open / DsShort of all iw7027 device.
+		for( i = 0 ; i < IW7027_DEVICE_AMOUNT ; i++ )
+		{
+			param_in->iwShort[i][0] = Iw7027_readSingleByte ( IW_0<<i , 0x85) ;
+			param_in->iwShort[i][1] = Iw7027_readSingleByte ( IW_0<<i , 0x86) ;
+
+			param_in->iwOpen[i][0] = Iw7027_readSingleByte ( IW_0<<i , 0x87) ;
+			param_in->iwOpen[i][1] = Iw7027_readSingleByte ( IW_0<<i , 0x88) ;
+
+			param_in->iwDsShort[i][0] = Iw7027_readSingleByte ( IW_0<<i , 0x89) ;
+			param_in->iwDsShort[i][1] = Iw7027_readSingleByte ( IW_0<<i , 0x8A) ;
+
+			//If detect any error bit , set iwIsError to 1 ;
+			param_in->iwIsError = param_in->iwIsError
+					|| param_in->iwShort[i][0] || param_in->iwShort[i][1]
+					|| param_in->iwOpen[i][0] || param_in->iwOpen[i][1]
+					|| param_in->iwDsShort[i][0] || param_in->iwDsShort[i][1]		;
+		}
+
+		//Disable Error¡¡Read
+		Iw7027_writeSingleByte(IW_ALL,0x78, 0x00);
+
+		//Reset flag ,error detect only run once.
+		param_in->iwRunErrorCheck = 0;
+
+	}
+
+
+
+	return STATUS_SUCCESS;
+
 }

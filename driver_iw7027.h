@@ -44,14 +44,21 @@ enum Iw7027_Delay
 	d3Dscan = 3,
 };
 
-typedef struct Iw7027_ErrorInfo
+typedef struct Iw7027_WorkParam
 {
+	enum Iw7027_Frequency iwFrequency;
+	enum Iw7027_Current iwCurrent;
+	enum Iw7027_Delay iwDelayTableSelet;
+	uint8_t iwVsyncFrequency;
+	uint8_t iwVsyncDelay;
+	uint8_t iwRunErrorCheck;
 	uint8_t iwIsError;
-	uint16_t iwShort[IW7027_DEVICE_AMOUNT];
-	uint16_t iwOpen[IW7027_DEVICE_AMOUNT];
-	uint16_t iwDsShort[IW7027_DEVICE_AMOUNT];
-}Iw7027_ErrorInfo;
+	uint8_t iwShort[IW7027_DEVICE_AMOUNT][2];
+	uint8_t iwOpen[IW7027_DEVICE_AMOUNT][2];
+	uint8_t iwDsShort[IW7027_DEVICE_AMOUNT][2];
+}Iw7027_WorkParam;
 
+Iw7027_WorkParam System_Iw7027Param ;
 //Buffers & Const Tables
 static const uint8_t Iw7027_DefaultRegMap_70XU30A_78CH[ IW7027_DEVICE_AMOUNT * 0x60 ] =
 {
@@ -237,13 +244,19 @@ uint8_t Iw7027_updateDelayTable(enum Iw7027_Delay delay);
 
 /**********************************************************
  * @Brief Iw7027_getErrorStatus
- * 		Detect IW7027 all device open / short / d-s short status.
+ * 		This fucntion include the following sub function with change check function.
+ * 		Only update changed parameters.
+ * 		Iw7027_updateCurrent
+ * 		Iw7027_updateFrequency
+ * 		Iw7027_updateDelayTable
+ * 		PwmOut_init
  * @Param
- * 		NONE			: enum form i100mA ~ i400mA
+ * 		iwparam			: target IW7027_WorkParam .
  * @Return
  * 		Iw7027Error 	: Error info struct of Iw7027Error
  **********************************************************/
-Iw7027_ErrorInfo Iw7027_getErrorStatus(void);
+uint8_t Iw7027_updateWorkParams(Iw7027_WorkParam *iwparam);
+
 
 
 

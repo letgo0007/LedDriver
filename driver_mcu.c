@@ -6,7 +6,7 @@
 
 uint8_t Mcu_init(void)
 {
-	//16s watch dog time for MCU initial
+	//16s watch dog timer
 	WDT_A_initWatchdogTimer(WDT_A_BASE,WDT_A_CLOCKSOURCE_ACLK,WDT_A_CLOCKDIVIDER_512K);
 	WDT_A_start(WDT_A_BASE);
 
@@ -25,7 +25,6 @@ uint8_t Mcu_init(void)
 	PrintString("\e[32mBoard_init finish.\r\n\e[30m");
 #endif
 
-	WDT_A_resetTimer(WDT_A_BASE);
 	return STATUS_SUCCESS;
 }
 

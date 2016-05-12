@@ -10,31 +10,37 @@ int main(void) {
     //Init Parameters
 	I2cSlave_initMap(I2cSlave_Map);
 
-    //Enable interrupt;
-    _EINT();
+	__enable_interrupt();
 
+    //Enter Main Loop
     while(System_Schedule.schSystemOn)
     {
     	WDT_A_resetTimer(WDT_A_BASE);
 
-    	//1 Check GPIO & ADC status
+    	//Task1 : Board Check
     	if(System_Schedule.taskFlagBoardCheck)
     	{
     		Mcu_setErrorOut(&System_BoardInfo);
     		System_Schedule.taskFlagBoardCheck = 0;
     	}
 
-    	//2 Handle I2C event
+    	//Task2 : Handle I2C control cmd.
     	if(System_Schedule.taskFlagI2c)
     	{
     		I2cSlave_handleMap(I2cSlave_Map);
     		System_Schedule.taskFlagI2c = 0;
     	}
 
-    	//3 Local Dimming Mode
+    	//Task3 	: Set backlight duty ,either in [Local Dimming Mode] or [Manual Mode] ,selected by schLocalDimmingOn.
+    	//	Task3-1 : [Local Dimming Mode] ,update duty matrix received from spi slave.
+    	//  Task3-0 : [Manual Mode] ,update duty matrix from System_ManualDutyBuff .
+    	//			  By default the buffer is set to 0x00 , use as "BL Mute function" .
+    	//			  Also , the buffer can be manually set by i2c interface , use as "Global Dimming Mode" or "Test Pattern Mode"
+
+    	//Task3-1 : [Local Dimming Mode]
     	if(System_Schedule.schLocalDimmingOn)
     	{
-    		//3.1 Rx data handle
+
         	if(System_Schedule.taskFlagSpiRx)
         	{
         		//Check Spi Rx data validation
@@ -57,17 +63,21 @@ int main(void) {
         	{
         		// Update duty info to Iw7027 device.
         		Iw7027_updateDuty ( System_OutputDutyBuff , Iw7027_LedSortMap_70XU30A_78CH);
-        		System_Schedule.taskFlagSpiTx = 0;
+        		System_Schedule.taskFlagSpiTx = 0 ;
         	}
     	}
-    	//3' Manual Mode
+    	//Task3-0 [Manual Mode]
     	else
     	{
-    		//Update Manual duty buff content to IW7027 ,default is BLCAK MUTE. Duty = 0x00.
-            Iw7027_updateDuty( (uint16_t*)System_ManualDutyBuff , Iw7027_LedSortMap_70XU30A_78CH);
+    		if(System_Schedule.taskFlagManualMode)
+    		{
+                Iw7027_updateDuty( (uint16_t*)System_ManualDutyBuff , Iw7027_LedSortMap_70XU30A_78CH);
+                System_Schedule.taskFlagManualMode = 0 ;
+    		}
+
     	}
 
-    	//4 Test only & report
+    	//Task4 Test & report
     	if(System_Schedule.testFlag1Hz)
     	{
 
@@ -84,15 +94,30 @@ int main(void) {
     		PrintCharBCD(System_Schedule.cpuLoad);
     		PrintString(" % \r\n");
 
+    		System_Iw7027Param.iwRunErrorCheck = 1 ;
+    		Iw7027_updateWorkParams(&System_Iw7027Param);
+
+    		PrintString("\r\nIW7027 Error Pin    :");
+    		PrintChar(GET_IW7027_FAULT_IN);
+    		PrintString("\r\nIW7027 Error check  :");
+    		PrintChar(System_Iw7027Param.iwIsError);
+    		PrintString("\r\nIW7027 Short check  :");
+    		PrintArray(&System_Iw7027Param.iwShort[0][0],10);
+    		PrintString("\r\nIW7027 Open check   :");
+    		PrintArray(&System_Iw7027Param.iwOpen[0][0],10);
+    		PrintString("\r\nIW7027 DsShort check:");
+    		PrintArray(&System_Iw7027Param.iwDsShort[0][0],10);
+    		PrintEnter();
+
     		System_Schedule.testFlag1Hz = 0;
     	}
 
     	//Finish all task , turn off cpu.
     	Sch_CpuOff();
-    }
+    } //End of while(System_Schedule.schSystemOn)
 
 
-    //System main loop can only be stoped by i2c
+    //MainLoop Stop ,reboot MCU .
     Mcu_reset();
 
 }
