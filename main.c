@@ -50,6 +50,7 @@ int main(void) {
         		if ( System_BoardInfo.boardSpiRxValid )
         		{
         			//Power limit function
+        			DPL_TemperatureCalibration(System_BoardInfo.boardTemprature , &System_DplParam );
         			DPL_Function( System_InputDutyBuff , System_OutputDutyBuff , &System_DplParam );
         			//Enable Tx task .
         			System_Schedule.taskFlagSpiTx = 1;
@@ -82,31 +83,28 @@ int main(void) {
     	{
 
     		PrintTime(&System_Time);
-
+#if 0
     		PrintString("boardinfo: ");
     		PrintArray((uint8_t *)&System_BoardInfo,sizeof(System_BoardInfo));
     		PrintEnter();
 
     		//System_Schedule.schLocalDimmingOn = !(System_Schedule.schLocalDimmingOn);
-
+#endif
     		TOGGLE_LED_G;
     		PrintString("CPU Locd = ");
     		PrintCharBCD(System_Schedule.cpuLoad);
     		PrintString(" % \r\n");
 
-    		System_Iw7027Param.iwRunErrorCheck = 1 ;
-    		Iw7027_updateWorkParams(&System_Iw7027Param);
 
-    		PrintString("\r\nIW7027 Error Pin    :");
-    		PrintChar(GET_IW7027_FAULT_IN);
-    		PrintString("\r\nIW7027 Error check  :");
-    		PrintChar(System_Iw7027Param.iwIsError);
-    		PrintString("\r\nIW7027 Short check  :");
-    		PrintArray(&System_Iw7027Param.iwShort[0][0],10);
-    		PrintString("\r\nIW7027 Open check   :");
-    		PrintArray(&System_Iw7027Param.iwOpen[0][0],10);
-    		PrintString("\r\nIW7027 DsShort check:");
-    		PrintArray(&System_Iw7027Param.iwDsShort[0][0],10);
+    		PrintString("Input: ");
+    		PrintInt(System_InputDutyBuff[0]);
+    		PrintString(" Onput: ");
+    		PrintInt(System_OutputDutyBuff[0]);
+    		PrintString(" Sum: ");
+    		PrintInt(DPL_tempSumDutyMatrix[0]);
+    		PrintString(" Limit: ");
+    		PrintInt(System_DplParam.dplLdDutyLimitTable[0]);
+
     		PrintEnter();
 
     		System_Schedule.testFlag1Hz = 0;

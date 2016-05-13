@@ -1,6 +1,7 @@
 #include "app_dpl.h"
-
 #include "string.h"
+
+
 
 /* DPL_Function
  * @Brief
@@ -20,31 +21,33 @@
  */
 uint8_t DPL_Function(uint16_t *inputduty,uint16_t *outputduty,DPL_Prama *dplparam)
 {
+
 	if(dplparam->dplOn)
 	{
 		//Gamma correction.
-		DPL_GammaCorrection( inputduty ,inputduty , DPL_InputGamma ,dplparam);
+		DPL_GammaCorrection( inputduty ,inputduty ,dplparam);
 		//Input -> LD limit -> GD limit -> Output
 		DPL_LocalDutyLimit( inputduty , DPL_tempDutyMatrix , dplparam );
 		DPL_GlobalDutyLimit( DPL_tempDutyMatrix , outputduty , dplparam );
 
-		//Sample 1frame data to Sum buffer
-		if(dplparam->dplStartSample)
+		//Sample
+		if( DPL_tempSampleCount % dplparam->dplFrameAmountToSample == 1)
 		{
 			DPL_LocalDutyStatistic( outputduty , DPL_tempSumDutyMatrix , dplparam);
-			dplparam->dplStartSample = 0;	//run statistic once a trigger.
-			DPL_tempSampleCount ++;
 		}
-		//Update param when get enough samples
-		if(DPL_tempSampleCount == dplparam->dplSampleAmoutToRunParamUpdate)
+		//Update Param
+		if(DPL_tempSampleCount == dplparam->dplFrameAmountToUpdateParam )
 		{
 			DPL_ParametersUpdate(DPL_tempSumDutyMatrix , dplparam);
+			//Reset count
 			DPL_tempSampleCount = 0;
 		}
+		DPL_tempSampleCount ++;
 	}
 	else//when DPL is off , bypass input to output.
 	{
 		memcpy( outputduty , inputduty , (dplparam->dplChannelAmount) * 2 );
+		DPL_tempSampleCount = 0 ;
 	}
 	return STATUS_SUCCESS;
 }
@@ -72,7 +75,7 @@ void DPL_GlobalDutyLimit(uint16_t *inputduty,uint16_t *outputduty,DPL_Prama *dpl
 	uint16_t i = 0;
 	uint16_t sum = 0;
 	uint16_t avg = 0;
-	uint16_t gain = 0x100;
+	uint32_t gain = 0;
 
 	//calculate average duty
 	for(i=0;i<dplparam->dplChannelAmount;i++)
@@ -85,7 +88,7 @@ void DPL_GlobalDutyLimit(uint16_t *inputduty,uint16_t *outputduty,DPL_Prama *dpl
 	if( avg > dplparam->dplGdDutyMax )
 	{
 		//gain = 1 ~ 255
-		gain = 0x000100 * (dplparam->dplGdDutyMax) / avg ;
+		gain = (uint32_t)(dplparam->dplGdDutyMax) * 256 / avg ;
 
 		//output = input * gian / 256
 		for(i=0;i<dplparam->dplChannelAmount;i++)
@@ -115,20 +118,28 @@ void DPL_LocalDutyStatistic(uint16_t *inputduty , uint32_t *outputdutysum , DPL_
 void DPL_ParametersUpdate(uint32_t *inputdutysum , DPL_Prama *dplparam)
 {
 	/*Update local duty limit table arroding to Local Duty Sum in the last 1min
-	 * [A] DutySum > HighTemp 			 , Limit = - 0x100,
+	 * [A] DutySum > HighTemp 			 , Limit = - step,
 	 * [B] LowTemp <= DutySum <= HighTemp, Limit = HighTempLimit
-	 * [C] DutySum < LowTemp			 , Limit = + 0x100, until reach limit
+	 * [C] DutySum < LowTemp			 , Limit = + step, until reach limit
 	 */
 	uint16_t i;
+	uint16_t avgduty;
+	uint16_t highlimit;
+	uint16_t lowlimit;
+
 	for(i=0;i<dplparam->dplChannelAmount;i++)
 	{
+		avgduty = inputdutysum[i] / (dplparam->dplFrameAmountToUpdateParam / dplparam->dplFrameAmountToSample ) ;
+		highlimit = dplparam->dplLdDutySumLimitHighTempTable[i] - dplparam->dplTemperatureCalibration ;
+		lowlimit = dplparam->dplLdDutySumLimitLowTempTable[i] - dplparam->dplTemperatureCalibration ;
+
 		//[A]
-		if( inputdutysum[i] /DPL_tempSampleCount  > (dplparam->dplLdDutySumLimitHighTempTable[i]) )
+		if( avgduty > highlimit )
 		{
 			dplparam->dplLdDutyLimitTable[i] -= dplparam->dplLimitDownStep;
 		}
 		//[C]
-		else if( inputdutysum[i] /DPL_tempSampleCount  < (dplparam->dplLdDutySumLimitLowTempTable[i]) )
+		else if( avgduty < lowlimit	)
 		{
 
 			if(dplparam->dplLdDutyLimitTable[i] > dplparam->dplLdDutyMax - dplparam->dplLimitUpStep)
@@ -143,7 +154,7 @@ void DPL_ParametersUpdate(uint32_t *inputdutysum , DPL_Prama *dplparam)
 		//[B]
 		else
 		{
-			dplparam->dplLdDutyLimitTable[i] = dplparam->dplLdDutySumLimitHighTempTable[i];
+			dplparam->dplLdDutyLimitTable[i] = highlimit ;
 		}
 	}
 
@@ -152,11 +163,30 @@ void DPL_ParametersUpdate(uint32_t *inputdutysum , DPL_Prama *dplparam)
 
 }
 
-void DPL_GammaCorrection(uint16_t *inputduty , uint16_t *outputduty , const uint16_t *gammatable , DPL_Prama *dplparam)
+void DPL_GammaCorrection(uint16_t *inputduty , uint16_t *outputduty , DPL_Prama *dplparam)
 {
 	uint16_t i;
 	for(i=0;i<dplparam->dplChannelAmount;i++)
 	{
-		outputduty[i] =  gammatable [ inputduty[i]>>4 ] ;
+		outputduty[i] =  DPL_InputGamma[dplparam->dplInputGammaSelect] [ inputduty[i]>>4 ] ;
+	}
+}
+
+void DPL_TemperatureCalibration(int8_t temp, DPL_Prama *dplparam)
+{
+	if( temp < 0 )
+	{
+		// temp < 0C , use 0C param
+		dplparam->dplTemperatureCalibration = DPL_TempCalibratineTable [0] ;
+	}
+	else if( temp >59 )
+	{
+		// temp > 59C , use 59C param
+		dplparam->dplTemperatureCalibration = DPL_TempCalibratineTable [59] ;
+	}
+	else
+	{
+		// 0 < temp < 59
+		dplparam->dplTemperatureCalibration = DPL_TempCalibratineTable [temp];
 	}
 }

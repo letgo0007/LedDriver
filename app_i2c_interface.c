@@ -225,7 +225,7 @@ uint8_t I2cSlave_handleMap(uint8_t *i2cmap)
 
 			System_DplParam.dplOn 				= i2cmap[0xD1] ;
 			System_DplParam.dplChannelAmount	= i2cmap[0xD2] ;
-			System_DplParam.dplSampleAmoutToRunParamUpdate 	= i2cmap[0xD3] ;
+			System_DplParam.dplFrameAmountToUpdateParam 	= i2cmap[0xD3] ;
 			System_DplParam.dplLimitUpStep 		= 0x0100 * i2cmap[0xD4] + 0x0100 * i2cmap[0xD5] ;
 			System_DplParam.dplLimitDownStep	= 0x0100 * i2cmap[0xD6] + 0x0100 * i2cmap[0xD7] ;
 			System_DplParam.dplGdDutyMax 		= 0x0100 * i2cmap[0xD8] + 0x0100 * i2cmap[0xD9] ;
@@ -325,7 +325,7 @@ uint8_t I2cSlave_initMap(uint8_t *i2cmap)
 	 * 				0xDE	[DplLowTempLimit_H]
 	 * 				0xDF	[DplLowTempLimit_L]
 	 */
-	i2cmap[0xD0] = 0x80;
+	i2cmap[0xD0] = 0x81;
 
 
 	i2cmap[0xF0] = (uint8_t)(SOFTWARE_VERSION>>24);

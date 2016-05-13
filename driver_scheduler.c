@@ -149,7 +149,7 @@ void __attribute__ ((interrupt(RTC_VECTOR))) Sch_ISR_Rrc (void)
         	//Update system time
         	System_Time = RTC_A_getCalendarTime( RTC_A_BASE );
         	//Trigger dpl sample function
-        	System_DplParam.dplStartSample = 1;
+        	//System_DplParam.dplStartSample = 1;
 
     		System_Schedule.testFlag1Hz = 1;
             break;
