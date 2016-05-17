@@ -313,9 +313,9 @@ uint8_t Iw7027_updateDelayTable(enum Iw7027_Delay delay)
 	return STATUS_SUCCESS;
 }
 
-uint8_t Iw7027_updateWorkParams(Iw7027_WorkParam *param_in)
+uint8_t Iw7027_updateWorkParams(Iw7027Param *param_in)
 {
-	static Iw7027_WorkParam param_now ;
+	static Iw7027Param param_now ;
 
 	//Update IW7027_PLL & Vsync_Out when changed.
 	if(param_now.iwFrequency != param_in->iwFrequency)
@@ -380,8 +380,6 @@ uint8_t Iw7027_updateWorkParams(Iw7027_WorkParam *param_in)
 		param_in->iwRunErrorCheck = 0;
 
 	}
-
-
 
 	return STATUS_SUCCESS;
 

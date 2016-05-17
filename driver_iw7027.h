@@ -44,7 +44,7 @@ enum Iw7027_Delay
 	d3Dscan = 3,
 };
 
-typedef struct Iw7027_WorkParam
+typedef struct Iw7027Param
 {
 	enum Iw7027_Frequency iwFrequency;
 	enum Iw7027_Current iwCurrent;
@@ -56,9 +56,9 @@ typedef struct Iw7027_WorkParam
 	uint8_t iwShort[IW7027_DEVICE_AMOUNT][2];
 	uint8_t iwOpen[IW7027_DEVICE_AMOUNT][2];
 	uint8_t iwDsShort[IW7027_DEVICE_AMOUNT][2];
-}Iw7027_WorkParam;
+}Iw7027Param;
 
-Iw7027_WorkParam System_Iw7027Param ;
+Iw7027Param System_Iw7027Param ;
 //Buffers & Const Tables
 static const uint8_t Iw7027_DefaultRegMap_70XU30A_78CH[ IW7027_DEVICE_AMOUNT * 0x60 ] =
 {
@@ -255,7 +255,7 @@ uint8_t Iw7027_updateDelayTable(enum Iw7027_Delay delay);
  * @Return
  * 		Iw7027Error 	: Error info struct of Iw7027Error
  **********************************************************/
-uint8_t Iw7027_updateWorkParams(Iw7027_WorkParam *iwparam);
+uint8_t Iw7027_updateWorkParams(Iw7027Param *iwparam);
 
 
 

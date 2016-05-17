@@ -46,6 +46,7 @@ uint8_t DPL_Function(uint16_t *inputduty,uint16_t *outputduty,DPL_Prama *dplpara
 	}
 	else//when DPL is off , bypass input to output.
 	{
+		//Size = channel * 2 bytes (16bit)
 		memcpy( outputduty , inputduty , (dplparam->dplChannelAmount) * 2 );
 		DPL_tempSampleCount = 0 ;
 	}
@@ -99,6 +100,7 @@ void DPL_GlobalDutyLimit(uint16_t *inputduty,uint16_t *outputduty,DPL_Prama *dpl
 	//If Within Limit , Bypass input -> output .
 	else
 	{
+		//Size = channel * 2 bytes (16bit)
 		memcpy( outputduty , inputduty , (dplparam->dplChannelAmount) * 2 );
 	}
 
@@ -159,6 +161,7 @@ void DPL_ParametersUpdate(uint32_t *inputdutysum , DPL_Prama *dplparam)
 	}
 
 	//Clear Sum
+	//Size = channel * 4 bytes (32bit)
 	memset( inputdutysum , 0x00 , (dplparam->dplChannelAmount) * 4);
 
 }

@@ -1,5 +1,5 @@
-#include "app_uartdebug.h"
-#include "driver_mcu.h"
+#include "app.h"
+#include "driver.h"
 #include "string.h"
 
 
@@ -48,6 +48,14 @@ void Uart_Console(uint8_t *uartrxbuf)
 			}
 		}
 		PrintString("\r\n");
+	}
+	else if( ! memcmp(uartrxbuf , "iw" , 2) )
+	{
+		System_Iw7027Param.iwRunErrorCheck = 1 ;
+		Iw7027_updateWorkParams(&System_Iw7027Param);
+		PrintString("IW7027 Error Status");
+		PrintArray((uint8_t *)&System_Iw7027Param,sizeof(System_Iw7027Param));
+		PrintEnter();
 	}
 	else if( ! memcmp(uartrxbuf , "reboot" , 6) )
 	{

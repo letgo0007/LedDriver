@@ -1,5 +1,4 @@
 #include "driver_mcu.h"
-
 #include "driver_scheduler.h"
 
 #define debuglog (1)
@@ -28,45 +27,17 @@ uint8_t Mcu_init(void)
 	return STATUS_SUCCESS;
 }
 
-void Mcu_setErrorOut(BoardInfo *outputinfo)
+void Mcu_getBoardStatus(BoardInfo *outputinfo)
 {
-	uint32_t adctemp ;
+	outputinfo->boardStb = GET_STB_IN;
 
-	if( GET_STB_IN )
-	{
-		outputinfo->boardStb = 1;
-	}
-	else
-	{
-		outputinfo->boardStb = 0;
-	}
+	outputinfo->boardIw7027Falut = GET_IW7027_FAULT_IN;
 
-	if( GET_IW7027_FAULT_IN )
-	{
-		outputinfo->boardIw7027Falut = 1;
-	}
-	else
-	{
-		outputinfo->boardIw7027Falut = 0;
-	}
+	outputinfo->boardD60V =  (uint32_t)Adc_getResult(ADCPORT_DC60V) * 84 / 0x3FF ;
 
-	adctemp = Adc_getResult(ADCPORT_DC60V);
-	outputinfo->boardD60V =  adctemp * 84 / 0x3FF ;
+	outputinfo->boardD13V =  (uint32_t)Adc_getResult(ADCPORT_DC13V) * 19 / 0x3FF ;
 
-	if(outputinfo->boardD60V <= 50)
-	{
-		PrintString("DC60V low power detect\r\n");
-	}
-
-	adctemp = Adc_getResult(ADCPORT_DC13V);
-	outputinfo->boardD13V =  adctemp * 19 / 0x3FF ;
-
-	if(outputinfo->boardD13V <= 10)
-	{
-		PrintString("DC13V low power detect\r\n");
-	}
 	outputinfo->boardTemprature = Adc_getMcuTemperature();
-
 }
 
 void Mcu_reset(void)
@@ -76,6 +47,16 @@ void Mcu_reset(void)
 	WDT_A_start(WDT_A_BASE);
 	//Wait 100cyles for watch dog reboot.
 	__delay_cycles(512+100);
+}
+
+void Mcu_invokeBsl(void)
+{
+	//Disable ISR & jump to BSL section.
+	//Refer to 3.8.1 Starting the BSL From an External Application for BSL application note.
+	//delay for MCU modules to finish current work.
+	__disable_interrupt();
+	__delay_cycles(500000);
+	((void (*)())0x1000)();
 }
 
 uint8_t Gpio_init(void)
@@ -187,6 +168,62 @@ uint8_t Gpio_init(void)
 	return STATUS_SUCCESS;
 }
 
+
+//P1 GPIO ISR
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector=PORT1_VECTOR
+__interrupt void Gpio_ISR_Port1(void)
+#elif defined(__GNUC__)
+void __attribute__ ((interrupt(PORT1_VECTOR))) Gpio_ISR_Port1 (void)
+#else
+#error Compiler not supported!
+#endif
+{
+	uint8_t stb_low_count = 10;
+	switch(__even_in_range(P1IV,14))
+	{
+		case 0://No interrupt
+			break;
+		case 2://P1.0
+			//STB ISR
+#if debuglog
+			PrintString("STB falling edge detect\r\n");
+#endif
+
+			//check STB = Low for 10 times x 100us ,if all Low, reboot.
+			while( !GET_STB_IN || stb_low_count -- )
+			{
+				delay_us(100);
+			};
+
+			if( stb_low_count == 0 )
+			{
+				Mcu_reset();
+			}
+
+			GPIO_clearInterrupt	(GPIO_PORT_P1 , GPIO_PIN1);
+			break;
+		case 4://P1.1
+			break;
+		case 6://P1.2
+			break;
+		case 8://P1.3
+			break;
+		case 10://P1.4
+			break;
+		case 12://P1.5
+			break;
+		case 14://P1.6
+			break;
+		case 16://P1.7
+			break;
+		default:
+			break;
+	}
+
+}
+
+
 uint8_t Adc_init(void)
 {
     //Set P6.4 P6.5 as ADC input
@@ -280,49 +317,6 @@ int8_t Adc_getMcuTemperature(void)
 	return  ( (int8_t) temperature);
 }
 
-//P1 GPIO ISR
-#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
-#pragma vector=PORT1_VECTOR
-__interrupt void Gpio_isrPort1(void)
-#elif defined(__GNUC__)
-void __attribute__ ((interrupt(PORT1_VECTOR))) Gpio_isrPort1 (void)
-#else
-#error Compiler not supported!
-#endif
-{
-	switch(__even_in_range(P1IV,14))
-	{
-		case 0://No interrupt
-			break;
-		case 2://P1.0
-			//STB ISR
-			PrintString("STB falling edge detect\r\n");
-			GPIO_clearInterrupt	(GPIO_PORT_P1 , GPIO_PIN1);
-			break;
-		case 4://P1.1
-			break;
-		case 6://P1.2
-			break;
-		case 8://P1.3
-			break;
-		case 10://P1.4
-			break;
-		case 12://P1.5
-			break;
-		case 14://P1.6
-			break;
-		case 16://P1.7
-			break;
-		default:
-			break;
-	}
-
-}
-
-void 	Gpio_check(void)
-{
-	;
-}
 
 uint8_t Clock_init(uint32_t cpu_speed)
 {
@@ -535,9 +529,9 @@ uint8_t SpiSlave_init(void)
 
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=TIMER0_A1_VECTOR
-__interrupt void SpiSlave_CsPin_ISR(void)
+__interrupt void SpiSlave_ISR_CsPin(void)
 #elif defined(__GNUC__)
-void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) SpiSlave_CsPin_ISR (void)
+void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) SpiSlave_ISR_CsPin (void)
 #else
 #error Compiler not supported!
 #endif
@@ -651,9 +645,9 @@ uint8_t I2cSlave_init(uint8_t slaveaddress)
 
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector = USCI_B0_VECTOR
-__interrupt void I2cSlave_isr(void)
+__interrupt void I2cSlave_ISR(void)
 #elif defined(__GNUC__)
-void __attribute__ ((interrupt(USCI_B0_VECTOR))) I2cSlave_isr (void)
+void __attribute__ ((interrupt(USCI_B0_VECTOR))) I2cSlave_ISR (void)
 #else
 #error Compiler not supported!
 #endif
@@ -734,9 +728,9 @@ uint8_t Uart_init(uint32_t baudrate)
 
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=USCI_A1_VECTOR
-__interrupt void Uart_isr(void)
+__interrupt void Uart_ISR(void)
 #elif defined(__GNUC__)
-void __attribute__ ((interrupt(USCI_A1_VECTOR))) Uart_isr (void)
+void __attribute__ ((interrupt(USCI_A1_VECTOR))) Uart_ISR (void)
 #else
 #error Compiler not supported!
 #endif
