@@ -22,10 +22,7 @@ typedef struct ErrorParam
 ErrorParam System_ErrorParam ;
 
 uint8_t Error_storeErrorInfo(void);
-<<<<<<< HEAD
 uint8_t Mcu_setErrorOut(BoardInfo *boardinfo , ErrorParam *errorparam);
-=======
-uint8_t Board_setErrorOut(BoardInfo *boardinfo , ErrorParam *errorparam);
->>>>>>> origin/master
+
 
 #endif /* DRIVER_ERRORHANDLE_H_ */

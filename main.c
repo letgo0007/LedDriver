@@ -26,11 +26,7 @@ int main(void) {
     	if(System_Schedule.taskFlagBoardCheck)
     	{
     		Mcu_getBoardStatus(&System_BoardInfo);
-<<<<<<< HEAD
-    		//Mcu_setErrorOut(&System_BoardInfo , &System_ErrorParam);
-=======
-    		Board_setErrorOut(&System_BoardInfo , &System_ErrorParam);
->>>>>>> origin/master
+    		Mcu_setErrorOut(&System_BoardInfo , &System_ErrorParam);
     		System_Schedule.taskFlagBoardCheck = 0;
     	}
 
