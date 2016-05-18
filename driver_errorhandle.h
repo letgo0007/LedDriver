@@ -5,16 +5,23 @@
 
 #define	ERROR_SEGMENT_PTR	 ( 0x1800 )		//Flash segment pointer to store error info
 
-typedef struct ErrorInfo
+typedef struct ErrorParam
 {
-	uint8_t errorCount;
-	BoardInfo errorBoard;
-	Calendar errorTime;
-}ErrorInfo;
+	uint8_t eIsError;
+	uint8_t eCount;
+	uint8_t	eDc60vMax;
+	uint8_t	eDc60vMin;
+	uint8_t	eDc13vMax;
+	uint8_t	eDc13vMin;
+	uint8_t	eSpiRxFreqMin;
+	uint8_t eSpiRxFormatCheck;
+	uint8_t eIw7027ErrorCheck;
+	uint8_t eIW7027ErrorInfo;
+}ErrorParam;
 
-ErrorInfo System_ErrorInfo ;
+ErrorParam System_ErrorParam ;
 
-uint8_t Error_storeErrorInfo(ErrorInfo error);
-ErrorInfo Error_readErrorInfo(void);
+uint8_t Error_storeErrorInfo(void);
+uint8_t Mcu_setErrorOut(BoardInfo *boardinfo , ErrorParam *errorparam);
 
 #endif /* DRIVER_ERRORHANDLE_H_ */

@@ -22,13 +22,14 @@
 #define delay_us(x) 					__delay_cycles((long)(CPU_F*(double)x/1000000))	//delay unit by us (CPU block)
 #define delay_ms(x) 					__delay_cycles((long)(CPU_F*(double)x/1000))	//delay unit by ms (CPU block)
 
-//MCU hardware setting
+//ADC Ports
 #define ADCCAL_15V_30C  				*((unsigned int *)0x1A1A)				//Temperature Sensor Calibration value -30 C, see device data sheet
 #define ADCCAL_15V_85C  				*((unsigned int *)0x1A1C)				//Temperature Sensor Calibration value 85 C, see device data sheet
 #define ADCPORT_DC60V					(ADC10_A_INPUT_A4)
 #define ADCPORT_DC13V					(ADC10_A_INPUT_A5)
 #define ADCPORT_TEMPSENSOR				(ADC10_A_INPUT_TEMPSENSOR)
 
+//GPIO Ports , refer to GPIO_ASSIGNMENT.xlsx
 #define GPIO_PIN_ALL					(0xFF)
 #define GET_STB_IN						(GPIO_getInputPinValue(GPIO_PORT_P1,GPIO_PIN1))
 #define GET_IW7027_FAULT_IN				(GPIO_getInputPinValue(GPIO_PORT_P6,GPIO_PIN0))
@@ -96,7 +97,7 @@ void 	Mcu_reset(void);
  * @Return
  * 		NONE
  **********************************************************/
-void 	Mcu_setErrorOut(BoardInfo *outputinfo);
+void 	Mcu_getBoardStatus(BoardInfo *outputinfo);
 
 /**********************************************************
  * @Brief Clock_init

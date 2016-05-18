@@ -44,7 +44,7 @@ enum Iw7027_Delay
 	d3Dscan = 3,
 };
 
-typedef struct Iw7027_WorkParam
+typedef struct Iw7027Param
 {
 	enum Iw7027_Frequency iwFrequency;
 	enum Iw7027_Current iwCurrent;
@@ -56,9 +56,9 @@ typedef struct Iw7027_WorkParam
 	uint8_t iwShort[IW7027_DEVICE_AMOUNT][2];
 	uint8_t iwOpen[IW7027_DEVICE_AMOUNT][2];
 	uint8_t iwDsShort[IW7027_DEVICE_AMOUNT][2];
-}Iw7027_WorkParam;
+}Iw7027Param;
 
-Iw7027_WorkParam System_Iw7027Param ;
+Iw7027Param System_Iw7027Param ;
 //Buffers & Const Tables
 static const uint8_t Iw7027_DefaultRegMap_70XU30A_78CH[ IW7027_DEVICE_AMOUNT * 0x60 ] =
 {
@@ -161,6 +161,19 @@ void Iw7027_writeSingleByte(uint8_t chipsel, uint8_t regaddress, uint8_t txdata)
 uint8_t Iw7027_readSingleByte(uint8_t chipsel, uint8_t regaddress);
 
 /**********************************************************
+ * @Brief Iw7027_readMultiByte
+ * 		Read multiple byte to IW7027 , bsaed on SPI interface spec 3.10. Read N data
+ * @Param
+ * 		chipsel 	: Chip active select , valid from IW_0~IW_ALL.
+ * 		regaddress 	: Register address to write.
+ * 		length		: Amount of multiple bytes to transfer.
+ * 		*rxdata		: Multiple bytes read pointer.
+ * @Return
+ * 		readbyte 	: Reveived bytes.
+ **********************************************************/
+uint8_t Iw7027_readMultiByte(uint8_t chipsel, uint8_t regaddress , uint8_t length , uint8_t *rxdata);
+
+/**********************************************************
  * @Brief Iw7027_checkReadWithTimeout
  * 		Loop checking IW7027 read value with timeout function.
  * 		Check max 10 times for very selected IW device .
@@ -255,7 +268,7 @@ uint8_t Iw7027_updateDelayTable(enum Iw7027_Delay delay);
  * @Return
  * 		Iw7027Error 	: Error info struct of Iw7027Error
  **********************************************************/
-uint8_t Iw7027_updateWorkParams(Iw7027_WorkParam *iwparam);
+uint8_t Iw7027_updateWorkParams(Iw7027Param *iwparam);
 
 
 

@@ -65,6 +65,33 @@ uint8_t Iw7027_readSingleByte(uint8_t chipsel, uint8_t regaddress)
 	return readbyte;
 }
 
+uint8_t Iw7027_readMultiByte(uint8_t chipsel, uint8_t regaddress , uint8_t length , uint8_t *rxdata)
+{
+	uint8_t i;
+
+	//Selest chip
+	SpiMaster_setCsPin(chipsel);
+	delay_us(IW7027_SPI_MASTER_TRANS_START_DELAY);
+
+	//Send Head & address
+	SpiMaster_sendSingleByte( 0x01 );
+	SpiMaster_sendSingleByte( length );
+	SpiMaster_sendSingleByte( regaddress | 0x80 );
+
+	//set out dummy clocks to read byte
+	SpiMaster_sendSingleByte( 0x00 );
+	for( i = 0 ; i < length ; i++ )
+	{
+		rxdata [i] = SpiMaster_sendSingleByte( 0x00 );
+	}
+
+	//Unselest all chip
+	delay_us(IW7027_SPI_MASTER_TRANS_STOP_DELAY);
+	SpiMaster_setCsPin(0x00);
+
+	return rxdata[length-1];
+}
+
 uint8_t Iw7027_checkReadWithTimeout(uint8_t chipsel, uint8_t regaddress , uint8_t checkvalue ,uint8_t bitmask)
 {
 	uint8_t retrytime;
@@ -179,7 +206,7 @@ uint8_t Iw7027_init(const uint8_t *workmodetable)
 	System_Iw7027Param.iwFrequency = f120Hz;
 	System_Iw7027Param.iwVsyncFrequency = 120;
 	System_Iw7027Param.iwVsyncDelay = 1;
-	System_Iw7027Param.iwRunErrorCheck = 1 ;
+	System_Iw7027Param.iwRunErrorCheck = 0 ;
 
 	Iw7027_updateWorkParams(&System_Iw7027Param);
 
@@ -218,7 +245,7 @@ uint8_t Iw7027_updateDuty(uint16_t *dutymatrix ,const uint8_t *ledsortmap)
 	//Sequence write chip IW0 ~ IW_N
 	for( i = 0 ; i < IW7027_DEVICE_AMOUNT ; i ++ )
 	{
-		Iw7027_writeMultiByte( IW_0<<i  , 0x40 , 32 , Iw7027_SortBuff + 32 * i );
+		Iw7027_writeMultiByte( IW_0<<i , 0x40 , 32 , Iw7027_SortBuff + 32 * i );
 	}
 
 	return STATUS_SUCCESS;
@@ -313,9 +340,9 @@ uint8_t Iw7027_updateDelayTable(enum Iw7027_Delay delay)
 	return STATUS_SUCCESS;
 }
 
-uint8_t Iw7027_updateWorkParams(Iw7027_WorkParam *param_in)
+uint8_t Iw7027_updateWorkParams(Iw7027Param *param_in)
 {
-	static Iw7027_WorkParam param_now ;
+	static Iw7027Param param_now ;
 
 	//Update IW7027_PLL & Vsync_Out when changed.
 	if(param_now.iwFrequency != param_in->iwFrequency)
@@ -380,8 +407,6 @@ uint8_t Iw7027_updateWorkParams(Iw7027_WorkParam *param_in)
 		param_in->iwRunErrorCheck = 0;
 
 	}
-
-
 
 	return STATUS_SUCCESS;
 

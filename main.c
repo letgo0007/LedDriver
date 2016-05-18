@@ -1,6 +1,8 @@
 #include "driver.h"
 #include "app.h"
 
+uint8_t test[60];
+
 int main(void) {
 	//MCU & Scheduler initial
     Mcu_init();
@@ -9,7 +11,10 @@ int main(void) {
     Iw7027_init(Iw7027_DefaultRegMap_70XU30A_78CH);
     //Init Parameters
 	I2cSlave_initMap(I2cSlave_Map);
-
+	System_ErrorParam.eDc13vMax = 16;
+	System_ErrorParam.eDc13vMin = 10;
+	System_ErrorParam.eDc60vMax = 70;
+	System_ErrorParam.eDc60vMin = 54;
 	__enable_interrupt();
 
     //Enter Main Loop
@@ -20,7 +25,8 @@ int main(void) {
     	//Task1 : Board Check
     	if(System_Schedule.taskFlagBoardCheck)
     	{
-    		Mcu_setErrorOut(&System_BoardInfo);
+    		Mcu_getBoardStatus(&System_BoardInfo);
+    		//Mcu_setErrorOut(&System_BoardInfo , &System_ErrorParam);
     		System_Schedule.taskFlagBoardCheck = 0;
     	}
 
@@ -83,14 +89,17 @@ int main(void) {
     	{
 
     		PrintTime(&System_Time);
+    		Iw7027_readMultiByte( IW_0 , 0x00 , 8 , test);
+    		PrintArray(test , 10);
+    		PrintEnter();
 #if 0
     		PrintString("boardinfo: ");
     		PrintArray((uint8_t *)&System_BoardInfo,sizeof(System_BoardInfo));
     		PrintEnter();
 
     		//System_Schedule.schLocalDimmingOn = !(System_Schedule.schLocalDimmingOn);
-#endif
-    		TOGGLE_LED_G;
+
+
     		PrintString("CPU Locd = ");
     		PrintCharBCD(System_Schedule.cpuLoad);
     		PrintString(" % \r\n");
@@ -106,7 +115,8 @@ int main(void) {
     		PrintInt(System_DplParam.dplLdDutyLimitTable[0]);
 
     		PrintEnter();
-
+#endif
+    		TOGGLE_LED_G;
     		System_Schedule.testFlag1Hz = 0;
     	}
 
