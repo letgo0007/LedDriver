@@ -27,17 +27,53 @@ uint8_t Mcu_init(void)
 	return STATUS_SUCCESS;
 }
 
-void Mcu_getBoardStatus(BoardInfo *outputinfo)
+uint8_t Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 {
-	outputinfo->boardStb = GET_STB_IN;
+	uint8_t retval = 0;
 
-	outputinfo->boardIw7027Falut = GET_IW7027_FAULT_IN;
+	//Load Board Hardware Info
+	boardinfo->boardIw7027Falut = GET_IW7027_FAULT_IN;
+	boardinfo->boardD60V =  (uint32_t)Adc_getResult(ADCPORT_DC60V) * 84 / 0x3FF ;
+	boardinfo->boardD13V =  (uint32_t)Adc_getResult(ADCPORT_DC13V) * 19 / 0x3FF ;
+	boardinfo->boardTemprature = Adc_getMcuTemperature();
 
-	outputinfo->boardD60V =  (uint32_t)Adc_getResult(ADCPORT_DC60V) * 84 / 0x3FF ;
+	//BIT0 : Power error flag
+	if( 	(boardinfo->boardD60V > errorparam->eDc60vMax) ||
+			(boardinfo->boardD60V < errorparam->eDc60vMin) ||
+			(boardinfo->boardD13V > errorparam->eDc13vMax) ||
+			(boardinfo->boardD13V < errorparam->eDc13vMin) )
+	{
+		retval |= BIT0;
+	}
 
-	outputinfo->boardD13V =  (uint32_t)Adc_getResult(ADCPORT_DC13V) * 19 / 0x3FF ;
+	//BIT1 : IW7027 Error Flag
+	if( !boardinfo->boardIw7027Falut ) //GPIO Low = Error
+	{
+		retval |= BIT1;
+	}
 
-	outputinfo->boardTemprature = Adc_getMcuTemperature();
+	//BIT2 : Signal Error flag ,only set when eSpiRxDataCheckOn is ON
+	if(errorparam->eSpiDataCheckEn)
+	{
+		if( ( boardinfo->boardSpiRxFreq < errorparam->eSpiRxFreqMin ) || ( ! boardinfo->boardSpiRxValid ) )
+		{
+			retval |= BIT2;
+		}
+	}
+
+	//Set Error Out
+	if(retval)
+	{
+		SET_ERROR_OUT_HIGH; //Test only
+		//SET_ERROR_OUT_LOW; // Low level = Error
+	}
+	else
+	{
+		SET_ERROR_OUT_HIGH;
+	}
+
+	return retval;
+
 }
 
 void Mcu_reset(void)

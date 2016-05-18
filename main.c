@@ -1,7 +1,25 @@
 #include "driver.h"
 #include "app.h"
+#include "string.h"
 
 uint8_t test[60];
+
+int _system_pre_init(void)
+{
+ /* Insert your low-level initializations here */
+
+/* Disable Watchdog timer to prevent reset during */
+ /* long variable initialization sequences. */
+ WDTCTL = WDTPW | WDTHOLD;
+
+ /*==================================*/
+ /* Choose if segment initialization */
+ /* should be done or not. */
+ /* Return: 0 to omit initialization */
+ /* 1 to run initialization */
+ /*==================================*/
+ return 1;
+}
 
 int main(void) {
 	//MCU & Scheduler initial
@@ -9,12 +27,8 @@ int main(void) {
     Sch_init();
     //Init IW7027
     Iw7027_init(Iw7027_DefaultRegMap_70XU30A_78CH);
-    //Init Parameters
+    //Init I2C map
 	I2cSlave_initMap(I2cSlave_Map);
-	System_ErrorParam.eDc13vMax = 16;
-	System_ErrorParam.eDc13vMin = 10;
-	System_ErrorParam.eDc60vMax = 70;
-	System_ErrorParam.eDc60vMin = 54;
 	__enable_interrupt();
 
     //Enter Main Loop
@@ -25,8 +39,7 @@ int main(void) {
     	//Task1 : Board Check
     	if(System_Schedule.taskFlagBoardCheck)
     	{
-    		Mcu_getBoardStatus(&System_BoardInfo);
-    		Mcu_setErrorOut(&System_BoardInfo , &System_ErrorParam);
+    		Mcu_checkBoardStatus(&System_BoardInfo , &System_ErrorParam);
     		System_Schedule.taskFlagBoardCheck = 0;
     	}
 
@@ -89,22 +102,19 @@ int main(void) {
     	{
 
     		PrintTime(&System_Time);
-    		Iw7027_readMultiByte( IW_0 , 0x00 , 8 , test);
-    		PrintArray(test , 10);
-    		PrintEnter();
-#if 0
+    		System_Schedule.schLocalDimmingOn = 1;
+
+#if 1
+    		//Board Info Log
     		PrintString("boardinfo: ");
     		PrintArray((uint8_t *)&System_BoardInfo,sizeof(System_BoardInfo));
     		PrintEnter();
-
-    		//System_Schedule.schLocalDimmingOn = !(System_Schedule.schLocalDimmingOn);
-
-
     		PrintString("CPU Locd = ");
     		PrintCharBCD(System_Schedule.cpuLoad);
     		PrintString(" % \r\n");
-
-
+#endif
+#if 1
+    		//DPL log
     		PrintString("Input: ");
     		PrintInt(System_InputDutyBuff[0]);
     		PrintString(" Onput: ");
@@ -129,6 +139,8 @@ int main(void) {
     Mcu_reset();
 
 }
+
+
 
 
 

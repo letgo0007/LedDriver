@@ -14,7 +14,7 @@
 #define SMCLK_F							(CPU_F)									//High speed Sub_System_Clock
 #define ACLK_F							(32768)									//Low speed Assist_Clock
 #define I2C_SLAVE_ADDRESS				(0x28)									//I2C Slave addess
-#define SPI_MASTER_SPEED				(6000000)								//SPI master speed (Unit in Hz)
+#define SPI_MASTER_SPEED				(4000000)								//SPI master speed (Unit in Hz)
 #define UART_BAUDRATE					(115200)								//Bound Rate of UART
 
 
@@ -44,20 +44,81 @@
 //Struct
 typedef struct BoardInfo
 {
+	//Board D60V voltage ,unit in V.
 	uint8_t boardD60V;
+	//Board D13V voltage ,unit in V.
 	uint8_t boardD13V;
-	uint8_t boardTemprature;
-	uint8_t boardStb;
+	//Board temperature ,unit in C. Note it is signed value ,has negtive value.
+	int8_t boardTemprature;
+	//IW7027_FAULT_IN Gpio value
 	uint8_t boardIw7027Falut;
+	//Spi slave input frame rate.
 	uint8_t boardSpiRxFreq;
+	//Spi slave data format check result.
 	uint8_t boardSpiRxValid;
 }BoardInfo;
 
+typedef struct ErrorParam
+{
+	//Error Type
+	//[0x00] = No error
+	//[BIT0] = Power error
+	//[BIT1] = IW7027 open short error
+	//[BIT2] = Signal error
+	uint8_t eErrorType;
+	//Error amount ,stored in info section.
+	uint8_t eCount;
+	//Dc60V high limit,unit in V.
+	uint8_t	eDc60vMax;
+	//Dc60V low limit ,unit in V.
+	uint8_t	eDc60vMin;
+	//Dc13V high limit,unit in V.
+	uint8_t	eDc13vMax;
+	//Dc13V low limit,unit in V.
+	uint8_t	eDc13vMin;
+	//Spi Frame rate low limit,unit in Hz.
+	uint8_t	eSpiRxFreqMin;
+	//Spi data valid check on/off control
+	uint8_t eSpiDataCheckEn;
+	//IW7027 FAULT pin status.
+	uint8_t eIw7027FaultIn;
+	//IW7027 Error Type
+	//[0x00] = No error
+	//[BIT0] = Open error
+	//[BIT1] = Short error
+	//[BIT2] = D-S Short error
+	uint8_t eIw7027ErrorType;
+	//Error info save function enbale .
+	//when set to [0x01] ,if error happen , mcu will save boardinfo into internal flash.
+	uint8_t eErrorSaveEn;
+}ErrorParam;
+
 //Global variables
-BoardInfo System_BoardInfo ;
-uint16_t System_InputDutyBuff[128] ;
-uint16_t System_OutputDutyBuff[128] ;
-uint16_t System_ManualDutyBuff[128] ;
+static BoardInfo System_BoardInfo = {
+		.boardD60V = 0,
+		.boardD13V = 0,
+		.boardIw7027Falut = 0,
+		.boardSpiRxFreq = 0,
+		.boardSpiRxValid = 0,
+		.boardTemprature = 0,
+};
+static ErrorParam System_ErrorParam = {
+		.eErrorType = 0,
+		.eCount = 0,
+		.eDc60vMax =70,
+		.eDc60vMin = 50,
+		.eDc13vMax = 18,
+		.eDc13vMin = 10,
+		.eSpiRxFreqMin = 30,
+		.eSpiDataCheckEn = 1,
+		.eIw7027FaultIn = 0,
+		.eIw7027ErrorType = 0,
+		.eErrorSaveEn = 0,
+};
+
+static uint16_t System_InputDutyBuff[128] ;
+static uint16_t System_OutputDutyBuff[128] ;
+static uint16_t System_ManualDutyBuff[128] ;
 
 //Hardware driver interface buffers
 uint8_t SpiSlave_RxBuff[256];
@@ -90,20 +151,24 @@ void 	Mcu_reset(void);
 
 /**********************************************************
  * @Brief Board_reset
- * 		Get Hardware status
+ * 		Check Hardware status
  * @Param
- * 		*outputinfo : Traget Struct to store current board information
- * 					refer to BoardInfo struct .
+ * 		*outputinfo : Output BoardInfo struct for other function to use.
+ * 		*errorparam	: Error handle parameter struct
  * @Return
- * 		NONE
+ * 		STATUS_SUCCESS: board function ok
+ * 		STATUS_FAIL	: board in error status, ERROR_OUT is set
  **********************************************************/
-void 	Mcu_getBoardStatus(BoardInfo *outputinfo);
+uint8_t Mcu_checkBoardStatus(BoardInfo *outputinfo, ErrorParam *errorparam);
 
 /**********************************************************
  * @Brief Clock_init
- * 		Get Hardware status
+ * 		Set System clock .
+ * 		MCLK (main clock) is set accroding to cpu_speed.
+ * 		SMCLK (Sub main clock)  = MCLK
+ * 		ACLK (Assist clock) = 32768Hz
  * @Param
- * 		cpu_speed : Target CPU speed.
+ * 		cpu_speed : Target CPU speed. unit in Hz
  * @Return
  * 		STATUS_SUCCESS 	: Clock normally set.
  * 		STATUS_FAIL		: Clock init fail , cristal or power error.

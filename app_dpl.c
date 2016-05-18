@@ -31,12 +31,12 @@ uint8_t DPL_Function(uint16_t *inputduty,uint16_t *outputduty,DPL_Prama *dplpara
 		DPL_GlobalDutyLimit( DPL_tempDutyMatrix , outputduty , dplparam );
 
 		//Sample
-		if( DPL_tempSampleCount % dplparam->dplFrameAmountToSample == 1)
+		if( DPL_tempSampleCount % dplparam->dplSampleFrames == 1)
 		{
 			DPL_LocalDutyStatistic( outputduty , DPL_tempSumDutyMatrix , dplparam);
 		}
 		//Update Param
-		if(DPL_tempSampleCount == dplparam->dplFrameAmountToUpdateParam )
+		if(DPL_tempSampleCount == dplparam->dplUpdateFrames )
 		{
 			DPL_ParametersUpdate(DPL_tempSumDutyMatrix , dplparam);
 			//Reset count
@@ -131,7 +131,7 @@ void DPL_ParametersUpdate(uint32_t *inputdutysum , DPL_Prama *dplparam)
 
 	for(i=0;i<dplparam->dplChannelAmount;i++)
 	{
-		avgduty = inputdutysum[i] / (dplparam->dplFrameAmountToUpdateParam / dplparam->dplFrameAmountToSample ) ;
+		avgduty = inputdutysum[i] / (dplparam->dplUpdateFrames / dplparam->dplSampleFrames ) ;
 		highlimit = dplparam->dplLdDutySumLimitHighTempTable[i] - dplparam->dplTemperatureCalibration ;
 		lowlimit = dplparam->dplLdDutySumLimitLowTempTable[i] - dplparam->dplTemperatureCalibration ;
 

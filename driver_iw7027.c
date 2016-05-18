@@ -206,7 +206,7 @@ uint8_t Iw7027_init(const uint8_t *workmodetable)
 	System_Iw7027Param.iwFrequency = f120Hz;
 	System_Iw7027Param.iwVsyncFrequency = 120;
 	System_Iw7027Param.iwVsyncDelay = 1;
-	System_Iw7027Param.iwRunErrorCheck = 0 ;
+	System_Iw7027Param.iwRunErrorCheck = 1 ;
 
 	Iw7027_updateWorkParams(&System_Iw7027Param);
 
@@ -215,12 +215,16 @@ uint8_t Iw7027_init(const uint8_t *workmodetable)
 	PrintChar(GET_IW7027_FAULT_IN);
 	PrintString("\r\nIW7027 Error check  :");
 	PrintChar(System_Iw7027Param.iwIsError);
-	PrintString("\r\nIW7027 Short check  :");
-	PrintArray(&System_Iw7027Param.iwShort[0][0],10);
-	PrintString("\r\nIW7027 Open check   :");
-	PrintArray(&System_Iw7027Param.iwOpen[0][0],10);
-	PrintString("\r\nIW7027 DsShort check:");
-	PrintArray(&System_Iw7027Param.iwDsShort[0][0],10);
+	PrintString("\r\nIW7027 Open Short check  :");
+	PrintArray(&System_Iw7027Param.iwOpenShortStatus[0],6);
+	PrintEnter();
+	PrintArray(&System_Iw7027Param.iwOpenShortStatus[6],6);
+	PrintEnter();
+	PrintArray(&System_Iw7027Param.iwOpenShortStatus[12],6);
+	PrintEnter();
+	PrintArray(&System_Iw7027Param.iwOpenShortStatus[18],6);
+	PrintEnter();
+	PrintArray(&System_Iw7027Param.iwOpenShortStatus[24],6);
 	PrintEnter();
 #endif
 
@@ -340,6 +344,36 @@ uint8_t Iw7027_updateDelayTable(enum Iw7027_Delay delay)
 	return STATUS_SUCCESS;
 }
 
+uint8_t Iw7027_checkOpenShorStatus(Iw7027Param *iwparam)
+{
+	//Reset Is error
+	iwparam->iwIsError = 0;
+	uint8_t i;
+
+	//Enable Error Read
+	Iw7027_writeSingleByte( IW_ALL , 0x78, 0x80);
+
+	//Read Open/Short/DSShort status from 0x85~0x8A
+	for( i = 0 ; i < IW7027_DEVICE_AMOUNT ; i++ )
+	{
+		Iw7027_readMultiByte (IW_0<<i , 0x85 , 6  , iwparam->iwOpenShortStatus + i*6 );
+	}
+
+	//Disable Error¡¡Read
+	Iw7027_writeSingleByte( IW_ALL , 0x78, 0x00);
+
+	for( i = 0 ; i < IW7027_DEVICE_AMOUNT * 6 ; i++)
+	{
+		if( iwparam->iwOpenShortStatus[i] )
+		{
+			iwparam->iwIsError |= 1;
+		}
+	}
+
+	//Rrturn error status.
+	return iwparam->iwIsError;
+}
+
 uint8_t Iw7027_updateWorkParams(Iw7027Param *param_in)
 {
 	static Iw7027Param param_now ;
@@ -374,39 +408,10 @@ uint8_t Iw7027_updateWorkParams(Iw7027Param *param_in)
 
 	if(param_in->iwRunErrorCheck)
 	{
-		//Reset Is error
-		param_in->iwIsError = 0;
-		uint8_t i;
-
-		//Enable Error Read
-		Iw7027_writeSingleByte(IW_ALL,0x78, 0x80);
-
-		//Loop check Short / Open / DsShort of all iw7027 device.
-		for( i = 0 ; i < IW7027_DEVICE_AMOUNT ; i++ )
-		{
-			param_in->iwShort[i][0] = Iw7027_readSingleByte ( IW_0<<i , 0x85) ;
-			param_in->iwShort[i][1] = Iw7027_readSingleByte ( IW_0<<i , 0x86) ;
-
-			param_in->iwOpen[i][0] = Iw7027_readSingleByte ( IW_0<<i , 0x87) ;
-			param_in->iwOpen[i][1] = Iw7027_readSingleByte ( IW_0<<i , 0x88) ;
-
-			param_in->iwDsShort[i][0] = Iw7027_readSingleByte ( IW_0<<i , 0x89) ;
-			param_in->iwDsShort[i][1] = Iw7027_readSingleByte ( IW_0<<i , 0x8A) ;
-
-			//If detect any error bit , set iwIsError to 1 ;
-			param_in->iwIsError = param_in->iwIsError
-					|| param_in->iwShort[i][0] || param_in->iwShort[i][1]
-					|| param_in->iwOpen[i][0] || param_in->iwOpen[i][1]
-					|| param_in->iwDsShort[i][0] || param_in->iwDsShort[i][1]		;
-		}
-
-		//Disable Error¡¡Read
-		Iw7027_writeSingleByte(IW_ALL,0x78, 0x00);
-
-		//Reset flag ,error detect only run once.
+		Iw7027_checkOpenShorStatus(param_in);
 		param_in->iwRunErrorCheck = 0;
-
 	}
+
 
 	return STATUS_SUCCESS;
 

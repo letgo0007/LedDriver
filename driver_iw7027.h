@@ -53,12 +53,19 @@ typedef struct Iw7027Param
 	uint8_t iwVsyncDelay;
 	uint8_t iwRunErrorCheck;
 	uint8_t iwIsError;
-	uint8_t iwShort[IW7027_DEVICE_AMOUNT][2];
-	uint8_t iwOpen[IW7027_DEVICE_AMOUNT][2];
-	uint8_t iwDsShort[IW7027_DEVICE_AMOUNT][2];
+	uint8_t iwOpenShortStatus[ IW7027_DEVICE_AMOUNT * 6 ];
 }Iw7027Param;
 
-Iw7027Param System_Iw7027Param ;
+static Iw7027Param System_Iw7027Param ={
+		.iwFrequency = f120Hz ,
+		.iwCurrent = i200mA,
+		.iwDelayTableSelet = d2D,
+		.iwVsyncFrequency = 120,
+		.iwVsyncDelay = 1,
+		.iwRunErrorCheck = 0,
+		.iwIsError = 0,
+		.iwOpenShortStatus = {0}
+};
 //Buffers & Const Tables
 static const uint8_t Iw7027_DefaultRegMap_70XU30A_78CH[ IW7027_DEVICE_AMOUNT * 0x60 ] =
 {
@@ -254,6 +261,17 @@ uint8_t Iw7027_updateFrequency(enum Iw7027_Frequency freq);
  * On working.
  * ********************************************************/
 uint8_t Iw7027_updateDelayTable(enum Iw7027_Delay delay);
+
+/**********************************************************
+ * @Brief Iw7027_getErrorStatus
+ * 		Check IW7027 Open/Short/Ds Short status from IW7027 registers.
+ * @Param
+ * 		iwparam		: target IW7027_WorkParam .
+ * @Return
+ * 		1 			: IW7027 has Open Short Error
+ * 		0			: IW7027 ok , no error .
+ **********************************************************/
+uint8_t Iw7027_checkOpenShorStatus(Iw7027Param *iwparam);
 
 /**********************************************************
  * @Brief Iw7027_getErrorStatus
