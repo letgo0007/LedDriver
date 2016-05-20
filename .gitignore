@@ -214,3 +214,8 @@ pip-log.txt
 
 #Mr Developer
 .mr.developer.cfg
+/Debug__opt_for_speed__0/
+/Debug__opt_for_speed__1/
+/Debug__opt_for_speed__2/
+/Debug__opt_for_speed__3/
+/Debug__opt_for_speed__5/

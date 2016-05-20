@@ -55,17 +55,7 @@ typedef struct Iw7027Param
 	uint8_t iwIsError;
 	uint8_t iwOpenShortStatus[ IW7027_DEVICE_AMOUNT * 6 ];
 }Iw7027Param;
-
-static Iw7027Param System_Iw7027Param ={
-		.iwFrequency = f120Hz ,
-		.iwCurrent = i200mA,
-		.iwDelayTableSelet = d2D,
-		.iwVsyncFrequency = 120,
-		.iwVsyncDelay = 1,
-		.iwRunErrorCheck = 0,
-		.iwIsError = 0,
-		.iwOpenShortStatus = {0}
-};
+Iw7027Param System_Iw7027Param ;
 //Buffers & Const Tables
 static const uint8_t Iw7027_DefaultRegMap_70XU30A_78CH[ IW7027_DEVICE_AMOUNT * 0x60 ] =
 {

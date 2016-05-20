@@ -2,36 +2,54 @@
 #include "app.h"
 #include "string.h"
 
-uint8_t test[60];
+#pragma location=0xF000
+const uint32_t ISP_VER = SW_VERSION ;
 
+#pragma location=0xF200
 int _system_pre_init(void)
 {
- /* Insert your low-level initializations here */
+	/* Insert low-level initializations here */
+	/* Disable Watchdog timer to prevent reset during long variable initialization sequences. */
+	/* Initialize I2C Slave as ISP mode */
+	WDTCTL = WDTPW + WDTHOLD;                 // Stop WDT
 
-/* Disable Watchdog timer to prevent reset during */
- /* long variable initialization sequences. */
- WDTCTL = WDTPW | WDTHOLD;
+	if(ISP_VER != SW_VERSION)
+	{
+		P3SEL |= BIT0+BIT1;                       // P3.0 =SDA P3.1=SCL
+		UCB0CTL1 |= UCSWRST;                      // Enable SW reset
+		UCB0CTL0 = UCMODE_3 + UCSYNC;             // I2C Slave, synchronous mode
+		UCB0I2COA = I2C_SLAVE_ADDRESS_ISP/2;        // Slave Address
+		UCB0CTL1 &= ~UCSWRST;                     // Clear SW reset, resume operation
+		UCB0IE |= UCRXIE + UCTXIE + UCSTTIE + UCSTPIE;     // Enable TX interrupt
 
- /*==================================*/
- /* Choose if segment initialization */
- /* should be done or not. */
- /* Return: 0 to omit initialization */
- /* 1 to run initialization */
- /*==================================*/
- return 1;
+		P4OUT |= BIT7 + BIT6 ;
+		P4DIR |= BIT7 + BIT6 ;
+
+		__enable_interrupt();
+		__bis_SR_register(LPM0_bits);
+	}
+
+	__enable_interrupt();
+
+	/*==================================*/
+	/* Choose if segment initialization */
+	/* should be done or not. */
+	/* Return: 0 to omit initialization */
+	/* 1 to run initialization */
+	/*==================================*/
+ 	 return 1;
 }
 
 int main(void) {
-	//MCU & Scheduler initial
+	//Initialize Driver
     Mcu_init();
     Sch_init();
-    //Init IW7027
-    Iw7027_init(Iw7027_DefaultRegMap_70XU30A_78CH);
-    //Init I2C map
+    //Iw7027_init(Iw7027_DefaultRegMap_70XU30A_78CH);
+	//Initialize application
 	I2cSlave_initMap(I2cSlave_Map);
-	__enable_interrupt();
 
-    //Enter Main Loop
+
+    //Main Loop
     while(System_Schedule.schSystemOn)
     {
     	WDT_A_resetTimer(WDT_A_BASE);
@@ -39,7 +57,7 @@ int main(void) {
     	//Task1 : Board Check
     	if(System_Schedule.taskFlagBoardCheck)
     	{
-    		Mcu_checkBoardStatus(&System_BoardInfo , &System_ErrorParam);
+    		//Mcu_checkBoardStatus(&System_BoardInfo , &System_ErrorParam);
     		System_Schedule.taskFlagBoardCheck = 0;
     	}
 
@@ -63,13 +81,13 @@ int main(void) {
         	if(System_Schedule.taskFlagSpiRx)
         	{
         		//Check Spi Rx data validation
-        		System_BoardInfo.boardSpiRxValid = SpiSlave_handle ( SpiSlave_RxBuff , System_InputDutyBuff , CITRUS_12BIT_78CH );
+        		System_BoardInfo.bSpiRxValid = SpiSlave_handle ( SpiSlave_RxBuff , System_InputDutyBuff , CITRUS_12BIT_78CH );
 
         		//Do Spi Rx data process when format correct.
-        		if ( System_BoardInfo.boardSpiRxValid )
+        		if ( System_BoardInfo.bSpiRxValid )
         		{
-        			//Power limit function
-        			DPL_TemperatureCalibration(System_BoardInfo.boardTemprature , &System_DplParam );
+        			//Dynamic Power limit function
+        			DPL_TemperatureCalibration(System_BoardInfo.bTemprature , &System_DplParam );
         			DPL_Function( System_InputDutyBuff , System_OutputDutyBuff , &System_DplParam );
         			//Enable Tx task .
         			System_Schedule.taskFlagSpiTx = 1;
@@ -104,7 +122,7 @@ int main(void) {
     		PrintTime(&System_Time);
     		System_Schedule.schLocalDimmingOn = 1;
 
-#if 1
+#if 0
     		//Board Info Log
     		PrintString("boardinfo: ");
     		PrintArray((uint8_t *)&System_BoardInfo,sizeof(System_BoardInfo));
@@ -113,7 +131,7 @@ int main(void) {
     		PrintCharBCD(System_Schedule.cpuLoad);
     		PrintString(" % \r\n");
 #endif
-#if 1
+#if 0
     		//DPL log
     		PrintString("Input: ");
     		PrintInt(System_InputDutyBuff[0]);
@@ -135,8 +153,9 @@ int main(void) {
     } //End of while(System_Schedule.schSystemOn)
 
 
-    //MainLoop Stop ,reboot MCU .
-    Mcu_reset();
+    //HOLD
+    WDTCTL = WDTPW + WDTHOLD;                 // Stop WDT
+    __bis_SR_register(LPM0_bits);
 
 }
 

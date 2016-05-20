@@ -17,11 +17,25 @@ uint8_t Mcu_init(void)
 	//Bus initial
 	SpiMaster_init(SPI_MASTER_SPEED);
 	SpiSlave_init();
-	I2cSlave_init(I2C_SLAVE_ADDRESS);
+	I2cSlave_init(I2C_SLAVE_ADDRESS_NORMAL);
 	Uart_init(UART_BAUDRATE);
 
+	//Set Default & get 1st board status.
+	System_ErrorParam.eErrorType = 0,
+	System_ErrorParam.eCount = 0,
+	System_ErrorParam.eDc60vMax =70,
+	System_ErrorParam.eDc60vMin = 50,
+	System_ErrorParam.eDc13vMax = 18,
+	System_ErrorParam.eDc13vMin = 10,
+	System_ErrorParam.eSpiRxFreqMin = 30,
+	System_ErrorParam.eSpiDataCheckEn = 0,
+	System_ErrorParam.eIw7027FaultIgnore = 1,
+	System_ErrorParam.eIw7027ErrorType = 0,
+	System_ErrorParam.eErrorSaveEn = 0,
+	Mcu_checkBoardStatus(&System_BoardInfo , &System_ErrorParam);
+
 #if debuglog
-	PrintString("\e[32mBoard_init finish.\r\n\e[30m");
+	PrintString("\e[32m\r\nBoard_init finish.\r\n\e[30m");
 #endif
 
 	return STATUS_SUCCESS;
@@ -32,22 +46,22 @@ uint8_t Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 	uint8_t retval = 0;
 
 	//Load Board Hardware Info
-	boardinfo->boardIw7027Falut = GET_IW7027_FAULT_IN;
-	boardinfo->boardD60V =  (uint32_t)Adc_getResult(ADCPORT_DC60V) * 84 / 0x3FF ;
-	boardinfo->boardD13V =  (uint32_t)Adc_getResult(ADCPORT_DC13V) * 19 / 0x3FF ;
-	boardinfo->boardTemprature = Adc_getMcuTemperature();
+	boardinfo->bIw7027Falut = GET_IW7027_FAULT_IN;
+	boardinfo->bD60V =  (uint32_t)Adc_getResult(ADCPORT_DC60V) * 84 / 0x3FF ;
+	boardinfo->bD13V =  (uint32_t)Adc_getResult(ADCPORT_DC13V) * 19 / 0x3FF ;
+	boardinfo->bTemprature = Adc_getMcuTemperature();
 
 	//BIT0 : Power error flag
-	if( 	(boardinfo->boardD60V > errorparam->eDc60vMax) ||
-			(boardinfo->boardD60V < errorparam->eDc60vMin) ||
-			(boardinfo->boardD13V > errorparam->eDc13vMax) ||
-			(boardinfo->boardD13V < errorparam->eDc13vMin) )
+	if( 	(boardinfo->bD60V > errorparam->eDc60vMax) ||
+			(boardinfo->bD60V < errorparam->eDc60vMin) ||
+			(boardinfo->bD13V > errorparam->eDc13vMax) ||
+			(boardinfo->bD13V < errorparam->eDc13vMin) )
 	{
 		retval |= BIT0;
 	}
 
 	//BIT1 : IW7027 Error Flag
-	if( !boardinfo->boardIw7027Falut ) //GPIO Low = Error
+	if( !boardinfo->bIw7027Falut && !errorparam->eIw7027FaultIgnore)
 	{
 		retval |= BIT1;
 	}
@@ -55,7 +69,7 @@ uint8_t Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 	//BIT2 : Signal Error flag ,only set when eSpiRxDataCheckOn is ON
 	if(errorparam->eSpiDataCheckEn)
 	{
-		if( ( boardinfo->boardSpiRxFreq < errorparam->eSpiRxFreqMin ) || ( ! boardinfo->boardSpiRxValid ) )
+		if( ( boardinfo->bSpiRxFreq < errorparam->eSpiRxFreqMin ) || ( ! boardinfo->bSpiRxValid ) )
 		{
 			retval |= BIT2;
 		}
@@ -64,8 +78,13 @@ uint8_t Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 	//Set Error Out
 	if(retval)
 	{
-		SET_ERROR_OUT_HIGH; //Test only
-		//SET_ERROR_OUT_LOW; // Low level = Error
+		PrintString("ERROR/r/n");
+		PrintChar(retval);
+		PrintEnter();
+		PrintArray((uint8_t *)&System_BoardInfo,sizeof(System_BoardInfo));
+		PrintEnter();
+		//SET_ERROR_OUT_HIGH; //Test only
+		SET_ERROR_OUT_LOW; // Low level = Error
 	}
 	else
 	{
@@ -159,9 +178,9 @@ uint8_t Gpio_init(void)
 	//P4.4 UART_TX
 	//P4.5 UART_RX
 	//P4.6 ERROR_OUT ,Error status output
-	//	[0] = Normal working
-	//	[1] = Error (default)
-	GPIO_setOutputHighOnPin(GPIO_PORT_P4 , GPIO_PIN6);
+	//	[0] = Error (default)
+	//	[1] = Normal working
+	GPIO_setOutputLowOnPin(GPIO_PORT_P4 , GPIO_PIN6);
 	GPIO_setAsOutputPin(GPIO_PORT_P4 , GPIO_PIN6);
 	//P4.7 LED_G , Green led output for test.
 	//	[0] = not possiable
@@ -215,31 +234,39 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) Gpio_ISR_Port1 (void)
 #error Compiler not supported!
 #endif
 {
-	uint8_t stb_low_count = 10;
 	switch(__even_in_range(P1IV,14))
 	{
 		case 0://No interrupt
 			break;
 		case 2://P1.0
+			break;
+		case 4://P1.1
 			//STB ISR
 #if debuglog
-			PrintString("STB falling edge detect\r\n");
+			PrintString("\e[31m***STB falling edge detect***\r\n\e[30m");
 #endif
-
-			//check STB = Low for 10 times x 100us ,if all Low, reboot.
-			while( !GET_STB_IN || stb_low_count -- )
+			delay_us(500);
+			if(!GET_STB_IN)
 			{
-				delay_us(100);
-			};
+				//Mute Backlight
+				memset(&System_ManualDutyBuff , 0x00 , sizeof(System_ManualDutyBuff) );
+				Iw7027_updateDuty( (uint16_t*)System_ManualDutyBuff , Iw7027_LedSortMap_70XU30A_78CH);
 
-			if( stb_low_count == 0 )
-			{
-				Mcu_reset();
+				//Hold CPU till STB get High , if STB = L for 1s, reset Mcu.
+				uint16_t timeout = 0;
+				while(!GET_STB_IN)
+				{
+					delay_ms(10);
+					timeout ++;
+					if( timeout > 100 )
+					{
+						Mcu_reset();
+					}
+				}
 			}
 
 			GPIO_clearInterrupt	(GPIO_PORT_P1 , GPIO_PIN1);
-			break;
-		case 4://P1.1
+
 			break;
 		case 6://P1.2
 			break;
@@ -602,7 +629,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) SpiSlave_ISR_CsPin (void)
         	break;
         case 14: // overflow
         	//Calculate Spi Rx CS frequencey
-        	System_BoardInfo.boardSpiRxFreq = (SpiSlave_CsEdgeCount-1)/2 ;
+        	System_BoardInfo.bSpiRxFreq = (SpiSlave_CsEdgeCount-1)/2 ;
         	SpiSlave_CsEdgeCount = 0;
     		break;
         default: break;
@@ -679,6 +706,8 @@ uint8_t I2cSlave_init(uint8_t slaveaddress)
 	return STATUS_SUCCESS;
 }
 
+
+#pragma location=0xF400
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector = USCI_B0_VECTOR
 __interrupt void I2cSlave_ISR(void)
@@ -688,9 +717,11 @@ void __attribute__ ((interrupt(USCI_B0_VECTOR))) I2cSlave_ISR (void)
 #error Compiler not supported!
 #endif
 {
-	static uint8_t I2cSlave_OperationOffset;
-	static uint8_t I2cSlave_RxCount;
-	static uint8_t I2cSlave_TxCount;
+	static uint32_t op_add;
+	static uint8_t *op_ptr;
+	static uint32_t op_buff[3];
+	static uint32_t rxcount;
+	static uint32_t txcount;
 
     switch(__even_in_range(UCB0IV,12))
     {
@@ -701,27 +732,95 @@ void __attribute__ ((interrupt(USCI_B0_VECTOR))) I2cSlave_ISR (void)
     case  4:// Vector  4: NACKIFG
     	break;
     case  6:// Vector  6: STTIFG
-	    I2cSlave_RxCount=0;
-	    I2cSlave_TxCount=0;
+	    rxcount=0;
+	    txcount=0;
         break;
     case  8:// Vector  8: STPIFG
-    	System_Schedule.taskFlagI2c = 0;
+    	if(UCB0I2COA == I2C_SLAVE_ADDRESS_ISP/2)
+    	{//i2c update mode
+    		TB0CTL &= ~MC_3;
+    		TA0CTL &= ~MC_3;
+    		RTCCTL01_H |= RTCHOLD_H;
+    		System_Schedule.schSystemOn = 0;
+
+    		if( (op_add >= 0x104400) && (op_add <= 0x124400) )
+    		{//Erase selected flash
+    			FCTL3 = FWKEY;                            // Clear Lock bit
+    			FCTL1 = FWKEY+ERASE;                      // Set Erase bit
+    			*op_ptr = 0;
+    			FCTL1 = FWKEY;                            // Clear WRT bit
+    			FCTL3 = FWKEY+LOCK;                       // Set LOCK bit
+    		}
+
+    		if(op_add == 0xFFFFFF )
+    		{//ISP END
+    			PMMCTL0 |= PMMSWPOR ;
+    		}
+    	}
+
+    	if(UCB0I2COA == I2C_SLAVE_ADDRESS_NORMAL/2)
+    	{//Normal Mode
+        	System_Schedule.taskFlagI2c = 0;
+        	//check password = 0x0217 ,enter ISP mode.
+        	if( I2cSlave_Map[0xFE]==0x02 && I2cSlave_Map[0xFF]==0x17 )
+        	{
+        		UCB0I2COA = I2C_SLAVE_ADDRESS_ISP/2 ;
+        	}
+    	}
+
 	    break;
     case 10:// Vector 10: RXIFG
-        if(I2cSlave_RxCount==0)
-        {
-        	I2cSlave_OperationOffset= USCI_B_I2C_slaveGetData(USCI_B0_BASE);
-        }
-	  	else
-	  	{
-	        I2cSlave_Map[ I2cSlave_OperationOffset + I2cSlave_RxCount - 1] = USCI_B_I2C_slaveGetData(USCI_B0_BASE);
-	  	}
 
-        I2cSlave_RxCount++;
+    	if(UCB0I2COA == I2C_SLAVE_ADDRESS_NORMAL/2)
+    	{//Normal mode
+            if(rxcount==0)
+            {
+            	op_add= UCB0RXBUF;
+            }
+    	  	else
+    	  	{
+    	        I2cSlave_Map[ op_add + rxcount - 1] = UCB0RXBUF;
+    	  	}
+            rxcount++;
+    	}
+
+    	if(UCB0I2COA == I2C_SLAVE_ADDRESS_ISP/2)
+    	{//ISP mode
+            if(rxcount <= 2 )
+            {//Firsr 3 bytes is address
+            	op_buff [ rxcount ] = UCB0RXBUF;
+            }
+    	  	if(rxcount == 2 )
+    	  	{//Calculate op_ptr & op_add
+    	  		op_add = op_buff[0] * 0x10000 + op_buff[1] * 0x100 + op_buff[2] ;
+    	  		op_ptr = (uint8_t *)(op_add & 0x0FFFFF);
+    	  	}
+    	  	if(rxcount > 2 )
+    	  	{//check address valid;
+        		if( (op_add >= 0x004400) && (op_add <= 0x024400))
+        		{//Write Mode : write data;
+    				FCTL3 = FWKEY;                            // Clear WRT bit
+    				FCTL1 = FWKEY+WRT;
+          			op_ptr [ rxcount - 3 ] = UCB0RXBUF;
+      				FCTL1 = FWKEY;                            // Clear WRT bit
+      				FCTL3 = FWKEY+LOCK;                       // Set LOCK bit
+        		}
+    	  	}
+    	  	rxcount++;
+    	}
+
 	    break;
     case 12:// Vector 12: TXIFG
-    	USCI_B_I2C_slavePutData( USCI_B0_BASE, I2cSlave_Map[ I2cSlave_OperationOffset + I2cSlave_TxCount ]);
-	    I2cSlave_TxCount++;
+    	if(UCB0I2COA == I2C_SLAVE_ADDRESS_NORMAL/2)
+    	{
+    		UCB0TXBUF =  I2cSlave_Map[ op_add + txcount ];
+	    	txcount++;
+    	}
+    	if(UCB0I2COA == I2C_SLAVE_ADDRESS_ISP/2)
+    	{
+    		UCB0TXBUF = op_ptr [txcount] ;
+    		txcount ++ ;
+    	}
         break;
     default:
     	break;

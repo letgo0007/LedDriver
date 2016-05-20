@@ -1,7 +1,6 @@
 #include "app_dpl.h"
 #include "string.h"
-
-
+#include "math.h"
 
 /* DPL_Function
  * @Brief
@@ -21,25 +20,31 @@
  */
 uint8_t DPL_Function(uint16_t *inputduty,uint16_t *outputduty,DPL_Prama *dplparam)
 {
+	static uint8_t current;
+
+	//DPL auto detect function , auto detect current setting & apply
+	if(current == 0)
+	{
+		System_DplParam = DPL_Param_70XU30A_80CH_320ma_12bit;
+		current = 1;
+	}
 
 	if(dplparam->dplOn)
 	{
-		//Gamma correction.
+		//STEP1: Gamma correction.
 		DPL_GammaCorrection( inputduty ,inputduty ,dplparam);
-		//Input -> LD limit -> GD limit -> Output
+		//STEP2: Input -> LD limit -> GD limit -> Output
 		DPL_LocalDutyLimit( inputduty , DPL_tempDutyMatrix , dplparam );
 		DPL_GlobalDutyLimit( DPL_tempDutyMatrix , outputduty , dplparam );
-
-		//Sample
+		//STEP3: Sample
 		if( DPL_tempSampleCount % dplparam->dplSampleFrames == 1)
 		{
 			DPL_LocalDutyStatistic( outputduty , DPL_tempSumDutyMatrix , dplparam);
 		}
-		//Update Param
+		//STEP4: Update Param
 		if(DPL_tempSampleCount == dplparam->dplUpdateFrames )
 		{
 			DPL_ParametersUpdate(DPL_tempSumDutyMatrix , dplparam);
-			//Reset count
 			DPL_tempSampleCount = 0;
 		}
 		DPL_tempSampleCount ++;
@@ -120,9 +125,8 @@ void DPL_LocalDutyStatistic(uint16_t *inputduty , uint32_t *outputdutysum , DPL_
 void DPL_ParametersUpdate(uint32_t *inputdutysum , DPL_Prama *dplparam)
 {
 	/*Update local duty limit table arroding to Local Duty Sum in the last 1min
-	 * [A] DutySum > HighTemp 			 , Limit = - step,
-	 * [B] LowTemp <= DutySum <= HighTemp, Limit = HighTempLimit
-	 * [C] DutySum < LowTemp			 , Limit = + step, until reach limit
+	 * [A] DutySum > HighTemp 	, Limit = - step,
+	 * [C] DutySum < LowTemp	, Limit = + step,
 	 */
 	uint16_t i;
 	uint16_t avgduty;
@@ -135,28 +139,16 @@ void DPL_ParametersUpdate(uint32_t *inputdutysum , DPL_Prama *dplparam)
 		highlimit = dplparam->dplLdDutySumLimitHighTempTable[i] - dplparam->dplTemperatureCalibration ;
 		lowlimit = dplparam->dplLdDutySumLimitLowTempTable[i] - dplparam->dplTemperatureCalibration ;
 
-		//[A]
-		if( avgduty > highlimit )
+		//Duty sum high , Limit step down ,but no lower than highlimit.
+		//YZF 2016/5/20: + 0x0020 for noise reduction , avoid limit jump around high limit.
+		if( avgduty > highlimit +  0x0020 )
 		{
-			dplparam->dplLdDutyLimitTable[i] -= dplparam->dplLimitDownStep;
+			dplparam->dplLdDutyLimitTable[i] = fmax( dplparam->dplLdDutyLimitTable[i] - dplparam->dplLimitDownStep , highlimit );
 		}
-		//[C]
-		else if( avgduty < lowlimit	)
+		//Duty sum high , Limit step down ,but no higher than dplLdDutyMax.
+		else if( avgduty < lowlimit )
 		{
-
-			if(dplparam->dplLdDutyLimitTable[i] > dplparam->dplLdDutyMax - dplparam->dplLimitUpStep)
-			{
-				dplparam->dplLdDutyLimitTable[i] = dplparam->dplLdDutyMax;
-			}
-			else
-			{
-				dplparam->dplLdDutyLimitTable[i] += dplparam->dplLimitUpStep;
-			}
-		}
-		//[B]
-		else
-		{
-			dplparam->dplLdDutyLimitTable[i] = highlimit ;
+			dplparam->dplLdDutyLimitTable[i] = fmin( dplparam->dplLdDutyLimitTable[i] + dplparam->dplLimitUpStep , dplparam->dplLdDutyMax);
 		}
 	}
 
@@ -177,19 +169,11 @@ void DPL_GammaCorrection(uint16_t *inputduty , uint16_t *outputduty , DPL_Prama 
 
 void DPL_TemperatureCalibration(int8_t temp, DPL_Prama *dplparam)
 {
-	if( temp < 0 )
-	{
-		// temp < 0C , use 0C param
-		dplparam->dplTemperatureCalibration = DPL_TempCalibratineTable [0] ;
-	}
-	else if( temp >59 )
-	{
-		// temp > 59C , use 59C param
-		dplparam->dplTemperatureCalibration = DPL_TempCalibratineTable [59] ;
-	}
-	else
-	{
-		// 0 < temp < 59
-		dplparam->dplTemperatureCalibration = DPL_TempCalibratineTable [temp];
-	}
+	//Set high/low limt
+	temp = fmax(temp,0);
+	temp = fmin(temp,59);
+
+	//Set temp caliberation
+	dplparam->dplTemperatureCalibration = DPL_TempCalibratineTable [temp] ;
+
 }

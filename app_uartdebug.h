@@ -1,8 +1,9 @@
 #ifndef APP_UARTDEBUG_H_
 #define APP_UARTDEBUG_H_
 
-#include "driver_scheduler.h"
 #include "driverlib.h"
+#include "driver.h"
+#include "app.h"
 
 //Main program for uart cosole
 void Uart_Console(uint8_t *uartrxbuf);

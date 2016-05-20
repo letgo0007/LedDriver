@@ -141,9 +141,14 @@ uint8_t Iw7027_init(const uint8_t *workmodetable)
 	uint8_t status = 0;
 	uint8_t i = 0;
 
+	SET_IW7027_POWER_OFF;
+	delay_ms(500);
+
 #if debuglog
 	PrintTime(&System_Time);
-	PrintString("Start IW7027 Initial Sequence.\r\n");
+	PrintString("[IW7027 INTIAL] Start...\r\n");
+	PrintTime(&System_Time);
+	PrintString("[IW7027 INTIAL] -1 : Power Check\r\n");
 #endif
 
 	//Step 1 : Check Power & turn on iw7027 power.
@@ -155,80 +160,71 @@ uint8_t Iw7027_init(const uint8_t *workmodetable)
 	{
 		;
 	}
-
-	//Force IW7027 to power off for 200ms to ensure power reset.
-	delay_ms(200);
+#if debuglog
+	PrintString("DC60V ADC= ");
+	PrintInt(Adc_getResult(ADCPORT_DC60V));
+	PrintString(" , DC13V ADC= ");
+	PrintInt(Adc_getResult(ADCPORT_DC13V));
+	PrintEnter();
+	PrintTime(&System_Time);
+	PrintString("[IW7027 INTIAL] -1 : Power Check OK , Turn ON IW7027 .\r\n");
+#endif
 	SET_IW7027_POWER_ON;
 	delay_ms(200);
 
-	i = 0;
 	//Step 2: check chip ID to ensure IW7027 is working .
 	do{
 		status = Iw7027_checkReadWithTimeout( IW_ALL , 0x6B , 0x24 , 0xFF );
 #if debuglog
 		PrintTime(&System_Time);
-		PrintString("Check IW7027 CHIP ID NO.");
-		PrintChar(i++);
-		PrintEnter();
+		PrintString("[IW7027 INTIAL] -2 : Read Chip ID\r\n");
 #endif
 	}while (status == 0);
 
-	//Step 2 : Write Initial setting in sequence  from chip IW0 to IW_N
+	//Step 3 : Write Initial setting in sequence  from chip IW0 to IW_N
+
 	for( i = 0 ; i < IW7027_DEVICE_AMOUNT ; i ++ )
 	{
+#if debuglog
 		PrintTime(&System_Time);
-		PrintString("Writing Initial Reg to IW7027 NO.");
-		PrintChar(i);
-		PrintEnter();
+		PrintString("[IW7027 INTIAL] -3 : Write Initial Reg Map\r\n");
+#endif
 		Iw7027_writeMultiByte( IW_0<<i , 0x00 , 0x60 , (uint8_t *)(workmodetable + 0x60 * i) );
 	}
 
-	//Step 3 :wait STB
-#if 0
+	//Step 4 :wait STB
 	do{
 #if debuglog
 		PrintTime(&System_Time);
-		PrintString("Waiting STB...\r\n");
-		delay_ms(100);
+		PrintString("[IW7027 INTIAL] -4 : Wait STB ...\r\n");
 #endif
+		delay_ms(200);
 	}while( GET_STB_IN == 0 );
+
+	//Step 5 : Set default IW7027 status ;
+#if debuglog
+	PrintTime(&System_Time);
+	PrintString("[IW7027 INTIAL] -5 : Get STB , Set work status ...\r\n");
+	PrintString("Initial IW7027 work status:\r\n");
+	PrintArray((uint8_t *)&System_Iw7027Param,sizeof(System_Iw7027Param));
+	PrintEnter();
 #endif
-
-
-
-	//Step 5 : Delay & turn on IW7027
-	delay_ms(200);
-	Iw7027_writeSingleByte(IW_ALL,0x00,0x07);
-	delay_ms(200);
-
-	//Step 4 : Set initial IW7027 status ;
 	System_Iw7027Param.iwCurrent = i200mA;
 	System_Iw7027Param.iwFrequency = f120Hz;
-	System_Iw7027Param.iwVsyncFrequency = 120;
+	System_Iw7027Param.iwDelayTableSelet = d2D;
+	System_Iw7027Param.iwVsyncFrequency =120;
 	System_Iw7027Param.iwVsyncDelay = 1;
-	System_Iw7027Param.iwRunErrorCheck = 1 ;
-
+	System_Iw7027Param.iwRunErrorCheck = 1;
 	Iw7027_updateWorkParams(&System_Iw7027Param);
+	delay_ms(200);//wait 200ms for pwm stable.
 
+	//Step 6 : Initialize Done ,turn on BL
 #if debuglog
-	PrintString("\r\nIW7027 Error Pin    :");
-	PrintChar(GET_IW7027_FAULT_IN);
-	PrintString("\r\nIW7027 Error check  :");
-	PrintChar(System_Iw7027Param.iwIsError);
-	PrintString("\r\nIW7027 Open Short check  :");
-	PrintArray(&System_Iw7027Param.iwOpenShortStatus[0],6);
-	PrintEnter();
-	PrintArray(&System_Iw7027Param.iwOpenShortStatus[6],6);
-	PrintEnter();
-	PrintArray(&System_Iw7027Param.iwOpenShortStatus[12],6);
-	PrintEnter();
-	PrintArray(&System_Iw7027Param.iwOpenShortStatus[18],6);
-	PrintEnter();
-	PrintArray(&System_Iw7027Param.iwOpenShortStatus[24],6);
-	PrintEnter();
+	PrintTime(&System_Time);
+	PrintString("[IW7027 INTIAL] -6 : Initialize finish , turn on BL..\r\n");
+	PrintString("\e[32mBL on ,enter main loop.\r\n\e[30m");
 #endif
-
-
+	Iw7027_writeSingleByte(IW_ALL,0x00,0x07);
 	return STATUS_SUCCESS;
 }
 
@@ -344,36 +340,6 @@ uint8_t Iw7027_updateDelayTable(enum Iw7027_Delay delay)
 	return STATUS_SUCCESS;
 }
 
-uint8_t Iw7027_checkOpenShorStatus(Iw7027Param *iwparam)
-{
-	//Reset Is error
-	iwparam->iwIsError = 0;
-	uint8_t i;
-
-	//Enable Error Read
-	Iw7027_writeSingleByte( IW_ALL , 0x78, 0x80);
-
-	//Read Open/Short/DSShort status from 0x85~0x8A
-	for( i = 0 ; i < IW7027_DEVICE_AMOUNT ; i++ )
-	{
-		Iw7027_readMultiByte (IW_0<<i , 0x85 , 6  , iwparam->iwOpenShortStatus + i*6 );
-	}
-
-	//Disable Error¡¡Read
-	Iw7027_writeSingleByte( IW_ALL , 0x78, 0x00);
-
-	for( i = 0 ; i < IW7027_DEVICE_AMOUNT * 6 ; i++)
-	{
-		if( iwparam->iwOpenShortStatus[i] )
-		{
-			iwparam->iwIsError |= 1;
-		}
-	}
-
-	//Rrturn error status.
-	return iwparam->iwIsError;
-}
-
 uint8_t Iw7027_updateWorkParams(Iw7027Param *param_in)
 {
 	static Iw7027Param param_now ;
@@ -415,4 +381,34 @@ uint8_t Iw7027_updateWorkParams(Iw7027Param *param_in)
 
 	return STATUS_SUCCESS;
 
+}
+
+uint8_t Iw7027_checkOpenShorStatus(Iw7027Param *iwparam)
+{
+	//Reset Is error
+	iwparam->iwIsError = 0;
+	uint8_t i;
+
+	//Enable Error Read
+	Iw7027_writeSingleByte( IW_ALL , 0x78, 0x80);
+
+	//Read Open/Short/DSShort status from 0x85~0x8A
+	for( i = 0 ; i < IW7027_DEVICE_AMOUNT ; i++ )
+	{
+		Iw7027_readMultiByte (IW_0<<i , 0x85 , 6  , iwparam->iwOpenShortStatus + i*6 );
+	}
+
+	//Disable Error¡¡Read
+	Iw7027_writeSingleByte( IW_ALL , 0x78, 0x00);
+
+	for( i = 0 ; i < IW7027_DEVICE_AMOUNT * 6 ; i++)
+	{
+		if( iwparam->iwOpenShortStatus[i] )
+		{
+			iwparam->iwIsError |= 1;
+		}
+	}
+
+	//Rrturn error status.
+	return iwparam->iwIsError;
 }

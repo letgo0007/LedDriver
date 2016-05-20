@@ -160,7 +160,7 @@ uint8_t I2cSlave_handleMap(uint8_t *i2cmap)
 			i2cmap[I2C_ERROR_DC13VMIN] 			= System_ErrorParam.eDc13vMin ;
 			i2cmap[I2C_ERROR_SPIRXFREQMIN] 		= System_ErrorParam.eSpiRxFreqMin ;
 			i2cmap[I2C_ERROR_SPIDATACHECKEN] 	= System_ErrorParam.eSpiDataCheckEn ;
-			i2cmap[I2C_ERROR_IW7027FAULTIN] 	= System_ErrorParam.eIw7027FaultIn ;
+			i2cmap[I2C_ERROR_IW7027FAULTIGNORE] = System_ErrorParam.eIw7027FaultIgnore ;
 			i2cmap[I2C_ERROR_IW7027FAULTTYPE] 	= System_ErrorParam.eIw7027ErrorType ;
 			i2cmap[I2C_ERROR_ERRORSAVEEN] 		= System_ErrorParam.eErrorSaveEn ;
 			break;

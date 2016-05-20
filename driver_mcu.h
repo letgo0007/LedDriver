@@ -6,14 +6,14 @@
 #include "string.h"
 
 //Board Hardware Const
-#define SOFTWARE_VERSION				(0x1605030A)							//Software Version Info
-#define HARDWARE_VERSION				(0x704E5200)							//Hardware Version Info
+#define SW_VERSION						(0x11111111)							//Software Version Info
 #define CPU_F 							(24000000)								//CPU working frequency (Hz)
 #define XT1_F							(0)										//XT1 frequency, if no external XT1,set to 0
 #define XT2_F							(0)										//XT2 frequency, if no external XT2,set to 0
 #define SMCLK_F							(CPU_F)									//High speed Sub_System_Clock
 #define ACLK_F							(32768)									//Low speed Assist_Clock
-#define I2C_SLAVE_ADDRESS				(0x28)									//I2C Slave addess
+#define I2C_SLAVE_ADDRESS_NORMAL		(0x88)									//I2C Slave addess for normal working
+#define I2C_SLAVE_ADDRESS_ISP			(0x38)									//I2C Slave addess for isp mode
 #define SPI_MASTER_SPEED				(4000000)								//SPI master speed (Unit in Hz)
 #define UART_BAUDRATE					(115200)								//Bound Rate of UART
 
@@ -45,17 +45,17 @@
 typedef struct BoardInfo
 {
 	//Board D60V voltage ,unit in V.
-	uint8_t boardD60V;
+	uint8_t bD60V;
 	//Board D13V voltage ,unit in V.
-	uint8_t boardD13V;
+	uint8_t bD13V;
 	//Board temperature ,unit in C. Note it is signed value ,has negtive value.
-	int8_t boardTemprature;
+	int8_t 	bTemprature;
 	//IW7027_FAULT_IN Gpio value
-	uint8_t boardIw7027Falut;
+	uint8_t bIw7027Falut;
 	//Spi slave input frame rate.
-	uint8_t boardSpiRxFreq;
+	uint8_t bSpiRxFreq;
 	//Spi slave data format check result.
-	uint8_t boardSpiRxValid;
+	uint8_t bSpiRxValid;
 }BoardInfo;
 
 typedef struct ErrorParam
@@ -81,7 +81,7 @@ typedef struct ErrorParam
 	//Spi data valid check on/off control
 	uint8_t eSpiDataCheckEn;
 	//IW7027 FAULT pin status.
-	uint8_t eIw7027FaultIn;
+	uint8_t eIw7027FaultIgnore;
 	//IW7027 Error Type
 	//[0x00] = No error
 	//[BIT0] = Open error
@@ -94,31 +94,12 @@ typedef struct ErrorParam
 }ErrorParam;
 
 //Global variables
-static BoardInfo System_BoardInfo = {
-		.boardD60V = 0,
-		.boardD13V = 0,
-		.boardIw7027Falut = 0,
-		.boardSpiRxFreq = 0,
-		.boardSpiRxValid = 0,
-		.boardTemprature = 0,
-};
-static ErrorParam System_ErrorParam = {
-		.eErrorType = 0,
-		.eCount = 0,
-		.eDc60vMax =70,
-		.eDc60vMin = 50,
-		.eDc13vMax = 18,
-		.eDc13vMin = 10,
-		.eSpiRxFreqMin = 30,
-		.eSpiDataCheckEn = 1,
-		.eIw7027FaultIn = 0,
-		.eIw7027ErrorType = 0,
-		.eErrorSaveEn = 0,
-};
+BoardInfo System_BoardInfo ;
+ErrorParam System_ErrorParam ;
 
-static uint16_t System_InputDutyBuff[128] ;
-static uint16_t System_OutputDutyBuff[128] ;
-static uint16_t System_ManualDutyBuff[128] ;
+uint16_t System_InputDutyBuff[128] ;
+uint16_t System_OutputDutyBuff[128] ;
+uint16_t System_ManualDutyBuff[128] ;
 
 //Hardware driver interface buffers
 uint8_t SpiSlave_RxBuff[256];
