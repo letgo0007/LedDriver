@@ -67,6 +67,11 @@ void Uart_Console(uint8_t *uartrxbuf)
 		PrintString("\r\n Flash Stored Board Info:\r\n");
 		PrintArray(BOARD_ERROR_INFO_FLASH_PTR + 0x20,sizeof(System_BoardInfo));
 	}
+	else if( ! memcmp(uartrxbuf , "erase" , 5) )
+	{
+		PrintString("\r\nErase Error Info.\r\n");
+		FlashCtl_eraseSegment(BOARD_ERROR_INFO_FLASH_PTR);
+	}
 	else if( ! memcmp(uartrxbuf , "reboot" , 6) )
 	{
 		PrintString("\r\n MCU manual reboot. \r\n");
@@ -74,7 +79,16 @@ void Uart_Console(uint8_t *uartrxbuf)
 	}
 	else
 	{
-		PrintString("\r\n Help: \r\n");
+		PrintString(
+				"\r\nHelp:\r\n"
+				"spi   : Spi slave buffer\r\n"
+				"i2c   : I2c slave buffer\r\n"
+				"input : Duty input\r\n"
+				"output: Duty output\r\n"
+				"error : Error Status\r\n"
+				"erase : Clear Error Info\r\n"
+				"reboot: Reboot Mcu\r\n");
+
 	}
 }
 

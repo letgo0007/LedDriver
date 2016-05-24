@@ -1,0 +1,11 @@
+//Write ISP pass word @0xF000 as success flag
+write 38 00 F0 00 17 02 14 20
+pause 30
+
+//Check ISP pass word
+wreads 3 38 00 F0 00 5
+pause 30
+
+//Reboot to Normal Mode
+write 38 FF FF FF 
+pause 30

@@ -1,0 +1,15 @@
+//Write PassWord @ 0xFE 0xFF to enter ISP mode.
+write 28 FE 02 17 
+pause 30
+
+//Remove ISP pass word @ 0xF000
+write 38 00 F0 00 00 00 00 
+pause 30
+
+//Check ISP pass word remove success.
+wreads 3 38 00 F0 00 5
+pause 30
+
+//Reboot to ISP
+write 38 FF FF FF 
+pause 300

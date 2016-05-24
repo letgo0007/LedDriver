@@ -38,6 +38,7 @@ uint8_t Mcu_init(void)
 	PrintString("\e[32m\r\nMcu_init finish.\r\n\e[30m");
 #endif
 
+	__enable_interrupt();
 	return STATUS_SUCCESS;
 }
 
@@ -107,6 +108,13 @@ uint8_t Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 	//No error , clear is error flag & set GPIO.
 	else
 	{
+		if(iserror)
+		{
+#if debuglog
+			PrintString("\e[32m\r\nERROR Cleard.\e[30m\r\n");
+#endif
+		}
+
 		SET_ERROR_OUT_HIGH;
 		errorparam->eErrorType = retval;
 		iserror = 0;

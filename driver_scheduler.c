@@ -51,12 +51,12 @@ void Sch_init(void)
 	Calendar initTime = {0,0,0,4,1,0,0x2016};
     RTC_A_initCalendar(RTC_A_BASE,&initTime,RTC_A_FORMAT_BCD);
 
+    //Start RTC Clock
+    RTC_A_startClock(RTC_A_BASE);
+
     //Enable Sec / Min Interrupt
     RTC_A_clearInterrupt(RTC_A_BASE,RTCRDYIFG + RTCTEVIFG);
     RTC_A_enableInterrupt(RTC_A_BASE,RTCRDYIE + RTCTEVIE);
-
-    //Start RTC Clock
-    RTC_A_startClock(RTC_A_BASE);
 
     //Set default scheduler timer
     System_Schedule.schCpuTickPeriod 	= 32 ;	//1ms	1kHz

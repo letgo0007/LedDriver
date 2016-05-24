@@ -19,6 +19,7 @@ int _system_pre_init(void)
 	 **************************************************************/
 
 	WDTCTL = WDTPW + WDTHOLD;// Stop WDT
+	__disable_interrupt();
 
 	//If pass word not correct , init I2C slave in ISP mode.
 	if(ISP_PW != 0x20140217)
@@ -39,8 +40,6 @@ int _system_pre_init(void)
 		__enable_interrupt();
 		__bis_SR_register(LPM0_bits);
 	}
-
-	__enable_interrupt();
 
 	/*==================================*/
 	/* Choose if segment initialization */
