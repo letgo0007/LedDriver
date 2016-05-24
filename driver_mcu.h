@@ -6,21 +6,21 @@
 #include "string.h"
 
 //Board Hardware Const
-#define SW_VERSION						(0x11111111)							//Software Version Info
-#define CPU_F 							(24000000)								//CPU working frequency (Hz)
-#define XT1_F							(0)										//XT1 frequency, if no external XT1,set to 0
-#define XT2_F							(0)										//XT2 frequency, if no external XT2,set to 0
-#define SMCLK_F							(CPU_F)									//High speed Sub_System_Clock
-#define ACLK_F							(32768)									//Low speed Assist_Clock
-#define I2C_SLAVE_ADDRESS_NORMAL		(0x88)									//I2C Slave addess for normal working
-#define I2C_SLAVE_ADDRESS_ISP			(0x38)									//I2C Slave addess for isp mode
-#define SPI_MASTER_SPEED				(4000000)								//SPI master speed (Unit in Hz)
-#define UART_BAUDRATE					(115200)								//Bound Rate of UART
-
+#define BOARD_VERSION					(0x1605240A)							//Software Version Info
+#define BOARD_CPU_F 					(24000000)								//CPU working frequency (Hz)
+#define BOARD_XT1_F						(0)										//XT1 frequency, if no external XT1,set to 0
+#define BOARD_XT2_F						(0)										//XT2 frequency, if no external XT2,set to 0
+#define BOARD_SMCLK_F					(BOARD_CPU_F)							//High speed Sub_System_Clock
+#define BOARD_ACLK_F					(32768)									//Low speed Assist_Clock
+#define BOARD_I2C_ADDRESS_NORMAL		(0x28)									//I2C Slave addess for normal working
+#define BOARD_I2C_ADDRESS_ISP			(0x38)									//I2C Slave addess for isp mode
+#define BOARD_SPI_MASTER_SPEED			(4000000)								//SPI master speed (Unit in Hz)
+#define BOARD_UART_BAUDRATE				(115200)								//Bound Rate of UART
+#define BOARD_ERROR_INFO_FLASH_PTR		((uint8_t *)0x1800)								//Error Info flash address
 
 //Marcos
-#define delay_us(x) 					__delay_cycles((long)(CPU_F*(double)x/1000000))	//delay unit by us (CPU block)
-#define delay_ms(x) 					__delay_cycles((long)(CPU_F*(double)x/1000))	//delay unit by ms (CPU block)
+#define delay_us(x) 					__delay_cycles((long)(BOARD_CPU_F*(double)x/1000000))	//delay unit by us (CPU block)
+#define delay_ms(x) 					__delay_cycles((long)(BOARD_CPU_F*(double)x/1000))	//delay unit by ms (CPU block)
 
 //ADC Ports
 #define ADCCAL_15V_30C  				*((unsigned int *)0x1A1A)				//Temperature Sensor Calibration value -30 C, see device data sheet
@@ -30,7 +30,7 @@
 #define ADCPORT_TEMPSENSOR				(ADC10_A_INPUT_TEMPSENSOR)
 
 //GPIO Ports , refer to GPIO_ASSIGNMENT.xlsx
-#define GPIO_PIN_ALL					(0xFF)
+#define GPIO_PIN_ALL					(0xFFFF)
 #define GET_STB_IN						(GPIO_getInputPinValue(GPIO_PORT_P1,GPIO_PIN1))
 #define GET_IW7027_FAULT_IN				(GPIO_getInputPinValue(GPIO_PORT_P6,GPIO_PIN0))
 #define SET_IW7027_POWER_ON				(GPIO_setOutputHighOnPin(GPIO_PORT_P1 , GPIO_PIN6))
@@ -60,14 +60,14 @@ typedef struct BoardInfo
 
 typedef struct ErrorParam
 {
+	//Error amount ,stored in info section.
+	uint8_t eCount;
 	//Error Type
 	//[0x00] = No error
 	//[BIT0] = Power error
 	//[BIT1] = IW7027 open short error
 	//[BIT2] = Signal error
 	uint8_t eErrorType;
-	//Error amount ,stored in info section.
-	uint8_t eCount;
 	//Dc60V high limit,unit in V.
 	uint8_t	eDc60vMax;
 	//Dc60V low limit ,unit in V.
@@ -79,7 +79,7 @@ typedef struct ErrorParam
 	//Spi Frame rate low limit,unit in Hz.
 	uint8_t	eSpiRxFreqMin;
 	//Spi data valid check on/off control
-	uint8_t eSpiDataCheckEn;
+	uint8_t eSpiDataErrorIgnore;
 	//IW7027 FAULT pin status.
 	uint8_t eIw7027FaultIgnore;
 	//IW7027 Error Type
@@ -103,7 +103,7 @@ uint16_t System_ManualDutyBuff[128] ;
 
 //Hardware driver interface buffers
 uint8_t SpiSlave_RxBuff[256];
-uint8_t I2cSlave_Map[256];
+uint8_t I2cSlave_Map[512];
 uint8_t Uart_RxBuff[256];
 
 

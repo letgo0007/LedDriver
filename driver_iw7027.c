@@ -8,7 +8,7 @@ void Iw7027_writeMultiByte(uint8_t chipsel, uint8_t regaddress, uint8_t length ,
 {
 	//Selest chip
 	SpiMaster_setCsPin(chipsel);
-	delay_us(IW7027_SPI_MASTER_TRANS_START_DELAY);
+	delay_us(IW_SPI_MASTER_TRANS_START_DELAY);
 
 	//Send Head & address
 	SpiMaster_sendSingleByte( 0x01 );
@@ -19,7 +19,7 @@ void Iw7027_writeMultiByte(uint8_t chipsel, uint8_t regaddress, uint8_t length ,
 	SpiMaster_sendMultiByte( txdata , length );
 
 	//Unselest all chip
-	delay_us(IW7027_SPI_MASTER_TRANS_STOP_DELAY);
+	delay_us(IW_SPI_MASTER_TRANS_STOP_DELAY);
 	SpiMaster_setCsPin( 0x00 );
 
 }
@@ -28,7 +28,7 @@ void Iw7027_writeSingleByte(uint8_t chipsel, uint8_t regaddress, uint8_t txdata)
 {
 	//Selest chip
 	SpiMaster_setCsPin(chipsel);
-	delay_us(IW7027_SPI_MASTER_TRANS_START_DELAY);
+	delay_us(IW_SPI_MASTER_TRANS_START_DELAY);
 
 	//Send Head & address
 	SpiMaster_sendSingleByte( 0xC0 );
@@ -38,7 +38,7 @@ void Iw7027_writeSingleByte(uint8_t chipsel, uint8_t regaddress, uint8_t txdata)
 	SpiMaster_sendSingleByte( txdata );
 
 	//Unselest all chip
-	delay_us(IW7027_SPI_MASTER_TRANS_STOP_DELAY);
+	delay_us(IW_SPI_MASTER_TRANS_STOP_DELAY);
 	SpiMaster_setCsPin( 0x00 );
 }
 
@@ -48,7 +48,7 @@ uint8_t Iw7027_readSingleByte(uint8_t chipsel, uint8_t regaddress)
 
 	//Selest chip
 	SpiMaster_setCsPin(chipsel);
-	delay_us(IW7027_SPI_MASTER_TRANS_START_DELAY);
+	delay_us(IW_SPI_MASTER_TRANS_START_DELAY);
 
 	//Send Head & address
 	SpiMaster_sendSingleByte( 0x41 );
@@ -59,7 +59,7 @@ uint8_t Iw7027_readSingleByte(uint8_t chipsel, uint8_t regaddress)
 	readbyte = SpiMaster_sendSingleByte( 0x00 );
 
 	//Unselest all chip
-	delay_us(IW7027_SPI_MASTER_TRANS_STOP_DELAY);
+	delay_us(IW_SPI_MASTER_TRANS_STOP_DELAY);
 	SpiMaster_setCsPin(0x00);
 
 	return readbyte;
@@ -71,7 +71,7 @@ uint8_t Iw7027_readMultiByte(uint8_t chipsel, uint8_t regaddress , uint8_t lengt
 
 	//Selest chip
 	SpiMaster_setCsPin(chipsel);
-	delay_us(IW7027_SPI_MASTER_TRANS_START_DELAY);
+	delay_us(IW_SPI_MASTER_TRANS_START_DELAY);
 
 	//Send Head & address
 	SpiMaster_sendSingleByte( 0x01 );
@@ -86,7 +86,7 @@ uint8_t Iw7027_readMultiByte(uint8_t chipsel, uint8_t regaddress , uint8_t lengt
 	}
 
 	//Unselest all chip
-	delay_us(IW7027_SPI_MASTER_TRANS_STOP_DELAY);
+	delay_us(IW_SPI_MASTER_TRANS_STOP_DELAY);
 	SpiMaster_setCsPin(0x00);
 
 	return rxdata[length-1];
@@ -183,7 +183,7 @@ uint8_t Iw7027_init(const uint8_t *workmodetable)
 
 	//Step 3 : Write Initial setting in sequence  from chip IW0 to IW_N
 
-	for( i = 0 ; i < IW7027_DEVICE_AMOUNT ; i ++ )
+	for( i = 0 ; i < IW_DEVICE_AMOUNT ; i ++ )
 	{
 #if debuglog
 		PrintTime(&System_Time);
@@ -202,6 +202,13 @@ uint8_t Iw7027_init(const uint8_t *workmodetable)
 	}while( GET_STB_IN == 0 );
 
 	//Step 5 : Set default IW7027 status ;
+	System_Iw7027Param.iwCurrent = i200mA;
+	System_Iw7027Param.iwFrequency = f120Hz;
+	System_Iw7027Param.iwDelayTableSelet = d2D;
+	System_Iw7027Param.iwVsyncFrequency =120;
+	System_Iw7027Param.iwVsyncDelay = 1;
+	System_Iw7027Param.iwRunErrorCheck = 1;
+
 #if debuglog
 	PrintTime(&System_Time);
 	PrintString("[IW7027 INTIAL] -5 : Get STB , Set work status ...\r\n");
@@ -209,12 +216,7 @@ uint8_t Iw7027_init(const uint8_t *workmodetable)
 	PrintArray((uint8_t *)&System_Iw7027Param,sizeof(System_Iw7027Param));
 	PrintEnter();
 #endif
-	System_Iw7027Param.iwCurrent = i200mA;
-	System_Iw7027Param.iwFrequency = f120Hz;
-	System_Iw7027Param.iwDelayTableSelet = d2D;
-	System_Iw7027Param.iwVsyncFrequency =120;
-	System_Iw7027Param.iwVsyncDelay = 1;
-	System_Iw7027Param.iwRunErrorCheck = 1;
+
 	Iw7027_updateWorkParams(&System_Iw7027Param);
 	delay_ms(200);//wait 200ms for pwm stable.
 
@@ -232,10 +234,10 @@ uint8_t Iw7027_updateDuty(uint16_t *dutymatrix ,const uint8_t *ledsortmap)
 {
 	uint8_t i;
 
-	static uint8_t Iw7027_SortBuff[ IW7027_DEVICE_AMOUNT * 32 ];
+	static uint8_t Iw7027_SortBuff[ IW_DEVICE_AMOUNT * 32 ];
 
 	//Sort duty matrix by LED_sort_map
-	for( i = 0 ; i < IW7027_LED_CHANNEL ; i++ )
+	for( i = 0 ; i < IW_LED_CHANNEL ; i++ )
 	{
 		//convert 1 16bit data -> 2 8bit data . with resorted in LED hardware order
 		Iw7027_SortBuff [ 2 * ledsortmap [ i ]  ] 	= dutymatrix[ i ] >> 8;
@@ -243,7 +245,7 @@ uint8_t Iw7027_updateDuty(uint16_t *dutymatrix ,const uint8_t *ledsortmap)
 	}
 
 	//Sequence write chip IW0 ~ IW_N
-	for( i = 0 ; i < IW7027_DEVICE_AMOUNT ; i ++ )
+	for( i = 0 ; i < IW_DEVICE_AMOUNT ; i ++ )
 	{
 		Iw7027_writeMultiByte( IW_0<<i , 0x40 , 32 , Iw7027_SortBuff + 32 * i );
 	}
@@ -393,7 +395,7 @@ uint8_t Iw7027_checkOpenShorStatus(Iw7027Param *iwparam)
 	Iw7027_writeSingleByte( IW_ALL , 0x78, 0x80);
 
 	//Read Open/Short/DSShort status from 0x85~0x8A
-	for( i = 0 ; i < IW7027_DEVICE_AMOUNT ; i++ )
+	for( i = 0 ; i < IW_DEVICE_AMOUNT ; i++ )
 	{
 		Iw7027_readMultiByte (IW_0<<i , 0x85 , 6  , iwparam->iwOpenShortStatus + i*6 );
 	}
@@ -401,7 +403,7 @@ uint8_t Iw7027_checkOpenShorStatus(Iw7027Param *iwparam)
 	//Disable Error¡¡Read
 	Iw7027_writeSingleByte( IW_ALL , 0x78, 0x00);
 
-	for( i = 0 ; i < IW7027_DEVICE_AMOUNT * 6 ; i++)
+	for( i = 0 ; i < IW_DEVICE_AMOUNT * 6 ; i++)
 	{
 		if( iwparam->iwOpenShortStatus[i] )
 		{

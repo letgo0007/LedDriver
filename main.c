@@ -3,28 +3,39 @@
 #include "string.h"
 
 #pragma location=0xF000
-const uint32_t ISP_VER = SW_VERSION ;
+const uint32_t ISP_PW = 0x20140217 ;
 
 #pragma location=0xF200
 int _system_pre_init(void)
 {
-	/* Insert low-level initializations here */
-	/* Disable Watchdog timer to prevent reset during long variable initialization sequences. */
-	/* Initialize I2C Slave as ISP mode */
-	WDTCTL = WDTPW + WDTHOLD;                 // Stop WDT
+	/**************************************************************
+	 * Insert low-level initializations here.
+	 * System will run _system_pre_init before RAM is initialized.
+	 * Return: 0 to omit initialization
+	 * Return: 1 to do RAM initialization.
+	 * Then jump to main()
+	 * Disable Watchdog timer to prevent reset during long variable
+	 * initialization sequences.
+	 **************************************************************/
 
-	if(ISP_VER != SW_VERSION)
+	WDTCTL = WDTPW + WDTHOLD;// Stop WDT
+
+	//If pass word not correct , init I2C slave in ISP mode.
+	if(ISP_PW != 0x20140217)
 	{
-		P3SEL |= BIT0+BIT1;                       // P3.0 =SDA P3.1=SCL
-		UCB0CTL1 |= UCSWRST;                      // Enable SW reset
-		UCB0CTL0 = UCMODE_3 + UCSYNC;             // I2C Slave, synchronous mode
-		UCB0I2COA = I2C_SLAVE_ADDRESS_ISP/2;        // Slave Address
-		UCB0CTL1 &= ~UCSWRST;                     // Clear SW reset, resume operation
-		UCB0IE |= UCRXIE + UCTXIE + UCSTTIE + UCSTPIE;     // Enable TX interrupt
-
+		//P4.6 = ERROR_OUT , P4.7 = LED_G , P3.0 = SDA ,P3.1 = SCL
 		P4OUT |= BIT7 + BIT6 ;
 		P4DIR |= BIT7 + BIT6 ;
+		P3SEL |= BIT0 + BIT1 ;
 
+		//Initialize I2C slave in ISP mode address
+		UCB0CTL1 |= UCSWRST;
+		UCB0CTL0 = UCMODE_3 + UCSYNC;
+		UCB0I2COA = BOARD_I2C_ADDRESS_ISP/2;
+		UCB0CTL1 &= ~UCSWRST;
+		UCB0IE |= UCRXIE + UCTXIE + UCSTTIE + UCSTPIE;
+
+		//Enable Interrupt & Turn Off CPU.
 		__enable_interrupt();
 		__bis_SR_register(LPM0_bits);
 	}
@@ -34,8 +45,6 @@ int _system_pre_init(void)
 	/*==================================*/
 	/* Choose if segment initialization */
 	/* should be done or not. */
-	/* Return: 0 to omit initialization */
-	/* 1 to run initialization */
 	/*==================================*/
  	 return 1;
 }
@@ -44,10 +53,9 @@ int main(void) {
 	//Initialize Driver
     Mcu_init();
     Sch_init();
-    //Iw7027_init(Iw7027_DefaultRegMap_70XU30A_78CH);
+    Iw7027_init(Iw7027_DefaultRegMap_70XU30A_78CH);
 	//Initialize application
 	I2cSlave_initMap(I2cSlave_Map);
-
 
     //Main Loop
     while(System_Schedule.schSystemOn)
@@ -57,7 +65,7 @@ int main(void) {
     	//Task1 : Board Check
     	if(System_Schedule.taskFlagBoardCheck)
     	{
-    		//Mcu_checkBoardStatus(&System_BoardInfo , &System_ErrorParam);
+    		Mcu_checkBoardStatus(&System_BoardInfo , &System_ErrorParam);
     		System_Schedule.taskFlagBoardCheck = 0;
     	}
 
@@ -118,7 +126,7 @@ int main(void) {
     	//Task4 Test & report
     	if(System_Schedule.testFlag1Hz)
     	{
-
+    		PrintEnter();
     		PrintTime(&System_Time);
     		System_Schedule.schLocalDimmingOn = 1;
 
@@ -153,9 +161,9 @@ int main(void) {
     } //End of while(System_Schedule.schSystemOn)
 
 
-    //HOLD
-    WDTCTL = WDTPW + WDTHOLD;                 // Stop WDT
-    __bis_SR_register(LPM0_bits);
+    //Reboot
+    Mcu_reset();
+
 
 }
 

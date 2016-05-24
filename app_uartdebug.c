@@ -56,6 +56,17 @@ void Uart_Console(uint8_t *uartrxbuf)
 		PrintArray((uint8_t *)&System_Iw7027Param,sizeof(System_Iw7027Param));
 		PrintEnter();
 	}
+	else if( ! memcmp(uartrxbuf , "error" , 5) )
+	{
+		PrintString("\r\n Current Error Detect Param:\r\n");
+		PrintArray((uint8_t *)&System_ErrorParam,sizeof(System_ErrorParam));
+		PrintString("\r\n Current Board Status:\r\n");
+		PrintArray((uint8_t *)&System_BoardInfo,sizeof(System_BoardInfo));
+		PrintString("\r\n Flash Stored Error Param:\r\n");
+		PrintArray(BOARD_ERROR_INFO_FLASH_PTR,sizeof(System_ErrorParam));
+		PrintString("\r\n Flash Stored Board Info:\r\n");
+		PrintArray(BOARD_ERROR_INFO_FLASH_PTR + 0x20,sizeof(System_BoardInfo));
+	}
 	else if( ! memcmp(uartrxbuf , "reboot" , 6) )
 	{
 		PrintString("\r\n MCU manual reboot. \r\n");

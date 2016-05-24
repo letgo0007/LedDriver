@@ -11,14 +11,14 @@ uint8_t Mcu_init(void)
 
 	//Ports initial
 	Gpio_init();
-	Clock_init(CPU_F);
+	Clock_init(BOARD_CPU_F);
 	Adc_init();
 
 	//Bus initial
-	SpiMaster_init(SPI_MASTER_SPEED);
+	SpiMaster_init(BOARD_SPI_MASTER_SPEED);
 	SpiSlave_init();
-	I2cSlave_init(I2C_SLAVE_ADDRESS_NORMAL);
-	Uart_init(UART_BAUDRATE);
+	I2cSlave_init(BOARD_I2C_ADDRESS_NORMAL);
+	Uart_init(BOARD_UART_BAUDRATE);
 
 	//Set Default & get 1st board status.
 	System_ErrorParam.eErrorType = 0,
@@ -28,14 +28,14 @@ uint8_t Mcu_init(void)
 	System_ErrorParam.eDc13vMax = 18,
 	System_ErrorParam.eDc13vMin = 10,
 	System_ErrorParam.eSpiRxFreqMin = 30,
-	System_ErrorParam.eSpiDataCheckEn = 0,
-	System_ErrorParam.eIw7027FaultIgnore = 1,
+	System_ErrorParam.eSpiDataErrorIgnore = 0,
+	System_ErrorParam.eIw7027FaultIgnore = 0,
 	System_ErrorParam.eIw7027ErrorType = 0,
-	System_ErrorParam.eErrorSaveEn = 0,
-	Mcu_checkBoardStatus(&System_BoardInfo , &System_ErrorParam);
+	System_ErrorParam.eErrorSaveEn = 1,
+	//Mcu_checkBoardStatus(&System_BoardInfo , &System_ErrorParam);
 
 #if debuglog
-	PrintString("\e[32m\r\nBoard_init finish.\r\n\e[30m");
+	PrintString("\e[32m\r\nMcu_init finish.\r\n\e[30m");
 #endif
 
 	return STATUS_SUCCESS;
@@ -43,6 +43,7 @@ uint8_t Mcu_init(void)
 
 uint8_t Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 {
+	static uint8_t iserror;
 	uint8_t retval = 0;
 
 	//Load Board Hardware Info
@@ -66,8 +67,8 @@ uint8_t Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 		retval |= BIT1;
 	}
 
-	//BIT2 : Signal Error flag ,only set when eSpiRxDataCheckOn is ON
-	if(errorparam->eSpiDataCheckEn)
+	//BIT2 : Signal Error flag ,only set when eSpiDataErrorIgnore is off
+	if( ! errorparam->eSpiDataErrorIgnore)
 	{
 		if( ( boardinfo->bSpiRxFreq < errorparam->eSpiRxFreqMin ) || ( ! boardinfo->bSpiRxValid ) )
 		{
@@ -78,19 +79,38 @@ uint8_t Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 	//Set Error Out
 	if(retval)
 	{
-		PrintString("ERROR/r/n");
-		PrintChar(retval);
-		PrintEnter();
-		PrintArray((uint8_t *)&System_BoardInfo,sizeof(System_BoardInfo));
-		PrintEnter();
-		//SET_ERROR_OUT_HIGH; //Test only
-		SET_ERROR_OUT_LOW; // Low level = Error
+		SET_ERROR_OUT_LOW;
+		errorparam->eErrorType = retval;
+		//1st time error happen
+		if(!iserror)
+		{
+#if debuglog
+			PrintString("\e[31m\r\nERROR ! TYPE : \e[30m");
+			PrintChar(retval);
+			PrintEnter();
+			PrintArray((uint8_t *)&System_BoardInfo,sizeof(System_BoardInfo));
+			PrintEnter();
+#endif
+			if( errorparam->eErrorSaveEn )
+			{
+				errorparam->eCount = *BOARD_ERROR_INFO_FLASH_PTR;
+				errorparam->eCount ++ ;
+				FlashCtl_eraseSegment(BOARD_ERROR_INFO_FLASH_PTR);
+				FlashCtl_write8((uint8_t*)errorparam,BOARD_ERROR_INFO_FLASH_PTR,sizeof(System_ErrorParam));
+				FlashCtl_write8((uint8_t*)boardinfo,BOARD_ERROR_INFO_FLASH_PTR+0x20,sizeof(System_BoardInfo));
+			}
+
+		}
+		iserror = 1;
+
 	}
+	//No error , clear is error flag & set GPIO.
 	else
 	{
 		SET_ERROR_OUT_HIGH;
+		errorparam->eErrorType = retval;
+		iserror = 0;
 	}
-
 	return retval;
 
 }
@@ -116,13 +136,13 @@ void Mcu_invokeBsl(void)
 
 uint8_t Gpio_init(void)
 {
-	//Set default value for all ports = input with pull down resistor
-	GPIO_setAsInputPinWithPullDownResistor(GPIO_PORT_PA,0xFF);
-	GPIO_setAsInputPinWithPullDownResistor(GPIO_PORT_PB,0xFF);
-	GPIO_setAsInputPinWithPullDownResistor(GPIO_PORT_PC,0xFF);
-	GPIO_setAsInputPinWithPullDownResistor(GPIO_PORT_PD,0xFF);
+	//STEP1 : Set default value for all ports = input with pull down resistor
+	GPIO_setAsInputPinWithPullDownResistor(GPIO_PORT_PA,GPIO_PIN_ALL);
+	GPIO_setAsInputPinWithPullDownResistor(GPIO_PORT_PB,GPIO_PIN_ALL);
+	GPIO_setAsInputPinWithPullDownResistor(GPIO_PORT_PC,GPIO_PIN_ALL);
+	GPIO_setAsInputPinWithPullDownResistor(GPIO_PORT_PD,GPIO_PIN_ALL);
 
-
+	//STEP2 : Set initial GPIO statis
 	//P1.0 ACLK_OUT , ACLK test point
 	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1 , GPIO_PIN0);
 	//P1.1 STB_IN, GPIO input with pull up , falling edge interrupt
@@ -706,7 +726,6 @@ uint8_t I2cSlave_init(uint8_t slaveaddress)
 	return STATUS_SUCCESS;
 }
 
-
 #pragma location=0xF400
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector = USCI_B0_VECTOR
@@ -723,108 +742,168 @@ void __attribute__ ((interrupt(USCI_B0_VECTOR))) I2cSlave_ISR (void)
 	static uint32_t rxcount;
 	static uint32_t txcount;
 
-    switch(__even_in_range(UCB0IV,12))
-    {
-    case  0:// Vector  0: No interrupts
-    	break;
-    case  2:// Vector  2: ALIFG
-    	break;
-    case  4:// Vector  4: NACKIFG
-    	break;
-    case  6:// Vector  6: STTIFG
-	    rxcount=0;
-	    txcount=0;
-        break;
-    case  8:// Vector  8: STPIFG
-    	if(UCB0I2COA == I2C_SLAVE_ADDRESS_ISP/2)
-    	{//i2c update mode
-    		TB0CTL &= ~MC_3;
-    		TA0CTL &= ~MC_3;
-    		RTCCTL01_H |= RTCHOLD_H;
-    		System_Schedule.schSystemOn = 0;
+	if(UCB0I2COA == BOARD_I2C_ADDRESS_ISP/2)
+	{//ISP mode
+	    switch(__even_in_range(UCB0IV,12))
+	    {
+	    case  0:// Vector  0: No interrupts
+	    	break;
+	    case  2:// Vector  2: ALIFG
+	    	break;
+	    case  4:// Vector  4: NACKIFG
+	    	break;
+	    case  6:// Vector  6: STTIFG
+	    	//Handle RX isr first when conflict with START.
+            if(UCB0IFG & UCRXIFG)
+            {
+    	    	if(rxcount <= 2 )
+                {//0~2 bytes are address
+                	op_buff [ rxcount ] = UCB0RXBUF;
+                }
+                else
+        	  	{//3~ bytes are data
+        	  		I2cSlave_Map[ rxcount - 3] = UCB0RXBUF;
+        	  	}
+    	    	UCB0IFG &=~ UCRXIFG ;
+            }
+
+            //Calculate operation adderss.
+	  		op_add = op_buff[0] * 0x10000 + op_buff[1] * 0x100 + op_buff[2] ;
+	  		op_ptr = (uint8_t *)(op_add & 0x0FFFFF);
+
+	  		//Reset count value.
+		    rxcount=0;
+		    txcount=0;
+	        break;
+	    case  8:// Vector  8: STPIFG
+
+	    	//Handle RX isr first when conflict with STOP.
+            if(UCB0IFG & UCRXIFG)
+            {
+    	    	if(rxcount <= 2 )
+                {//Firsr 3 bytes is address
+                	op_buff [ rxcount ] = UCB0RXBUF;
+                }
+                else
+        	  	{//check address valid;
+        	  		I2cSlave_Map[ rxcount - 3] = UCB0RXBUF;
+        	  	}
+    	    	UCB0IFG &=~ UCRXIFG ;
+            }
+
+            //Calculate operation address.
+	  		op_add = op_buff[0] * 0x10000 + op_buff[1] * 0x100 + op_buff[2] ;
+	  		op_ptr = (uint8_t *)(op_add & 0x0FFFFF);
+
+	  		//Flash control
+
+	  		__disable_interrupt();	//Disable ISR when flash write.
 
     		if( (op_add >= 0x104400) && (op_add <= 0x124400) )
-    		{//Erase selected flash
+    		{//Erase
     			FCTL3 = FWKEY;                            // Clear Lock bit
     			FCTL1 = FWKEY+ERASE;                      // Set Erase bit
-    			*op_ptr = 0;
+    			*op_ptr = 0xFF;
     			FCTL1 = FWKEY;                            // Clear WRT bit
     			FCTL3 = FWKEY+LOCK;                       // Set LOCK bit
     		}
+    		if ( (rxcount>2) && (op_add >= 0x004400) && (op_add <= 0x024400) )
+    		{//Write
+    			uint16_t i;
+    			uint8_t * Flash_ptr;                     // Initialize Flash pointer
+    			Flash_ptr = (uint8_t *) op_add;
 
-    		if(op_add == 0xFFFFFF )
-    		{//ISP END
-    			PMMCTL0 |= PMMSWPOR ;
+    			FCTL3 = FWKEY;                            // Clear Lock bit
+    			FCTL1 = FWKEY+ERASE;                      // Set Erase bit
+    			*Flash_ptr = 0;                           // Dummy write to erase Flash seg
+    			FCTL1 = FWKEY+WRT;                        // Set WRT bit for write operation
+    			for (i = 0; i < rxcount - 2; i++)
+    			{
+    				*Flash_ptr++ = I2cSlave_Map[i];        // Write value to flash
+    			}
+    			FCTL1 = FWKEY;                            // Clear WRT bit
+    			FCTL3 = FWKEY+LOCK;                       // Set LOCK bit
     		}
-    	}
+    		__enable_interrupt();
 
-    	if(UCB0I2COA == I2C_SLAVE_ADDRESS_NORMAL/2)
-    	{//Normal Mode
-        	System_Schedule.taskFlagI2c = 0;
-        	//check password = 0x0217 ,enter ISP mode.
-        	if( I2cSlave_Map[0xFE]==0x02 && I2cSlave_Map[0xFF]==0x17 )
-        	{
-        		UCB0I2COA = I2C_SLAVE_ADDRESS_ISP/2 ;
-        	}
-    	}
+    		//ISP mode special CMDs
+    		if(op_add == 0xFFFFFF )
+    		{//Reboot CMD
+    			PMMCTL0 |= PMMSWBOR ;
+    		}
 
-	    break;
-    case 10:// Vector 10: RXIFG
-
-    	if(UCB0I2COA == I2C_SLAVE_ADDRESS_NORMAL/2)
-    	{//Normal mode
-            if(rxcount==0)
-            {
-            	op_add= UCB0RXBUF;
-            }
-    	  	else
-    	  	{
-    	        I2cSlave_Map[ op_add + rxcount - 1] = UCB0RXBUF;
-    	  	}
-            rxcount++;
-    	}
-
-    	if(UCB0I2COA == I2C_SLAVE_ADDRESS_ISP/2)
-    	{//ISP mode
+		    break;
+	    case 10:// Vector 10: RXIFG
             if(rxcount <= 2 )
-            {//Firsr 3 bytes is address
+            {//0~2 bytes is address
             	op_buff [ rxcount ] = UCB0RXBUF;
             }
-    	  	if(rxcount == 2 )
-    	  	{//Calculate op_ptr & op_add
-    	  		op_add = op_buff[0] * 0x10000 + op_buff[1] * 0x100 + op_buff[2] ;
-    	  		op_ptr = (uint8_t *)(op_add & 0x0FFFFF);
+            else
+    	  	{//3~ bytes are data , buffer to RAM
+    	  		I2cSlave_Map[ rxcount - 3] = UCB0RXBUF;
     	  	}
-    	  	if(rxcount > 2 )
-    	  	{//check address valid;
-        		if( (op_add >= 0x004400) && (op_add <= 0x024400))
-        		{//Write Mode : write data;
-    				FCTL3 = FWKEY;                            // Clear WRT bit
-    				FCTL1 = FWKEY+WRT;
-          			op_ptr [ rxcount - 3 ] = UCB0RXBUF;
-      				FCTL1 = FWKEY;                            // Clear WRT bit
-      				FCTL3 = FWKEY+LOCK;                       // Set LOCK bit
-        		}
-    	  	}
-    	  	rxcount++;
-    	}
+	    	rxcount++;
+		    break;
+	    case 12:// Vector 12: TXIFG
+	    	//Return data to I2C Master for READ operation
+	    	UCB0TXBUF = op_ptr [txcount] ;
+	    	txcount ++ ;
+	        break;
+	    default:
+	    	break;
+	    }
+	}
 
-	    break;
-    case 12:// Vector 12: TXIFG
-    	if(UCB0I2COA == I2C_SLAVE_ADDRESS_NORMAL/2)
-    	{
-    		UCB0TXBUF =  I2cSlave_Map[ op_add + txcount ];
-	    	txcount++;
-    	}
-    	if(UCB0I2COA == I2C_SLAVE_ADDRESS_ISP/2)
-    	{
-    		UCB0TXBUF = op_ptr [txcount] ;
-    		txcount ++ ;
-    	}
-        break;
-    default:
-    	break;
-    }
+
+	if(UCB0I2COA == BOARD_I2C_ADDRESS_NORMAL/2)
+	{//Normal Mode
+	    switch(__even_in_range(UCB0IV,12))
+	    {
+	    case  0:// Vector  0: No interrupts
+	    	break;
+	    case  2:// Vector  2: ALIFG
+	    	break;
+	    case  4:// Vector  4: NACKIFG
+	    	break;
+	    case  6:// Vector  6: STTIFG
+		    rxcount=0;
+		    txcount=0;
+	        break;
+	    case  8:// Vector  8: STPIFG
+	        System_Schedule.taskFlagI2c = 0;
+	        //ISP mode entrance ,check pass word.
+	        if( I2cSlave_Map[0xFE]==0x02 && I2cSlave_Map[0xFF]==0x17 )
+	        {
+	        	//Stop internal Timer
+	        	TB0CTL &= ~MC_3;
+	        	TA0CTL &= ~MC_3;
+	        	RTCCTL01_H |= RTCHOLD_H;
+	        	//Set I2C address to ISP mode
+	        	UCB0I2COA = BOARD_I2C_ADDRESS_ISP/2 ;
+	        }
+		    break;
+	    case 10:// Vector 10: RXIFG
+	        if(rxcount==0)
+	        {
+	        	op_add= UCB0RXBUF;
+	        }
+	    	else
+	    	{
+	    	    I2cSlave_Map[ op_add + rxcount - 1] = UCB0RXBUF;
+	    	}
+	        rxcount++;
+		    break;
+	    case 12:// Vector 12: TXIFG
+	    	UCB0TXBUF =  I2cSlave_Map[ op_add + txcount ];
+		    txcount++;
+	        break;
+	    default:
+	    	break;
+	    }
+	}
+
+
+
 }
 
 uint8_t Uart_init(uint32_t baudrate)
@@ -835,7 +914,7 @@ uint8_t Uart_init(uint32_t baudrate)
     //Baudrate = UART_BAUDRATE , clock freq = SMCLK_F
     USCI_A_UART_initParam param = {0};
     param.selectClockSource = USCI_A_UART_CLOCKSOURCE_SMCLK;
-    param.clockPrescalar = UCS_getSMCLK()/UART_BAUDRATE;
+    param.clockPrescalar = UCS_getSMCLK()/BOARD_UART_BAUDRATE;
     param.firstModReg = 0;
     param.secondModReg = 5;
     param.parity = USCI_A_UART_NO_PARITY;

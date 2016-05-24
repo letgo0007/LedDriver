@@ -5,10 +5,10 @@
 #include "driverlib.h"
 
 // IW7027 Hardware info
-#define IW7027_DEVICE_AMOUNT			(5)		//IW7027 IC chip amount
-#define IW7027_LED_CHANNEL				(78)	//Total valid LED channel number
-#define IW7027_SPI_MASTER_TRANS_START_DELAY		(50)	//CS -> SPI delay(unit:us) , see IW7027 application note
-#define IW7027_SPI_MASTER_TRANS_STOP_DELAY		(10)	//SPI -> CS delay(unit:us) , see IW7027 application note
+#define IW_DEVICE_AMOUNT				(5)		//IW7027 IC chip amount
+#define IW_LED_CHANNEL					(78)	//Total valid LED channel number
+#define IW_SPI_MASTER_TRANS_START_DELAY	(50)	//CS -> SPI delay(unit:us) , see IW7027 application note
+#define IW_SPI_MASTER_TRANS_STOP_DELAY	(10)	//SPI -> CS delay(unit:us) , see IW7027 application note
 #define IW_0							(BIT0)	//Chip Select bit ,orderd from BIT0~BIT7
 #define IW_1							(BIT1)
 #define IW_2							(BIT2)
@@ -53,11 +53,11 @@ typedef struct Iw7027Param
 	uint8_t iwVsyncDelay;
 	uint8_t iwRunErrorCheck;
 	uint8_t iwIsError;
-	uint8_t iwOpenShortStatus[ IW7027_DEVICE_AMOUNT * 6 ];
+	uint8_t iwOpenShortStatus[ IW_DEVICE_AMOUNT * 6 ];
 }Iw7027Param;
 Iw7027Param System_Iw7027Param ;
 //Buffers & Const Tables
-static const uint8_t Iw7027_DefaultRegMap_70XU30A_78CH[ IW7027_DEVICE_AMOUNT * 0x60 ] =
+static const uint8_t Iw7027_DefaultRegMap_70XU30A_78CH[ IW_DEVICE_AMOUNT * 0x60 ] =
 {
 /*IW_0		0		1		2		3		4		5		6		7		8		9		A		B		C		D		E		F	*/
 /*0x0x*/	0x06,	0x00,	0x00,	0x00,	0x27,	0x00,	0x4E,	0x00,	0x76,	0x00,	0x9D,	0x00,	0xC4,	0x00,	0xEC,	0x01,

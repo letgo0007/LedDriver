@@ -43,7 +43,25 @@ uint16_t Sch_CpuOnMark;
 uint32_t Sch_CpuWorkTime;
 
 //Function Calls
-uint8_t Sch_init(void);
+/**********************************************************
+ * @Brief Sch_init
+ * 		Initialize TIMERB0 & RTC as scheduler.
+ * 		Set default scheduler peroid.
+ * @Param
+ * 		NONE
+ * @Return
+ * 		NONE
+ **********************************************************/
+void Sch_init(void);
+/**********************************************************
+ * @Brief Sch_init
+ * 		Turn off CPU with CPU load mark function.
+ * 		Use this at the end of a loop.
+ * @Param
+ * 		NONE
+ * @Return
+ * 		NONE
+ **********************************************************/
 void Sch_CpuOff(void);
 
 

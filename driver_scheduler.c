@@ -1,32 +1,33 @@
 #include "driver_scheduler.h"
 #include "app_dpl.h"
 
-extern DPL_Prama System_DplParam;
-
-uint8_t Sch_init(void)
+void Sch_init(void)
 {
-	/* For Non-OS system, use TimerB0 & RTC module as CPU & task schduler .
-	 * By using Timer ISR , we set task flags & run mian.
-	 * When all task is done , CPU is turned off, wait until next Timer ISR.
-	 * RTC & TimerB0 cover different task peroid,
-	 * For peroid <2s task : use Timer B0
-	 * For peroid >1s task : use RTC
+	/* For Non-OS system, use a internal TIMER for task schedule management.
+	 * The scheduler control the main() loop by setting different task flags in different peroid.
+	 * main()	 :  wait CPU wake -> main(task1,task2,task3...) -> CPU sleep , loop forever.
+	 * TIMERB0	 :  CC0 = 1000Hz-> wake up CPU
+	 * 				CC1 = 100Hz-> set task1 flag
+	 * 				CC2 = 1Hz-> set task2 flag
+	 * 				...
+	 * TimerB0 peroid setting range is 30.5us(32786Hz) ~ 2s(0.5Hz) .
+	 * For long peroid setting (e.g. 1min or 1hour) ,please use RTC module.
 	 */
 
 	//Start TimerB0 clock
 	Timer_B_initContinuousModeParam b0param = {0};
-	b0param.clockSource = TIMER_B_CLOCKSOURCE_ACLK;
-	b0param.clockSourceDivider = TIMER_B_CLOCKSOURCE_DIVIDER_1;
-	b0param.startTimer = true;
-	b0param.timerClear = TIMER_B_DO_CLEAR;
-	b0param.timerInterruptEnable_TBIE = TIMER_B_TBIE_INTERRUPT_ENABLE;
+	b0param.clockSource 				= TIMER_B_CLOCKSOURCE_ACLK;
+	b0param.clockSourceDivider 			= TIMER_B_CLOCKSOURCE_DIVIDER_1;
+	b0param.startTimer 					= true;
+	b0param.timerClear 					= TIMER_B_DO_CLEAR;
+	b0param.timerInterruptEnable_TBIE 	= TIMER_B_TBIE_INTERRUPT_ENABLE;
 	Timer_B_initContinuousMode(TIMER_B0_BASE,&b0param);
 
 	//Set Compare mode for CC1~CC6
 	Timer_B_initCompareModeParam ccparam ={0};
-	ccparam.compareInterruptEnable = TIMER_B_CAPTURECOMPARE_INTERRUPT_ENABLE;
-	ccparam.compareOutputMode = TIMER_B_OUTPUTMODE_OUTBITVALUE;
-	ccparam.compareValue = 0;
+	ccparam.compareInterruptEnable 		= TIMER_B_CAPTURECOMPARE_INTERRUPT_ENABLE;
+	ccparam.compareOutputMode 			= TIMER_B_OUTPUTMODE_OUTBITVALUE;
+	ccparam.compareValue 				= 0;
 
 	ccparam.compareRegister = TIMER_B_CAPTURECOMPARE_REGISTER_1;
 	Timer_B_initCompareMode(TIMER_B0_BASE , &ccparam);
@@ -58,13 +59,12 @@ uint8_t Sch_init(void)
     RTC_A_startClock(RTC_A_BASE);
 
     //Set default scheduler timer
-    System_Schedule.schCpuTickPeriod = 32 ;		//1ms	1kHz
+    System_Schedule.schCpuTickPeriod 	= 32 ;	//1ms	1kHz
     System_Schedule.schBoardCheckPeriod = 327 ;	//10ms	100Hz
     System_Schedule.schManualModePeriod = 547 ;	//16.7ms 60Hz
-    System_Schedule.schSystemOn = 1;			//System On
-    System_Schedule.schLocalDimmingOn = 1;		//Local Dimming On
+    System_Schedule.schSystemOn 		= 1;	//System On
+    System_Schedule.schLocalDimmingOn 	= 1;	//Local Dimming On
 
-	return STATUS_SUCCESS;
 }
 
 void Sch_CpuOff(void)
@@ -93,15 +93,15 @@ void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
     	case 0://No interrupt
     		break;
     	case 2://CC1
-    		//CPU wake up tick.
+    		//1 . Set next wake up time
     		TB0CCR1 += System_Schedule.schCpuTickPeriod ;
     		System_Schedule.cpuTickCount ++;
-    		//If CpuOnMark not set , its first time cpu on.
+    		//2 . Set flag to calculate CPU load
     		if(Sch_CpuOnMark == 0)
     		{
     			Sch_CpuOnMark = TB0R;
     		}
-    		//Turn on CPU
+    		//3 . Turn on CPU
     		__bic_SR_register_on_exit(LPM0_bits);
     		break;
     	case 4://CC2
@@ -121,9 +121,8 @@ void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
     	case 12://CC6
     		break;
     	case 14://Overflow
-    		//Calculate cpu load = CPU work time * 100 / 0x10000
+    		//Calculate CPU load , unit in %.
     		System_Schedule.cpuLoad = Sch_CpuWorkTime * 100 / 0x10000 ;
-    		//Reset Cpu work time
     		Sch_CpuWorkTime = 0;
     		break;
     	default:
@@ -148,9 +147,6 @@ void __attribute__ ((interrupt(RTC_VECTOR))) Sch_ISR_Rrc (void)
         case 2: //1 sec
         	//Update system time
         	System_Time = RTC_A_getCalendarTime( RTC_A_BASE );
-        	//Trigger dpl sample function
-        	//System_DplParam.dplStartSample = 1;
-
     		System_Schedule.testFlag1Hz = 1;
             break;
         case 4: //1 min
