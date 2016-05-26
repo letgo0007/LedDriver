@@ -1,6 +1,6 @@
 #include "driver_iw7027.h"
-
 #include "string.h"
+#include "math.h"
 
 #define debuglog	(1)
 
@@ -202,8 +202,8 @@ uint8_t Iw7027_init(const uint8_t *workmodetable)
 	}while( GET_STB_IN == 0 );
 
 	//Step 5 : Set default IW7027 status ;
-	System_Iw7027Param.iwCurrent = i200mA;
-	System_Iw7027Param.iwFrequency = f120Hz;
+	System_Iw7027Param.iwCurrent 	= 0x42;
+	System_Iw7027Param.iwFrequency  = 120;
 	System_Iw7027Param.iwDelayTableSelet = d2D;
 	System_Iw7027Param.iwVsyncFrequency =120;
 	System_Iw7027Param.iwVsyncDelay = 1;
@@ -253,62 +253,43 @@ uint8_t Iw7027_updateDuty(uint16_t *dutymatrix ,const uint8_t *ledsortmap)
 	return STATUS_SUCCESS;
 }
 
-uint8_t Iw7027_updateCurrent(enum Iw7027_Current current)
+uint8_t Iw7027_updateCurrent(uint8_t current)
 {
-	uint8_t ival;
-
-	//Determine current register value accroding to Hw design
-	switch (current)
-	{
-	case i100mA:
-		ival =  0x30;
-		break;
-	case i200mA:
-		ival =  0x42;
-		break;
-	case i300mA:
-		ival =  0xA2;
-		break;
-	case i350mA:
-		ival =  0xD0;
-		break;
-	default :
-		return STATUS_FAIL;
-	}
+	uint8_t status;
 
 	//Write data to IW7027
 	//1 . Disable Protect , Set [FAUL_LOCK] (0x62  BIT0)to 1
 	Iw7027_writeSingleByte( IW_ALL , 0x62 , 0x01 );
 
 	//2 . Write current to 0x27
-	Iw7027_writeSingleByte( IW_ALL , 0x27 , ival );
+	Iw7027_writeSingleByte( IW_ALL , 0x27 , current );
 
 	//3 . Check status. Low 4 bit of 0xB3 = 0x05
-	Iw7027_checkReadWithTimeout( IW_ALL , 0xB3 , 0x05 , 0x0F);
+	status = Iw7027_checkReadWithTimeout( IW_ALL , 0xB3 , 0x05 , 0x0F);
 
 	//4 . Enable Protect , Set [FAULT LOCK] (0x62  BIT0)to 0 ,IDAC_REMAP + FAUL_LOCK
 	Iw7027_writeSingleByte( IW_ALL , 0x62 , 0x00 );
 
-	return ival;
+	return status;
 }
 
-uint8_t Iw7027_updateFrequency(enum Iw7027_Frequency freq)
+uint8_t Iw7027_updateFrequency(uint8_t freq)
 {
 	uint8_t pllval;
 
 	//Determine current register value accroding to Iw7027 datasheet
 	switch (freq)
 	{
-	case f50Hz:
+	case 50:
 		pllval = 48;
 		break;
-	case f60Hz:
+	case 60:
 		pllval = 40;
 		break;
-	case f100Hz:
+	case 100:
 		pllval = 24;
 		break;
-	case f120Hz:
+	case 120:
 		pllval = 20;
 		break;
 	default :
@@ -329,7 +310,7 @@ uint8_t Iw7027_updateFrequency(enum Iw7027_Frequency freq)
 	if ( Iw7027_checkReadWithTimeout( IW_ALL , 0x84 , BIT4 , BIT4 ) )
 	{
 		//return pll value when success
-		return pllval;
+		return STATUS_SUCCESS;
 	}
 	else
 	{
@@ -361,10 +342,15 @@ uint8_t Iw7027_updateWorkParams(Iw7027Param *param_in)
 	}
 
 	//Update current when changed.
+	//YZF 20150526: set current change step
 	if(param_now.iwCurrent != param_in->iwCurrent)
 	{
-		param_now.iwCurrent = param_in->iwCurrent ;
-		Iw7027_updateCurrent(param_now.iwCurrent);
+		while(param_now.iwCurrent != param_in->iwCurrent)
+		{
+			param_now.iwCurrent = fmin( (uint16_t)param_in->iwCurrent , (uint16_t)param_now.iwCurrent + IW_CURRENT_CHANGE_STEP ) ;
+			Iw7027_updateCurrent(param_now.iwCurrent);
+		}
+
 	}
 
 	//Update delay table when changed.

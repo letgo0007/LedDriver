@@ -7,6 +7,7 @@ void Uart_Console(uint8_t *uartrxbuf)
 	if( ! memcmp(uartrxbuf , "test" , 4) )
 	{
 		PrintString("\r\nTEST\r\n");
+
 	}
 	else if( ! memcmp(uartrxbuf , "spi" , 3) )
 	{
@@ -16,7 +17,7 @@ void Uart_Console(uint8_t *uartrxbuf)
 	else if( ! memcmp(uartrxbuf , "i2c" , 3) )
 	{
 		PrintString("\r\nI2C Slave buffer:\r\n");
-		PrintArray(I2cSlave_Map,256);
+		PrintArray((uint8_t*)(0x4000) , 256 );
 	}
 	else if( ! memcmp(uartrxbuf , "input" , 5) )
 	{
@@ -42,6 +43,22 @@ void Uart_Console(uint8_t *uartrxbuf)
 			PrintString(" ");
 			PrintInt(System_OutputDutyBuff[i]);
 			if( i % 6 == 5)
+			{
+				PrintString("\r\n");
+			}
+		}
+		PrintString("\r\n");
+	}
+	else if( ! memcmp(uartrxbuf , "gamma" , 5) )
+	{
+
+		uint16_t i;
+		PrintString("\r\nDPL Input Gamma\r\n");
+		for(i = 0 ; i < 256 ; i ++ )
+		{
+			PrintString(" ");
+			PrintInt(DPL_InputGamma[i]);
+			if( i % 16 == 15)
 			{
 				PrintString("\r\n");
 			}
@@ -169,9 +186,14 @@ void PrintInt(unsigned int data)
  */
 void PrintArray(unsigned char *array , unsigned int length)
 {
-	while(length--)
+	unsigned int i;
+	for(i = 0 ; i < length ; i++)
 	{
 		PrintChar(*array++);
+		if( i % 16 == 15)
+		{
+			PrintEnter();
+		}
 	}
 }
 

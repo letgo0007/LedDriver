@@ -12,11 +12,13 @@
 #define BOARD_XT2_F						(0)										//XT2 frequency, if no external XT2,set to 0
 #define BOARD_SMCLK_F					(BOARD_CPU_F)							//High speed Sub_System_Clock
 #define BOARD_ACLK_F					(32768)									//Low speed Assist_Clock
-#define BOARD_I2C_ADDRESS_NORMAL		(0x28)									//I2C Slave addess for normal working
-#define BOARD_I2C_ADDRESS_ISP			(0x38)									//I2C Slave addess for isp mode
+#define BOARD_I2C_SLAVE_ADD_NORMAL		(0x14)									//I2C Slave addess for normal working 0x28
+#define BOARD_I2C_SLAVE_ADD_ISP			(0x1C)									//I2C Slave addess for isp mode 0x38
+#define BOARD_I2C_BUF_ADD_NORMAL		(0x4000)
+#define BOARD_I2C_BUF_ADD_ISP			(0x3800)
 #define BOARD_SPI_MASTER_SPEED			(4000000)								//SPI master speed (Unit in Hz)
 #define BOARD_UART_BAUDRATE				(115200)								//Bound Rate of UART
-#define BOARD_ERROR_INFO_FLASH_PTR		((uint8_t *)0x1800)								//Error Info flash address
+#define BOARD_ERROR_INFO_FLASH_PTR		((uint8_t *)0x1800)						//Error Info flash address
 
 //Marcos
 #define delay_us(x) 					__delay_cycles((long)(BOARD_CPU_F*(double)x/1000000))	//delay unit by us (CPU block)
@@ -56,6 +58,7 @@ typedef struct BoardInfo
 	uint8_t bSpiRxFreq;
 	//Spi slave data format check result.
 	uint8_t bSpiRxValid;
+	uint8_t reserved[0x0A];
 }BoardInfo;
 
 typedef struct ErrorParam
@@ -91,21 +94,26 @@ typedef struct ErrorParam
 	//Error info save function enbale .
 	//when set to [0x01] ,if error happen , mcu will save boardinfo into internal flash.
 	uint8_t eErrorSaveEn;
+	uint8_t reserved[0x05];
 }ErrorParam;
 
-//Global variables
-BoardInfo System_BoardInfo ;
-ErrorParam System_ErrorParam ;
+//Board Parameters .
+extern BoardInfo System_BoardInfo ;
+extern ErrorParam System_ErrorParam ;
 
-uint16_t System_InputDutyBuff[128] ;
-uint16_t System_OutputDutyBuff[128] ;
-uint16_t System_ManualDutyBuff[128] ;
+//Duty Buffers
+extern uint16_t System_InputDutyBuff[128] ;
+extern uint16_t System_OutputDutyBuff[128] ;
+extern uint16_t System_ManualDutyBuff[128] ;
 
 //Hardware driver interface buffers
-uint8_t SpiSlave_RxBuff[256];
-uint8_t I2cSlave_Map[512];
-uint8_t Uart_RxBuff[256];
+extern uint8_t SpiSlave_RxBuff[256];
+extern uint8_t I2cSlave_Map[512];
+extern uint8_t Uart_RxBuff[256];
 
+extern uint8_t System_I2c_SpecialFuncBuff[] ;
+extern uint64_t System_Version;
+extern uint64_t System_Isp_Password;
 
 //Function Calls
 /**********************************************************

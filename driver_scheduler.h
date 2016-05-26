@@ -34,10 +34,11 @@ typedef struct Scheduler
 	uint16_t cpuTickCount;
 	//Cpu working load, unit in % .
 	uint8_t  cpuLoad;
+	uint8_t  reserved[0x0c];
 }Scheduler;
 
 //Variables
-Scheduler System_Schedule;
+extern Scheduler System_Schedule;
 Calendar System_Time ;
 uint16_t Sch_CpuOnMark;
 uint32_t Sch_CpuWorkTime;

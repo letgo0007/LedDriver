@@ -32,10 +32,16 @@ int _system_pre_init(void)
 		//Initialize I2C slave in ISP mode address
 		UCB0CTL1 |= UCSWRST;
 		UCB0CTL0 = UCMODE_3 + UCSYNC;
-		UCB0I2COA = BOARD_I2C_ADDRESS_ISP/2;
+		UCB0I2COA = BOARD_I2C_SLAVE_ADD_ISP;
 		UCB0CTL1 &= ~UCSWRST;
 		UCB0IE |= UCRXIE + UCTXIE + UCSTTIE + UCSTPIE;
 
+		//Clear ISP mode RAM buffer
+		uint16_t i;
+		for( i=0 ; i< 512 ; i++ )
+		{
+			HWREG8( BOARD_I2C_BUF_ADD_ISP + i ) = 0xFF ;
+		}
 		//Enable Interrupt & Turn Off CPU.
 		__enable_interrupt();
 		__bis_SR_register(LPM0_bits);
@@ -53,8 +59,6 @@ int main(void) {
     Mcu_init();
     Sch_init();
     Iw7027_init(Iw7027_DefaultRegMap_70XU30A_78CH);
-	//Initialize application
-	I2cSlave_initMap(I2cSlave_Map);
 
     //Main Loop
     while(System_Schedule.schSystemOn)
@@ -71,7 +75,7 @@ int main(void) {
     	//Task2 : Handle I2C control cmd.
     	if(System_Schedule.taskFlagI2c)
     	{
-    		I2cSlave_handleMap(I2cSlave_Map);
+    		I2cSlave_handleSpecialFunction(System_I2c_SpecialFuncBuff);
     		System_Schedule.taskFlagI2c = 0;
     	}
 
@@ -84,7 +88,7 @@ int main(void) {
     	//Task3-1 : [Local Dimming Mode]
     	if(System_Schedule.schLocalDimmingOn)
     	{
-
+    		Iw7027_updateWorkParams(&System_Iw7027Param);
         	if(System_Schedule.taskFlagSpiRx)
         	{
         		//Check Spi Rx data validation
@@ -127,27 +131,25 @@ int main(void) {
     	{
     		PrintEnter();
     		PrintTime(&System_Time);
-    		System_Schedule.schLocalDimmingOn = 1;
 
-#if 0
+#if 1
     		//Board Info Log
-    		PrintString("boardinfo: ");
-    		PrintArray((uint8_t *)&System_BoardInfo,sizeof(System_BoardInfo));
     		PrintEnter();
     		PrintString("CPU Locd = ");
     		PrintCharBCD(System_Schedule.cpuLoad);
     		PrintString(" % \r\n");
 #endif
-#if 0
+#if 1
     		//DPL log
     		PrintString("Input: ");
     		PrintInt(System_InputDutyBuff[0]);
     		PrintString(" Onput: ");
     		PrintInt(System_OutputDutyBuff[0]);
     		PrintString(" Sum: ");
-    		PrintInt(DPL_tempSumDutyMatrix[0]);
+    		PrintInt(DPL_tempSumDutyMatrix[0]>>16);
+    		PrintInt(DPL_tempSumDutyMatrix[0]&0xFFFF);
     		PrintString(" Limit: ");
-    		PrintInt(System_DplParam.dplLdDutyLimitTable[0]);
+    		PrintInt(DPL_tempDutyLimitTable[0]);
 
     		PrintEnter();
 #endif

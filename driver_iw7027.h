@@ -5,8 +5,9 @@
 #include "driverlib.h"
 
 // IW7027 Hardware info
-#define IW_DEVICE_AMOUNT				(5)		//IW7027 IC chip amount
-#define IW_LED_CHANNEL					(78)	//Total valid LED channel number
+#define IW_DEVICE_AMOUNT				(5)		//IW7027 IC chip amount.
+#define IW_LED_CHANNEL					(78)	//Total valid LED channel number.
+#define IW_CURRENT_CHANGE_STEP			(0x30)	//Maximum current change step.
 #define IW_SPI_MASTER_TRANS_START_DELAY	(50)	//CS -> SPI delay(unit:us) , see IW7027 application note
 #define IW_SPI_MASTER_TRANS_STOP_DELAY	(10)	//SPI -> CS delay(unit:us) , see IW7027 application note
 #define IW_0							(BIT0)	//Chip Select bit ,orderd from BIT0~BIT7
@@ -17,25 +18,6 @@
 #define IW_ALL							(0x1F)	//All device select bit
 
 //Struct
-enum Iw7027_Current
-{
-	i100mA = 0,
-	i150mA = 1,
-	i200mA = 2,
-	i250mA = 3,
-	i300mA = 4,
-	i350mA = 5,
-	i400mA = 6
-};
-
-enum Iw7027_Frequency
-{
-	f50Hz = 0,
-	f60Hz = 1,
-	f100Hz = 2,
-	f120Hz = 3
-};
-
 enum Iw7027_Delay
 {
 	d2D = 0,
@@ -46,16 +28,19 @@ enum Iw7027_Delay
 
 typedef struct Iw7027Param
 {
-	enum Iw7027_Frequency iwFrequency;
-	enum Iw7027_Current iwCurrent;
+	uint8_t iwFrequency;
+	uint8_t iwCurrent;
 	enum Iw7027_Delay iwDelayTableSelet;
 	uint8_t iwVsyncFrequency;
 	uint8_t iwVsyncDelay;
 	uint8_t iwRunErrorCheck;
 	uint8_t iwIsError;
 	uint8_t iwOpenShortStatus[ IW_DEVICE_AMOUNT * 6 ];
+	uint8_t reserved[0x08];
 }Iw7027Param;
-Iw7027Param System_Iw7027Param ;
+
+extern Iw7027Param System_Iw7027Param ;
+
 //Buffers & Const Tables
 static const uint8_t Iw7027_DefaultRegMap_70XU30A_78CH[ IW_DEVICE_AMOUNT * 0x60 ] =
 {
@@ -230,7 +215,7 @@ uint8_t Iw7027_updateDuty(uint16_t *dutymatrix ,const uint8_t *ledsortmap);
  * 		STATUS_SUCCESS 	: Update success.
  * 		STATUS_FAIL		: Current not support.
  **********************************************************/
-uint8_t Iw7027_updateCurrent(enum Iw7027_Current current);
+uint8_t Iw7027_updateCurrent(uint8_t current);
 
 /**********************************************************
  * @Brief Iw7027_updateFrequency
@@ -242,7 +227,7 @@ uint8_t Iw7027_updateCurrent(enum Iw7027_Current current);
  * 		STATUS_SUCCESS 	: Update success.
  * 		STATUS_FAIL		: Frequency not support.
  **********************************************************/
-uint8_t Iw7027_updateFrequency(enum Iw7027_Frequency freq);
+uint8_t Iw7027_updateFrequency(uint8_t freq);
 
 
 /**********************************************************
@@ -278,6 +263,19 @@ uint8_t Iw7027_checkOpenShorStatus(Iw7027Param *iwparam);
  **********************************************************/
 uint8_t Iw7027_updateWorkParams(Iw7027Param *iwparam);
 
+/**********************************************************
+ * @Brief DPL_GammaUpdate
+ * 		Update Input Gamma curve accroding to 5 Gamma point input.
+ * @Param
+ * 		gp0				: Gamma point @ 0
+ * 		gp63			: Gamma point @ 63
+ * 		gp127			: Gamma point @ 127
+ * 		gp191			: Gamma point @ 191
+ * 		gp255			: Gamma point @ 255
+ * @Return
+ * 		NONE
+ **********************************************************/
+void DPL_GammaUpdate(uint16_t gp0, uint16_t gp63, uint16_t gp127, uint16_t gp191, uint16_t gp255 );
 
 
 

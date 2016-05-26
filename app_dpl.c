@@ -20,13 +20,18 @@
  */
 uint8_t DPL_Function(uint16_t *inputduty,uint16_t *outputduty,DPL_Prama *dplparam)
 {
-	static uint8_t current;
+	static uint8_t firstrun;
 
-	//DPL auto detect function , auto detect current setting & apply
-	if(current == 0)
+	//Auto initial when 1st run
+	if(firstrun == 0)
 	{
-		System_DplParam = DPL_Param_70XU30A_80CH_320ma_12bit;
-		current = 1;
+		memcpy(dplparam , &DPL_DefaultParam , sizeof(DPL_DefaultParam) );
+		uint8_t i;
+		for(i = 0 ; i < DPL_LED_CH_MAX ; i++)
+		{
+			DPL_tempDutyLimitTable[i] = dplparam->dplLdDutyMax ;
+		}
+		firstrun = 1;
 	}
 
 	if(dplparam->dplOn)
@@ -65,9 +70,9 @@ void DPL_LocalDutyLimit(uint16_t *inputduty,uint16_t *outputduty,DPL_Prama *dplp
 	//Limit every local duty <= dplLdLimitTable
 	for(i=0;i<dplparam->dplChannelAmount;i++)
 	{
-		if( inputduty[i] > (dplparam->dplLdDutyLimitTable[i]) )
+		if( inputduty[i] > (DPL_tempDutyLimitTable[i]) )
 		{
-			outputduty[i] = dplparam->dplLdDutyLimitTable[i];
+			outputduty[i] = DPL_tempDutyLimitTable[i];
 		}
 		else
 		{
@@ -79,7 +84,7 @@ void DPL_LocalDutyLimit(uint16_t *inputduty,uint16_t *outputduty,DPL_Prama *dplp
 void DPL_GlobalDutyLimit(uint16_t *inputduty,uint16_t *outputduty,DPL_Prama *dplparam)
 {
 	uint16_t i = 0;
-	uint16_t sum = 0;
+	uint32_t sum = 0;
 	uint16_t avg = 0;
 	uint32_t gain = 0;
 
@@ -125,8 +130,8 @@ void DPL_LocalDutyStatistic(uint16_t *inputduty , uint32_t *outputdutysum , DPL_
 void DPL_ParametersUpdate(uint32_t *inputdutysum , DPL_Prama *dplparam)
 {
 	/*Update local duty limit table arroding to Local Duty Sum in the last 1min
-	 * [A] DutySum > HighTemp 	, Limit = - step,
-	 * [C] DutySum < LowTemp	, Limit = + step,
+	 * [A] DutySum > HighTemp 	, Limit = - step, no lower than High temp limit
+	 * [C] DutySum < LowTemp	, Limit = + step, no higher than local limit max
 	 */
 	uint16_t i;
 	uint16_t avgduty;
@@ -135,36 +140,86 @@ void DPL_ParametersUpdate(uint32_t *inputdutysum , DPL_Prama *dplparam)
 
 	for(i=0;i<dplparam->dplChannelAmount;i++)
 	{
-		avgduty = inputdutysum[i] / (dplparam->dplUpdateFrames / dplparam->dplSampleFrames ) ;
-		highlimit = dplparam->dplLdDutySumLimitHighTempTable[i] - dplparam->dplTemperatureCalibration ;
-		lowlimit = dplparam->dplLdDutySumLimitLowTempTable[i] - dplparam->dplTemperatureCalibration ;
+		avgduty 	= (inputdutysum[i] / (dplparam->dplUpdateFrames / dplparam->dplSampleFrames )) / 3 * 2 ;
+
+		highlimit 	= dplparam->dplLdDutySumLimitHighTemp - DPL_EnvOffsetTable[i] - dplparam->dplTemperatureCalibration ;
+		lowlimit 	= dplparam->dplLdDutySumLimitLowTemp - DPL_EnvOffsetTable[i] - dplparam->dplTemperatureCalibration ;
 
 		//Duty sum high , Limit step down ,but no lower than highlimit.
 		//YZF 2016/5/20: + 0x0020 for noise reduction , avoid limit jump around high limit.
 		if( avgduty > highlimit +  0x0020 )
 		{
-			dplparam->dplLdDutyLimitTable[i] = fmax( dplparam->dplLdDutyLimitTable[i] - dplparam->dplLimitDownStep , highlimit );
+			DPL_tempDutyLimitTable[i] = fmax( DPL_tempDutyLimitTable[i] - dplparam->dplLimitDownStep , highlimit );
 		}
 		//Duty sum high , Limit step down ,but no higher than dplLdDutyMax.
-		else if( avgduty < lowlimit )
+		else if( avgduty < lowlimit -  0x0020)
 		{
-			dplparam->dplLdDutyLimitTable[i] = fmin( dplparam->dplLdDutyLimitTable[i] + dplparam->dplLimitUpStep , dplparam->dplLdDutyMax);
+			DPL_tempDutyLimitTable[i] = fmin( DPL_tempDutyLimitTable[i] + dplparam->dplLimitUpStep , dplparam->dplLdDutyMax);
 		}
 	}
 
-	//Clear Sum
-	//Size = channel * 4 bytes (32bit)
-	memset( inputdutysum , 0x00 , (dplparam->dplChannelAmount) * 4);
+	//Sum = Sum / 2
+	for(i=0;i<dplparam->dplChannelAmount;i++)
+	{
+		inputdutysum[i] = inputdutysum[i] >> 1;
+	}
 
 }
 
 void DPL_GammaCorrection(uint16_t *inputduty , uint16_t *outputduty , DPL_Prama *dplparam)
 {
-	uint16_t i;
-	for(i=0;i<dplparam->dplChannelAmount;i++)
-	{
-		outputduty[i] =  DPL_InputGamma[dplparam->dplInputGammaSelect] [ inputduty[i]>>4 ] ;
+	static uint16_t gp_now[5];
+
+	if( 	(gp_now[0] != dplparam->dplInputGammaGp0x000 ) ||
+			(gp_now[1] != dplparam->dplInputGammaGp0x3F0 ) ||
+			(gp_now[2] != dplparam->dplInputGammaGp0x7F0 ) ||
+			(gp_now[3] != dplparam->dplInputGammaGp0xBF0 ) ||
+			(gp_now[4] != dplparam->dplInputGammaGp0xFF0 ) 		)
+	{//If Gamma Curve param modified , caculate new gamma curve.
+
+		gp_now[0] = dplparam->dplInputGammaGp0x000;
+		gp_now[1] = dplparam->dplInputGammaGp0x3F0;
+		gp_now[2] = dplparam->dplInputGammaGp0x7F0;
+		gp_now[3] = dplparam->dplInputGammaGp0xBF0;
+		gp_now[4] = dplparam->dplInputGammaGp0xFF0;
+
+		uint8_t i;
+		uint16_t step1,step2,step3,step4;
+
+		step1 = (dplparam->dplInputGammaGp0x3F0   - dplparam->dplInputGammaGp0x000 ) /63;
+		step2 = (dplparam->dplInputGammaGp0x7F0   - dplparam->dplInputGammaGp0x3F0  ) /63;
+		step3 = (dplparam->dplInputGammaGp0xBF0   - dplparam->dplInputGammaGp0x7F0  ) /63;
+		step4 = (dplparam->dplInputGammaGp0xFF0   - dplparam->dplInputGammaGp0xBF0  ) /63;
+
+		for(i = 0 ; i < 63 ; i++ )
+		{
+			DPL_InputGamma[i] = dplparam->dplInputGammaGp0x000  + step1 * (i);
+		}
+		for(i = 63 ; i < 127 ; i++ )
+		{
+			DPL_InputGamma[i] = dplparam->dplInputGammaGp0x3F0   + step2 * (i-63) ;
+		}
+		for(i = 127 ; i < 191 ; i++ )
+		{
+			DPL_InputGamma[i] = dplparam->dplInputGammaGp0x7F0   + step3 * (i-127) ;
+		}
+		for(i = 191 ; i < 255 ; i++ )
+		{
+			DPL_InputGamma[i] = dplparam->dplInputGammaGp0xBF0   + step4 * (i-191) ;
+		}
+		DPL_InputGamma[255] = dplparam->dplInputGammaGp0xFF0   ;
 	}
+
+	//Gamma correction
+	if(dplparam->dplInputGammaEnable)
+	{
+		uint16_t i;
+		for(i=0;i<dplparam->dplChannelAmount;i++)
+		{
+			outputduty[i] =  DPL_InputGamma[ inputduty[i]>>4 ] ;
+		}
+	}
+
 }
 
 void DPL_TemperatureCalibration(int8_t temp, DPL_Prama *dplparam)
@@ -177,3 +232,4 @@ void DPL_TemperatureCalibration(int8_t temp, DPL_Prama *dplparam)
 	dplparam->dplTemperatureCalibration = DPL_TempCalibratineTable [temp] ;
 
 }
+
