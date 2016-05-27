@@ -1,5 +1,5 @@
 /* --COPYRIGHT--,BSD
- * Copyright (c) 2014, Texas Instruments Incorporated
+ * Copyright (c) 2016, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -96,7 +96,7 @@ void SD24_B_initConverterAdvanced(uint16_t baseAddress,
 
     // Clearing previous settings for configuration
     HWREG16(address) &=
-        ~(SD24ALGN | SD24SNGL | SD24DF_1 | SD24DF_0 | SD24SCS__GROUP3);
+        ~(SD24ALGN | SD24SNGL | SD24DF1 | SD24DF0 | SD24SCS__GROUP3);
 
     HWREG16(address) |=
         (param->alignment | param->startSelect | param->dataFormat |
@@ -199,8 +199,8 @@ void SD24_B_configureDMATrigger(uint16_t baseAddress,
                                 uint16_t interruptFlag)
 {
     // Clearing previous settings
-    HWREG16(baseAddress + OFS_SD24BCTL1) &= ~(SD24DMA_3 | SD24DMA_2 |
-                                              SD24DMA_1 | SD24DMA_0);
+    HWREG16(baseAddress + OFS_SD24BCTL1) &= ~(SD24DMA3 | SD24DMA2 |
+                                              SD24DMA1 | SD24DMA0);
 
     HWREG16(baseAddress + OFS_SD24BCTL1) |= interruptFlag;
 }

@@ -1,5 +1,5 @@
 /* --COPYRIGHT--,BSD
- * Copyright (c) 2014, Texas Instruments Incorporated
+ * Copyright (c) 2016, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -321,6 +321,15 @@ void Timer_A_setCompareValue(uint16_t baseAddress,
                              uint16_t compareValue)
 {
     HWREG16(baseAddress + compareRegister + OFS_TAxR) = compareValue;
+}
+
+void Timer_A_setOutputMode(uint16_t baseAddress,
+                           uint16_t compareRegister,
+                           uint16_t compareOutputMode)
+{
+    uint16_t temp = HWREG16(baseAddress + compareRegister);
+    HWREG16(baseAddress +
+            compareRegister) = temp & ~(OUTMOD_7) | compareOutputMode;
 }
 
 void Timer_A_clearTimerInterrupt(uint16_t baseAddress)

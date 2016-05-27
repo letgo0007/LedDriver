@@ -1,5 +1,5 @@
 /* --COPYRIGHT--,BSD
- * Copyright (c) 2014, Texas Instruments Incorporated
+ * Copyright (c) 2016, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -62,7 +62,8 @@ extern "C"
 //*****************************************************************************
 typedef struct EUSCI_B_I2C_initMasterParam
 {
-    //! Is the clocksource.
+    //! Selects the clocksource. Refer to device specific datasheet for
+    //! available options.
     //! \n Valid values are:
     //! - \b EUSCI_B_I2C_CLOCKSOURCE_ACLK
     //! - \b EUSCI_B_I2C_CLOCKSOURCE_SMCLK

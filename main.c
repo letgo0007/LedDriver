@@ -1,64 +1,35 @@
-#include "driver.h"
-#include "app.h"
-#include "string.h"
+/******************************************************************************
+ * @file 	[main.c]
+ *
+ * Main loop of the project with C standard basic function :
+ * _system_pre_init() 	: Low level initial before RAM & STACK is initialized.
+ * main() 				: main loop for C standard .
+ *
+ * Copyright (c) 2016 SHARP CORPORATION
+ *
+ * @change 	[DATE]	 [EDITOR] 		[MODEL] [TYPE] 	[COMMENT]
+ * ----------------------------------------------------------------------------
+ * 1		20160527 Yang Zhifang	ALL		Init	Initial Version
+ *
+ ******************************************************************************/
 
-#pragma location=0xF000
-const uint32_t ISP_PW = 0x20140217 ;
+#include <msp430f5249.h>
+#include <wdt_a.h>
 
-#pragma location=0xF200
-int _system_pre_init(void)
-{
-	/**************************************************************
-	 * Insert low-level initializations here.
-	 * System will run _system_pre_init before RAM is initialized.
-	 * Return: 0 to omit initialization
-	 * Return: 1 to do RAM initialization.
-	 * Then jump to main()
-	 * Disable Watchdog timer to prevent reset during long variable
-	 * initialization sequences.
-	 **************************************************************/
-
-	WDTCTL = WDTPW + WDTHOLD;// Stop WDT
-	__disable_interrupt();
-
-	//If pass word not correct , init I2C slave in ISP mode.
-	if(ISP_PW != 0x20140217)
-	{
-		//P4.6 = ERROR_OUT , P4.7 = LED_G , P3.0 = SDA ,P3.1 = SCL
-		P4OUT |= BIT7 + BIT6 ;
-		P4DIR |= BIT7 + BIT6 ;
-		P3SEL |= BIT0 + BIT1 ;
-
-		//Initialize I2C slave in ISP mode address
-		UCB0CTL1 |= UCSWRST;
-		UCB0CTL0 = UCMODE_3 + UCSYNC;
-		UCB0I2COA = BOARD_I2C_SLAVE_ADD_ISP;
-		UCB0CTL1 &= ~UCSWRST;
-		UCB0IE |= UCRXIE + UCTXIE + UCSTTIE + UCSTPIE;
-
-		//Clear ISP mode RAM buffer
-		uint16_t i;
-		for( i=0 ; i< 512 ; i++ )
-		{
-			HWREG8( BOARD_I2C_BUF_ADD_ISP + i ) = 0xFF ;
-		}
-		//Enable Interrupt & Turn Off CPU.
-		__enable_interrupt();
-		__bis_SR_register(LPM0_bits);
-	}
-
-	/*==================================*/
-	/* Choose if segment initialization */
-	/* should be done or not. */
-	/*==================================*/
- 	 return 1;
-}
+#include "app_dpl.h"
+#include "app_i2c_interface.h"
+#include "app_spi_interface.h"
+#include "driver_iw7027.h"
+#include "driver_mcu.h"
+#include "driver_scheduler.h"
+#include "driver_uartdebug.h"
+#include "std.h"
 
 int main(void) {
 	//Initialize Driver
     Mcu_init();
     Sch_init();
-    Iw7027_init(Iw7027_DefaultRegMap_70XU30A_78CH);
+    Iw7027_init();
 
     //Main Loop
     while(System_Schedule.schSystemOn)
@@ -75,7 +46,7 @@ int main(void) {
     	//Task2 : Handle I2C control cmd.
     	if(System_Schedule.taskFlagI2c)
     	{
-    		I2cSlave_handleSpecialFunction(System_I2c_SpecialFuncBuff);
+    		I2cSlave_handleSpecialFunction(I2cSlave_SpecialFuncBuff);
     		System_Schedule.taskFlagI2c = 0;
     	}
 
@@ -98,7 +69,7 @@ int main(void) {
         		if ( System_BoardInfo.bSpiRxValid )
         		{
         			//Dynamic Power limit function
-        			DPL_TemperatureCalibration(System_BoardInfo.bTemprature , &System_DplParam );
+        			DPL_caliberateTemp(System_BoardInfo.bTemprature , &System_DplParam );
         			DPL_Function( System_InputDutyBuff , System_OutputDutyBuff , &System_DplParam );
         			//Enable Tx task .
         			System_Schedule.taskFlagSpiTx = 1;
@@ -111,7 +82,7 @@ int main(void) {
         	if(System_Schedule.taskFlagSpiTx)
         	{
         		// Update duty info to Iw7027 device.
-        		Iw7027_updateDuty ( System_OutputDutyBuff , Iw7027_LedSortMap_70XU30A_78CH);
+        		Iw7027_updateDuty ( System_OutputDutyBuff , Iw7027_LedSortMap);
         		System_Schedule.taskFlagSpiTx = 0 ;
         	}
     	}
@@ -120,7 +91,7 @@ int main(void) {
     	{
     		if(System_Schedule.taskFlagManualMode)
     		{
-                Iw7027_updateDuty( (uint16_t*)System_ManualDutyBuff , Iw7027_LedSortMap_70XU30A_78CH);
+                Iw7027_updateDuty( (uint16*)System_ManualDutyBuff , Iw7027_LedSortMap);
                 System_Schedule.taskFlagManualMode = 0 ;
     		}
 

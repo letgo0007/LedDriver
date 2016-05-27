@@ -1,5 +1,5 @@
 /* --COPYRIGHT--,BSD
- * Copyright (c) 2014, Texas Instruments Incorporated
+ * Copyright (c) 2016, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -389,6 +389,15 @@ uint16_t Timer_B_getCounterValue(uint16_t baseAddress)
     while(res > TIMER_B_THRESHOLD);
 
     return(voteTwo);
+}
+
+void Timer_B_setOutputMode(uint16_t baseAddress,
+                           uint16_t compareRegister,
+                           uint16_t compareOutputMode)
+{
+    uint16_t temp = HWREG16(baseAddress + compareRegister);
+    HWREG16(baseAddress +
+            compareRegister) = temp & ~(OUTMOD_7) | compareOutputMode;
 }
 
 #endif

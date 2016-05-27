@@ -1,118 +1,206 @@
+/******************************************************************************
+ * @file 	[driver_iw7027.c]
+ *
+ * IW7027 LED Driver IC driver.
+ *
+ * Copyright (c) 2016 SHARP CORPORATION
+ *
+ * @change 	[DATE]	 [EDITOR] 		[MODEL] [TYPE] 	[COMMENT]
+ * ----------------------------------------------------------------------------
+ * 1		20160527 Yang Zhifang	ALL		Init	Initial Version
+ *
+ ******************************************************************************/
+
+/***1 Includes ***************/
 #include "driver_iw7027.h"
-#include "string.h"
-#include "math.h"
 
-#define debuglog	(1)
+#include <msp430f5xx_6xxgeneric.h>
 
-void Iw7027_writeMultiByte(uint8_t chipsel, uint8_t regaddress, uint8_t length , uint8_t *txdata)
+#include "driver_mcu.h"
+
+/***2.1 Internal Marcos ******/
+#define IW_SPI_MASTER_TRANS_START_DELAY	(50)	//CS -> SPI delay(unit:us) , see IW7027 application note
+#define IW_SPI_MASTER_TRANS_STOP_DELAY	(10)	//SPI -> CS delay(unit:us) , see IW7027 application note
+#define	IW_CURRENT_CHANGE_STEP			(0x30)
+
+#ifndef UART_DEBUG_ON
+#define UART_DEBUG_ON		(0)
+#endif
+
+/***2.2 Internal Struct ******/
+/***2.3 Internal Variables ***/
+//Buffers & Const Tables
+static const uint8 Iw7027_DefaultRegMap[IW_DEVICE_AMOUNT * 0x60] =
+{
+/*IW_0*/
+/*0x0x*/0x06, 0x00, 0x00, 0x00, 0x27, 0x00, 0x4E, 0x00, 0x76, 0x00, 0x9D, 0x00, 0xC4, 0x00, 0xEC, 0x01,
+/*0x1x*/0x13, 0x55, 0x3B, 0x62, 0x89, 0xB1, 0x40, 0xD8, 0x00, 0x27, 0x4E, 0x0F, 0x19, 0xD5, 0x0F, 0x18,
+/*0x2x*/0x1E, 0x0F, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x42, 0x42, 0x0F, 0x12, 0x7F, 0xFF, 0xFF, 0xE5, 0xBC,
+/*0x3x*/0x7D, 0xD3, 0x01, 0x16, 0xC8, 0x80, 0x44, 0x00, 0xC0, 0xA0, 0x00, 0x78, 0x08, 0x28, 0x88, 0x88,
+/*0x4x*/0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99,
+/*0x5x*/0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99,
+
+/*IW_1*/
+/*0x0x*/0x06, 0x00, 0x76, 0x00, 0x9D, 0x00, 0xC4, 0x00, 0xEC, 0x01, 0x13, 0x01, 0x3B, 0x01, 0x62, 0x01,
+/*0x1x*/0x89, 0x50, 0xB1, 0xD8, 0x00, 0x27, 0x00, 0x4E, 0x76, 0x9D, 0xC4, 0x33, 0xAA, 0x1E, 0x30, 0x3C,
+/*0x2x*/0x67, 0x0F, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x42, 0x42, 0x0F, 0x12, 0x7F, 0xFF, 0xFF, 0xE5, 0xBC,
+/*0x3x*/0x7D, 0xD3, 0x01, 0x16, 0xC8, 0x80, 0x44, 0x00, 0xC0, 0xA0, 0x00, 0x78, 0x08, 0x28, 0x88, 0x88,
+/*0x4x*/0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99,
+/*0x5x*/0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99,
+
+/*IW_2*/
+/*0x0x*/0x06, 0x00, 0xEC, 0x01, 0x13, 0x01, 0x3B, 0x01, 0x62, 0x01, 0x89, 0x01, 0xB1, 0x01, 0xD8, 0x00,
+/*0x1x*/0x00, 0x00, 0x27, 0x4E, 0x76, 0x9D, 0x05, 0xC4, 0xEC, 0x13, 0x3B, 0x54, 0x3C, 0x60, 0x78, 0xCE,
+/*0x2x*/0xA8, 0x0F, 0xFF, 0x3F, 0xFF, 0x00, 0x00, 0x42, 0x42, 0x0F, 0x12, 0x7F, 0xFF, 0xFF, 0xE5, 0xBC,
+/*0x3x*/0x7D, 0xD3, 0x01, 0x16, 0xC8, 0x80, 0x44, 0x00, 0xC0, 0xA0, 0x00, 0x78, 0x08, 0x28, 0x88, 0x88,
+/*0x4x*/0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99,
+/*0x5x*/0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99,
+
+/*IW_3*/
+/*0x0x*/0x06, 0x01, 0x62, 0x01, 0x89, 0x01, 0xB1, 0x01, 0xD8, 0x00, 0x00, 0x00, 0x27, 0x00, 0x4E, 0x00,
+/*0x1x*/0x76, 0x01, 0x9D, 0xC4, 0xEC, 0x13, 0x55, 0x3B, 0x62, 0x89, 0xB1, 0x78, 0xC0, 0xF1, 0x9D, 0x50,
+/*0x2x*/0xF1, 0x0F, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x42, 0x42, 0x0F, 0x12, 0x7F, 0xFF, 0xFF, 0xE5, 0xBC,
+/*0x3x*/0x7D, 0xD3, 0x01, 0x16, 0xC8, 0x80, 0x44, 0x00, 0xC0, 0xA0, 0x00, 0x78, 0x08, 0x28, 0x88, 0x88,
+/*0x4x*/0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99,
+/*0x5x*/0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99,
+
+/*IW_4*/
+/*0x0x*/0x06, 0x01, 0xD8, 0x00, 0x00, 0x00, 0x27, 0x00, 0x4E, 0x00, 0x76, 0x00, 0x9D, 0x00, 0xC4, 0x00,
+/*0x1x*/0xEC, 0x55, 0x13, 0x3B, 0x62, 0x89, 0x50, 0xb1, 0xD8, 0x00, 0x00, 0x81, 0xE3, 0x3A, 0xA1, 0xE3,
+/*0x2x*/0x00, 0x0F, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x42, 0x42, 0x0F, 0x12, 0x7F, 0xFF, 0xFF, 0xE5, 0xBC,
+/*0x3x*/0x7D, 0xD3, 0x01, 0x16, 0xC8, 0x80, 0x44, 0x00, 0xC0, 0xA0, 0x00, 0x78, 0x08, 0x28, 0x88, 0x88,
+/*0x4x*/0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99,
+/*0x5x*/0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, };
+
+static const uint8 Iw7027_LedSortMap[80] =
+{
+/*ROW0*/17, 16, 15, 77, 78, 79,
+/*ROW1*/14, 13, 12, 74, 75, 76,
+/*ROW2*/11, 10, 9, 71, 72, 73,
+/*ROW3*/8, 7, 6, 68, 69, 70,
+/*ROW4*/5, 4, 3, 65, 66, 67,
+/*ROW5*/2, 1, 0, 62, 63, 64,
+/*ROW6*/38, 37, 36, 59, 60, 61,
+/*ROW7*/35, 34, 33, 56, 57, 58,
+/*ROW8*/32, 31, 30, 53, 54, 55,
+/*ROW9*/29, 28, 27, 50, 51, 52,
+/*ROWA*/26, 25, 24, 45, 48, 49,
+/*ROWB*/23, 22, 21, 42, 43, 44,
+/*ROWC*/20, 19, 18, 39, 40, 41,
+/*NC  */46, 47 };
+/***2.4 External Variables ***/
+/***2.5 Internal Functions ***/
+
+/***2.6 External Functions ***/
+void Iw7027_writeMultiByte(uint8 chipsel, uint8 regaddress, uint8 length, uint8 *txdata)
 {
 	//Selest chip
 	SpiMaster_setCsPin(chipsel);
-	delay_us(IW_SPI_MASTER_TRANS_START_DELAY);
+	DELAY_US(IW_SPI_MASTER_TRANS_START_DELAY);
 
 	//Send Head & address
-	SpiMaster_sendSingleByte( 0x01 );
-	SpiMaster_sendSingleByte( length );
-	SpiMaster_sendSingleByte( regaddress );
+	SpiMaster_sendSingleByte(0x01);
+	SpiMaster_sendSingleByte(length);
+	SpiMaster_sendSingleByte(regaddress);
 
 	//Send multi data
-	SpiMaster_sendMultiByte( txdata , length );
+	SpiMaster_sendMultiByte(txdata, length);
 
 	//Unselest all chip
-	delay_us(IW_SPI_MASTER_TRANS_STOP_DELAY);
-	SpiMaster_setCsPin( 0x00 );
+	DELAY_US(IW_SPI_MASTER_TRANS_STOP_DELAY);
+	SpiMaster_setCsPin(0x00);
 
 }
 
-void Iw7027_writeSingleByte(uint8_t chipsel, uint8_t regaddress, uint8_t txdata)
+void Iw7027_writeSingleByte(uint8 chipsel, uint8 regaddress, uint8 txdata)
 {
 	//Selest chip
 	SpiMaster_setCsPin(chipsel);
-	delay_us(IW_SPI_MASTER_TRANS_START_DELAY);
+	DELAY_US(IW_SPI_MASTER_TRANS_START_DELAY);
 
 	//Send Head & address
-	SpiMaster_sendSingleByte( 0xC0 );
-	SpiMaster_sendSingleByte( regaddress );
+	SpiMaster_sendSingleByte(0xC0);
+	SpiMaster_sendSingleByte(regaddress);
 
 	//Send Data
-	SpiMaster_sendSingleByte( txdata );
+	SpiMaster_sendSingleByte(txdata);
 
 	//Unselest all chip
-	delay_us(IW_SPI_MASTER_TRANS_STOP_DELAY);
-	SpiMaster_setCsPin( 0x00 );
+	DELAY_US(IW_SPI_MASTER_TRANS_STOP_DELAY);
+	SpiMaster_setCsPin(0x00);
 }
 
-uint8_t Iw7027_readSingleByte(uint8_t chipsel, uint8_t regaddress)
+uint8 Iw7027_readSingleByte(uint8 chipsel, uint8 regaddress)
 {
-	uint8_t readbyte;
+	uint8 readbyte;
 
 	//Selest chip
 	SpiMaster_setCsPin(chipsel);
-	delay_us(IW_SPI_MASTER_TRANS_START_DELAY);
+	DELAY_US(IW_SPI_MASTER_TRANS_START_DELAY);
 
 	//Send Head & address
-	SpiMaster_sendSingleByte( 0x41 );
-	SpiMaster_sendSingleByte( regaddress | 0x80 );
+	SpiMaster_sendSingleByte(0x41);
+	SpiMaster_sendSingleByte(regaddress | 0x80);
 
 	//2 dummy clocks to read byte
-	SpiMaster_sendSingleByte( 0x00 );
-	readbyte = SpiMaster_sendSingleByte( 0x00 );
+	SpiMaster_sendSingleByte(0x00);
+	readbyte = SpiMaster_sendSingleByte(0x00);
 
 	//Unselest all chip
-	delay_us(IW_SPI_MASTER_TRANS_STOP_DELAY);
+	DELAY_US(IW_SPI_MASTER_TRANS_STOP_DELAY);
 	SpiMaster_setCsPin(0x00);
 
 	return readbyte;
 }
 
-uint8_t Iw7027_readMultiByte(uint8_t chipsel, uint8_t regaddress , uint8_t length , uint8_t *rxdata)
+uint8 Iw7027_readMultiByte(uint8 chipsel, uint8 regaddress, uint8 length, uint8 *rxdata)
 {
-	uint8_t i;
+	uint8 i;
 
 	//Selest chip
 	SpiMaster_setCsPin(chipsel);
-	delay_us(IW_SPI_MASTER_TRANS_START_DELAY);
+	DELAY_US(IW_SPI_MASTER_TRANS_START_DELAY);
 
 	//Send Head & address
-	SpiMaster_sendSingleByte( 0x01 );
-	SpiMaster_sendSingleByte( length );
-	SpiMaster_sendSingleByte( regaddress | 0x80 );
+	SpiMaster_sendSingleByte(0x01);
+	SpiMaster_sendSingleByte(length);
+	SpiMaster_sendSingleByte(regaddress | 0x80);
 
 	//set out dummy clocks to read byte
-	SpiMaster_sendSingleByte( 0x00 );
-	for( i = 0 ; i < length ; i++ )
+	SpiMaster_sendSingleByte(0x00);
+	for (i = 0; i < length; i++)
 	{
-		rxdata [i] = SpiMaster_sendSingleByte( 0x00 );
+		rxdata[i] = SpiMaster_sendSingleByte(0x00);
 	}
 
 	//Unselest all chip
-	delay_us(IW_SPI_MASTER_TRANS_STOP_DELAY);
+	DELAY_US(IW_SPI_MASTER_TRANS_STOP_DELAY);
 	SpiMaster_setCsPin(0x00);
 
-	return rxdata[length-1];
+	return rxdata[length - 1];
 }
 
-uint8_t Iw7027_checkReadWithTimeout(uint8_t chipsel, uint8_t regaddress , uint8_t checkvalue ,uint8_t bitmask)
+uint8 Iw7027_checkReadWithTimeout(uint8 chipsel, uint8 regaddress, uint8 checkvalue, uint8 bitmask)
 {
-	uint8_t retrytime;
-	uint8_t val;
-	uint8_t chipmask;
-	uint8_t status;
+	uint8 retrytime;
+	uint8 val;
+	uint8 chipmask;
+	uint8 status;
 
 	//Sequence check from IW_0 -> IW_N
-	for( chipmask = IW_0 ; chipmask < IW_ALL ; chipmask = chipmask<<1 )
+	for (chipmask = IW_0; chipmask < IW_ALL; chipmask = chipmask << 1)
 	{
 		//Every selected chip check 10 times.
 		//If any of the chip check timeout ,return fail.
-		if(chipsel & chipmask)
+		if (chipsel & chipmask)
 		{
 			retrytime = 10;
 			status = 1;
-			while( --retrytime && status)
+			while (--retrytime && status)
 			{
-				val = Iw7027_readSingleByte ( (chipsel & chipmask) , regaddress ) ;
+				val = Iw7027_readSingleByte((chipsel & chipmask), regaddress);
 
-				if ( ( val & bitmask ) == checkvalue )
+				if ((val & bitmask) == checkvalue)
 				{
 					//Correct , set status = 0 to stop loop
 					status = 0;
@@ -120,31 +208,31 @@ uint8_t Iw7027_checkReadWithTimeout(uint8_t chipsel, uint8_t regaddress , uint8_
 				else
 				{
 					//Wrong , delay 100us to retry.
-					delay_us(100);
+					DELAY_US(100);
 				}
 			}
 			if (retrytime == 0)
 			{
 				//if time out , return fail
-				return STATUS_FAIL;
+				return FLAG_FAIL;
 			}
 		}
 	}
 
 	//Check loop finish ,return success .
-	return STATUS_SUCCESS;
+	return FLAG_SUCCESS;
 
 }
 
-uint8_t Iw7027_init(const uint8_t *workmodetable)
+uint8 Iw7027_init(void)
 {
-	uint8_t status = 0;
-	uint8_t i = 0;
+	uint8 status = 0;
+	uint8 i = 0;
 
 	SET_IW7027_POWER_OFF;
-	delay_ms(500);
+	DELAY_MS(500);
 
-#if debuglog
+#if UART_DEBUG_ON
 	PrintTime(&System_Time);
 	PrintString("[IW7027 INTIAL] Start...\r\n");
 	PrintTime(&System_Time);
@@ -152,15 +240,15 @@ uint8_t Iw7027_init(const uint8_t *workmodetable)
 #endif
 
 	//Step 1 : Check Power & turn on iw7027 power.
-	while( Adc_getResult(ADCPORT_DC60V) < 0x0200 )
+	while (Adc_getResult(ADCPORT_DC60V) < 0x0200)
 	{
 		;
 	}
-	while( Adc_getResult(ADCPORT_DC13V) < 0x0200 )
+	while (Adc_getResult(ADCPORT_DC13V) < 0x0200)
 	{
 		;
 	}
-#if debuglog
+#if UART_DEBUG_ON
 	PrintString("DC60V ADC= ");
 	PrintInt(Adc_getResult(ADCPORT_DC60V));
 	PrintString(" , DC13V ADC= ");
@@ -170,112 +258,114 @@ uint8_t Iw7027_init(const uint8_t *workmodetable)
 	PrintString("[IW7027 INTIAL] -1 : Power Check OK , Turn ON IW7027 .\r\n");
 #endif
 	SET_IW7027_POWER_ON;
-	delay_ms(200);
+	DELAY_MS(200);
 
 	//Step 2: check chip ID to ensure IW7027 is working .
-	do{
-		status = Iw7027_checkReadWithTimeout( IW_ALL , 0x6B , 0x24 , 0xFF );
-#if debuglog
+	do
+	{
+		status = Iw7027_checkReadWithTimeout( IW_ALL, 0x6B, 0x24, 0xFF);
+#if UART_DEBUG_ON
 		PrintTime(&System_Time);
 		PrintString("[IW7027 INTIAL] -2 : Read Chip ID\r\n");
 #endif
-	}while (status == 0);
+	} while (status == 0);
 
 	//Step 3 : Write Initial setting in sequence  from chip IW0 to IW_N
 
-	for( i = 0 ; i < IW_DEVICE_AMOUNT ; i ++ )
+	for (i = 0; i < IW_DEVICE_AMOUNT; i++)
 	{
-#if debuglog
+#if UART_DEBUG_ON
 		PrintTime(&System_Time);
 		PrintString("[IW7027 INTIAL] -3 : Write Initial Reg Map\r\n");
 #endif
-		Iw7027_writeMultiByte( IW_0<<i , 0x00 , 0x60 , (uint8_t *)(workmodetable + 0x60 * i) );
+		Iw7027_writeMultiByte( IW_0 << i, 0x00, 0x60, *Iw7027_DefaultRegMap[0x60 * i]);
 	}
 
 	//Step 4 :wait STB
-	do{
-#if debuglog
+	do
+	{
+#if UART_DEBUG_ON
 		PrintTime(&System_Time);
 		PrintString("[IW7027 INTIAL] -4 : Wait STB ...\r\n");
 #endif
-		delay_ms(200);
-	}while( GET_STB_IN == 0 );
+		DELAY_MS(200);
+	} while ( GET_STB_IN == 0);
 
 	//Step 5 : Set default IW7027 status ;
-	System_Iw7027Param.iwCurrent 	= 0x42;
-	System_Iw7027Param.iwFrequency  = 120;
+	System_Iw7027Param.iwCurrent = 0x42;
+	System_Iw7027Param.iwFrequency = 120;
 	System_Iw7027Param.iwDelayTableSelet = d2D;
-	System_Iw7027Param.iwVsyncFrequency =120;
+	System_Iw7027Param.iwVsyncFrequency = 120;
 	System_Iw7027Param.iwVsyncDelay = 1;
 	System_Iw7027Param.iwRunErrorCheck = 1;
 
-#if debuglog
+#if UART_DEBUG_ON
 	PrintTime(&System_Time);
 	PrintString("[IW7027 INTIAL] -5 : Get STB , Set work status ...\r\n");
 	PrintString("Initial IW7027 work status:\r\n");
-	PrintArray((uint8_t *)&System_Iw7027Param,sizeof(System_Iw7027Param));
+	PrintArray((uint8 *)&System_Iw7027Param,sizeof(System_Iw7027Param));
 	PrintEnter();
 #endif
 
 	Iw7027_updateWorkParams(&System_Iw7027Param);
-	delay_ms(200);//wait 200ms for pwm stable.
+	DELAY_MS(200);		//wait 200ms for pwm stable.
 
 	//Step 6 : Initialize Done ,turn on BL
-#if debuglog
+#if UART_DEBUG_ON
 	PrintTime(&System_Time);
 	PrintString("[IW7027 INTIAL] -6 : Initialize finish , turn on BL..\r\n");
 	PrintString("\e[32mBL on ,enter main loop.\r\n\e[30m");
 #endif
-	Iw7027_writeSingleByte(IW_ALL,0x00,0x07);
-	return STATUS_SUCCESS;
+	Iw7027_writeSingleByte(IW_ALL, 0x00, 0x07);
+	return FLAG_SUCCESS;
 }
 
-uint8_t Iw7027_updateDuty(uint16_t *dutymatrix ,const uint8_t *ledsortmap)
+uint8 Iw7027_updateDuty(uint16 *dutymatrix, const uint8 *ledsortmap)
 {
-	uint8_t i;
+	uint8 i;
 
-	static uint8_t Iw7027_SortBuff[ IW_DEVICE_AMOUNT * 32 ];
+	static uint8 Iw7027_SortBuff[IW_DEVICE_AMOUNT * 32];
 
 	//Sort duty matrix by LED_sort_map
-	for( i = 0 ; i < IW_LED_CHANNEL ; i++ )
+	for (i = 0; i < IW_LED_CHANNEL; i++)
 	{
 		//convert 1 16bit data -> 2 8bit data . with resorted in LED hardware order
-		Iw7027_SortBuff [ 2 * ledsortmap [ i ]  ] 	= dutymatrix[ i ] >> 8;
-		Iw7027_SortBuff [ 2 * ledsortmap [ i ] + 1 ] = dutymatrix[ i ] & 0xFF;
+		Iw7027_SortBuff[2 * ledsortmap[i]] = dutymatrix[i] >> 8;
+		Iw7027_SortBuff[2 * ledsortmap[i] + 1] = dutymatrix[i] & 0xFF;
 	}
 
 	//Sequence write chip IW0 ~ IW_N
-	for( i = 0 ; i < IW_DEVICE_AMOUNT ; i ++ )
+	for (i = 0; i < IW_DEVICE_AMOUNT; i++)
 	{
-		Iw7027_writeMultiByte( IW_0<<i , 0x40 , 32 , Iw7027_SortBuff + 32 * i );
+		Iw7027_writeMultiByte( IW_0 << i, 0x40, 32, Iw7027_SortBuff + 32 * i);
 	}
 
-	return STATUS_SUCCESS;
+	return FLAG_SUCCESS;
 }
 
-uint8_t Iw7027_updateCurrent(uint8_t current)
+uint8 Iw7027_updateCurrent(uint8 current)
 {
-	uint8_t status;
+	uint8 status;
 
 	//Write data to IW7027
 	//1 . Disable Protect , Set [FAUL_LOCK] (0x62  BIT0)to 1
-	Iw7027_writeSingleByte( IW_ALL , 0x62 , 0x01 );
+	Iw7027_writeSingleByte( IW_ALL, 0x62, 0x01);
 
 	//2 . Write current to 0x27
-	Iw7027_writeSingleByte( IW_ALL , 0x27 , current );
+	Iw7027_writeSingleByte( IW_ALL, 0x27, current);
 
 	//3 . Check status. Low 4 bit of 0xB3 = 0x05
-	status = Iw7027_checkReadWithTimeout( IW_ALL , 0xB3 , 0x05 , 0x0F);
+	status = Iw7027_checkReadWithTimeout( IW_ALL, 0xB3, 0x05, 0x0F);
 
 	//4 . Enable Protect , Set [FAULT LOCK] (0x62  BIT0)to 0 ,IDAC_REMAP + FAUL_LOCK
-	Iw7027_writeSingleByte( IW_ALL , 0x62 , 0x00 );
+	Iw7027_writeSingleByte( IW_ALL, 0x62, 0x00);
 
 	return status;
 }
 
-uint8_t Iw7027_updateFrequency(uint8_t freq)
+uint8 Iw7027_updateFrequency(uint8 freq)
 {
-	uint8_t pllval;
+	uint8 pllval;
 
 	//Determine current register value accroding to Iw7027 datasheet
 	switch (freq)
@@ -292,106 +382,105 @@ uint8_t Iw7027_updateFrequency(uint8_t freq)
 	case 120:
 		pllval = 20;
 		break;
-	default :
-		return STATUS_FAIL;
+	default:
+		return FLAG_FAIL;
 	}
 
 	//1 .	Set [PLL_OUTDIV] (0x31 BIT0~BIT4) , Set [PLL_EN] (0x31 BIT7) = 1
-	Iw7027_writeSingleByte( IW_ALL , 0x31 , pllval + BIT7 );
+	Iw7027_writeSingleByte( IW_ALL, 0x31, pllval + BIT7);
 
 	//2.	Set [PWM_PER_SEL] (0x2F BIT7) =1,Load PWM period from register 0x21[4:0] and 0x22[7:0]
-	Iw7027_writeSingleByte( IW_ALL , 0x2F , BIT7) ;
+	Iw7027_writeSingleByte( IW_ALL, 0x2F, BIT7);
 
 	//3.	Set [PWM_PER] (0x21 BIT0~BIT4 , 0x22 BIT0~BIT7 ) to 4095 (0x0fff)
-	Iw7027_writeSingleByte( IW_ALL , 0x21 , 0x0F );
-	Iw7027_writeSingleByte( IW_ALL , 0x22 , 0xFF );
+	Iw7027_writeSingleByte( IW_ALL, 0x21, 0x0F);
+	Iw7027_writeSingleByte( IW_ALL, 0x22, 0xFF);
 
 	//5.	Check [RO_PLL_LOCK]	(0x84 BIT4)	to ensuer PLL work well
-	if ( Iw7027_checkReadWithTimeout( IW_ALL , 0x84 , BIT4 , BIT4 ) )
+	if (Iw7027_checkReadWithTimeout( IW_ALL, 0x84, BIT4, BIT4))
 	{
 		//return pll value when success
-		return STATUS_SUCCESS;
+		return FLAG_SUCCESS;
 	}
 	else
 	{
-		return STATUS_FAIL;
+		return FLAG_FAIL;
 	}
 }
 
-uint8_t Iw7027_updateDelayTable(enum Iw7027_Delay delay)
+uint8 Iw7027_updateDelayTable(enum Iw7027_Delay delay)
 {
-	return STATUS_SUCCESS;
+	return FLAG_SUCCESS;
 }
 
-uint8_t Iw7027_updateWorkParams(Iw7027Param *param_in)
+uint8 Iw7027_updateWorkParams(Iw7027Param *param_in)
 {
-	static Iw7027Param param_now ;
+	static Iw7027Param param_now;
 
 	//Update IW7027_PLL & Vsync_Out when changed.
-	if(param_now.iwFrequency != param_in->iwFrequency)
+	if (param_now.iwFrequency != param_in->iwFrequency)
 	{
-		param_now.iwFrequency = param_in->iwFrequency ;
+		param_now.iwFrequency = param_in->iwFrequency;
 		Iw7027_updateFrequency(param_now.iwFrequency);
 	}
 
-	if( (param_now.iwVsyncFrequency != param_in->iwVsyncFrequency) || (param_now.iwVsyncDelay != param_in->iwVsyncDelay) )
+	if ((param_now.iwVsyncFrequency != param_in->iwVsyncFrequency) || (param_now.iwVsyncDelay != param_in->iwVsyncDelay))
 	{
-		param_now.iwVsyncFrequency = param_in->iwVsyncFrequency ;
-		param_now.iwVsyncDelay = param_in->iwVsyncDelay ;
-		PwmOut_init(param_now.iwVsyncFrequency ,param_now.iwVsyncDelay);
+		param_now.iwVsyncFrequency = param_in->iwVsyncFrequency;
+		param_now.iwVsyncDelay = param_in->iwVsyncDelay;
+		PwmOut_init(param_now.iwVsyncFrequency, param_now.iwVsyncDelay);
 	}
 
 	//Update current when changed.
 	//YZF 20150526: set current change step
-	if(param_now.iwCurrent != param_in->iwCurrent)
+	if (param_now.iwCurrent != param_in->iwCurrent)
 	{
-		while(param_now.iwCurrent != param_in->iwCurrent)
+		while (param_now.iwCurrent != param_in->iwCurrent)
 		{
-			param_now.iwCurrent = fmin( (uint16_t)param_in->iwCurrent , (uint16_t)param_now.iwCurrent + IW_CURRENT_CHANGE_STEP ) ;
+			param_now.iwCurrent = min((uint16) param_in->iwCurrent, (uint16) param_now.iwCurrent + IW_CURRENT_CHANGE_STEP);
 			Iw7027_updateCurrent(param_now.iwCurrent);
 		}
 
 	}
 
 	//Update delay table when changed.
-	if(param_now.iwDelayTableSelet != param_in->iwDelayTableSelet)
+	if (param_now.iwDelayTableSelet != param_in->iwDelayTableSelet)
 	{
-		param_now.iwDelayTableSelet = param_in->iwDelayTableSelet ;
+		param_now.iwDelayTableSelet = param_in->iwDelayTableSelet;
 		Iw7027_updateDelayTable(param_now.iwDelayTableSelet);
 	}
 
-	if(param_in->iwRunErrorCheck)
+	if (param_in->iwRunErrorCheck)
 	{
 		Iw7027_checkOpenShorStatus(param_in);
 		param_in->iwRunErrorCheck = 0;
 	}
 
-
-	return STATUS_SUCCESS;
+	return FLAG_SUCCESS;
 
 }
 
-uint8_t Iw7027_checkOpenShorStatus(Iw7027Param *iwparam)
+uint8 Iw7027_checkOpenShorStatus(Iw7027Param *iwparam)
 {
 	//Reset Is error
 	iwparam->iwIsError = 0;
-	uint8_t i;
+	uint8 i;
 
 	//Enable Error Read
-	Iw7027_writeSingleByte( IW_ALL , 0x78, 0x80);
+	Iw7027_writeSingleByte( IW_ALL, 0x78, 0x80);
 
 	//Read Open/Short/DSShort status from 0x85~0x8A
-	for( i = 0 ; i < IW_DEVICE_AMOUNT ; i++ )
+	for (i = 0; i < IW_DEVICE_AMOUNT; i++)
 	{
-		Iw7027_readMultiByte (IW_0<<i , 0x85 , 6  , iwparam->iwOpenShortStatus + i*6 );
+		Iw7027_readMultiByte(IW_0 << i, 0x85, 6, iwparam->iwOpenShortStatus + i * 6);
 	}
 
 	//Disable Error¡¡Read
-	Iw7027_writeSingleByte( IW_ALL , 0x78, 0x00);
+	Iw7027_writeSingleByte( IW_ALL, 0x78, 0x00);
 
-	for( i = 0 ; i < IW_DEVICE_AMOUNT * 6 ; i++)
+	for (i = 0; i < IW_DEVICE_AMOUNT * 6; i++)
 	{
-		if( iwparam->iwOpenShortStatus[i] )
+		if (iwparam->iwOpenShortStatus[i])
 		{
 			iwparam->iwIsError |= 1;
 		}

@@ -1,5 +1,5 @@
 /* --COPYRIGHT--,BSD
- * Copyright (c) 2014, Texas Instruments Incorporated
+ * Copyright (c) 2016, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,7 +31,7 @@
  * --/COPYRIGHT--*/
 #ifndef __DRIVERLIB_VERSION__
         #define DRIVERLIB_VER_MAJOR 2
-        #define DRIVERLIB_VER_MINOR 21
+        #define DRIVERLIB_VER_MINOR 70
         #define DRIVERLIB_VER_PATCH 00
         #define DRIVERLIB_VER_BUILD 08
 #endif

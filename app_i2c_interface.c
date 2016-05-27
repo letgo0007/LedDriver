@@ -1,7 +1,7 @@
 #include "app.h"
 #include "driver.h"
 
-uint8_t I2cSlave_handleSpecialFunction(uint8_t *sfbuff)
+uint8 I2cSlave_handleSpecialFunction(uint8 *sfbuff)
 {
 	/*Special Function 1 [SPI direct access function]
 	#define I2C_SPIACCESS_WRMODE		(0x00)
@@ -38,8 +38,8 @@ uint8_t I2cSlave_handleSpecialFunction(uint8_t *sfbuff)
 	{
 		case 0x80://Write buffer
 		{
-			uint16_t i = 0;
-			uint16_t duty = 0x0100 * sfbuff[I2C_MANUAL_DUTY_H] + sfbuff[I2C_MANUAL_DUTY_L] ;
+			uint16 i = 0;
+			uint16 duty = 0x0100 * sfbuff[I2C_MANUAL_DUTY_H] + sfbuff[I2C_MANUAL_DUTY_L] ;
 
 			for( i = sfbuff[ I2C_MANUAL_START_CH ]; i < sfbuff[ I2C_MANUAL_END_CH ] ; i++ )
 			{
@@ -53,7 +53,7 @@ uint8_t I2cSlave_handleSpecialFunction(uint8_t *sfbuff)
 	}
 	sfbuff[I2C_MANUAL_WRMODE] = 0x00 ;
 
-	return STATUS_SUCCESS;
+	return FLAG_SUCCESS;
 
 }
 

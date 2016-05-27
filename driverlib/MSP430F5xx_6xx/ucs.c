@@ -1,5 +1,5 @@
 /* --COPYRIGHT--,BSD
- * Copyright (c) 2014, Texas Instruments Incorporated
+ * Copyright (c) 2016, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -321,6 +321,7 @@ void UCS_initClockSignal(uint8_t selectedClockSignal,
         (UCS_CLOCK_DIVIDER_32 == clockSourceDivider)
         );
 
+    uint16_t temp = HWREG16(UCS_BASE + OFS_UCSCTL5);
     switch(selectedClockSignal)
     {
     case UCS_ACLK:
@@ -328,25 +329,22 @@ void UCS_initClockSignal(uint8_t selectedClockSignal,
         clockSource = clockSource << 8;
         HWREG16(UCS_BASE + OFS_UCSCTL4) |= (clockSource);
 
-        HWREG16(UCS_BASE + OFS_UCSCTL5) &= ~(DIVA_7);
         clockSourceDivider = clockSourceDivider << 8;
-        HWREG16(UCS_BASE + OFS_UCSCTL5) |= clockSourceDivider;
+        HWREG16(UCS_BASE + OFS_UCSCTL5) = temp & ~(DIVA_7) | clockSourceDivider;
         break;
     case UCS_SMCLK:
         HWREG16(UCS_BASE + OFS_UCSCTL4) &= ~(SELS_7);
         clockSource = clockSource << 4;
         HWREG16(UCS_BASE + OFS_UCSCTL4) |= (clockSource);
 
-        HWREG16(UCS_BASE + OFS_UCSCTL5) &= ~(DIVS_7);
         clockSourceDivider = clockSourceDivider << 4;
-        HWREG16(UCS_BASE + OFS_UCSCTL5) |= clockSourceDivider;
+        HWREG16(UCS_BASE + OFS_UCSCTL5) = temp & ~(DIVS_7) | clockSourceDivider;
         break;
     case UCS_MCLK:
         HWREG16(UCS_BASE + OFS_UCSCTL4) &= ~(SELM_7);
         HWREG16(UCS_BASE + OFS_UCSCTL4) |= (clockSource);
 
-        HWREG16(UCS_BASE + OFS_UCSCTL5) &= ~(DIVM_7);
-        HWREG16(UCS_BASE + OFS_UCSCTL5) |= clockSourceDivider;
+        HWREG16(UCS_BASE + OFS_UCSCTL5) = temp & ~(DIVM_7) | clockSourceDivider;
         break;
     case UCS_FLLREF:
         assert(clockSource <= SELA_5);
@@ -355,19 +353,22 @@ void UCS_initClockSignal(uint8_t selectedClockSignal,
         clockSource = clockSource << 4;
         HWREG8(UCS_BASE + OFS_UCSCTL3) |= (clockSource);
 
-        HWREG8(UCS_BASE + OFS_UCSCTL3) &= ~(FLLREFDIV_7);
+        temp = HWREG8(UCS_BASE + OFS_UCSCTL3) & 0x00FF;
         //Note that dividers for FLLREF are slightly different
         //Hence handled differently from other CLK signals
         switch(clockSourceDivider)
         {
         case UCS_CLOCK_DIVIDER_12:
-            HWREG8(UCS_BASE + OFS_UCSCTL3) |= FLLREFDIV__12;
+            HWREG8(UCS_BASE +
+                   OFS_UCSCTL3) = temp & ~(FLLREFDIV_7) | FLLREFDIV__12;
             break;
         case UCS_CLOCK_DIVIDER_16:
-            HWREG8(UCS_BASE + OFS_UCSCTL3) |= FLLREFDIV__16;
+            HWREG8(UCS_BASE +
+                   OFS_UCSCTL3) = temp & ~(FLLREFDIV_7) | FLLREFDIV__16;
             break;
         default:
-            HWREG8(UCS_BASE + OFS_UCSCTL3) |= clockSourceDivider;
+            HWREG8(UCS_BASE +
+                   OFS_UCSCTL3) = temp & ~(FLLREFDIV_7) | clockSourceDivider;
             break;
         }
 

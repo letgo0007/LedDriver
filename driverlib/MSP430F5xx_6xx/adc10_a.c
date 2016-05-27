@@ -1,5 +1,5 @@
 /* --COPYRIGHT--,BSD
- * Copyright (c) 2014, Texas Instruments Incorporated
+ * Copyright (c) 2016, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -67,7 +67,7 @@ bool ADC10_A_init(uint16_t baseAddress,
 
     //Set ADC10_A Control 2
     HWREG16(baseAddress + OFS_ADC10CTL2) =
-        (clockSourceDivider & ADC10PDIV_3) //Set Clock Pre-Divider
+        (clockSourceDivider & (ADC10PDIV_1 | ADC10PDIV_2)) //Set Clock Pre-Divider
         + ADC10RES; //Default resolution to 10-bits
 
     return (retVal);
@@ -131,8 +131,8 @@ void ADC10_A_clearInterrupt(uint16_t baseAddress,
     HWREG16(baseAddress + OFS_ADC10IFG) &= ~(interruptFlagMask);
 }
 
-uint8_t ADC10_A_getInterruptStatus(uint16_t baseAddress,
-                                   uint8_t interruptFlagMask)
+uint16_t ADC10_A_getInterruptStatus(uint16_t baseAddress,
+                                    uint8_t interruptFlagMask)
 {
     return (HWREG16(baseAddress + OFS_ADC10IFG) & interruptFlagMask);
 }

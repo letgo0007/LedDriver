@@ -30,7 +30,7 @@
 
 
 //Function calls
-uint8_t I2cSlave_handleSpecialFunction(uint8_t *i2cmap);
-uint8_t I2cSlave_initMap(uint8_t *i2cmap);
+uint8 I2cSlave_handleSpecialFunction(uint8 *i2cmap);
+uint8 I2cSlave_initMap(uint8 *i2cmap);
 
 #endif /* APP_I2C_INTERFACE_H_ */

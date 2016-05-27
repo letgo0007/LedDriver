@@ -1,40 +1,38 @@
+/******************************************************************************
+ * @file 	[driver_mcu.h]
+ *
+ * MCU hardware driver.
+ *
+ * Copyright (c) 2016 SHARP CORPORATION
+ *
+ * @change 	[DATE]	 [EDITOR] 		[MODEL] [TYPE] 	[COMMENT]
+ * ----------------------------------------------------------------------------
+ * 1		20160527 Yang Zhifang	ALL		Init	Initial Version
+ *
+ ******************************************************************************/
 #ifndef DRIVER_MCU_H_
 #define DRIVER_MCU_H_
+/***1 Includes ***************/
 
-#include "app_uartdebug.h"
-#include "driverlib.h"
-#include "string.h"
+#include "driverlib/MSP430F5xx_6xx/gpio.h"
+#include "std.h"
 
-//Board Hardware Const
-#define BOARD_VERSION					(0x1605240A)							//Software Version Info
-#define BOARD_CPU_F 					(24000000)								//CPU working frequency (Hz)
-#define BOARD_XT1_F						(0)										//XT1 frequency, if no external XT1,set to 0
-#define BOARD_XT2_F						(0)										//XT2 frequency, if no external XT2,set to 0
-#define BOARD_SMCLK_F					(BOARD_CPU_F)							//High speed Sub_System_Clock
-#define BOARD_ACLK_F					(32768)									//Low speed Assist_Clock
-#define BOARD_I2C_SLAVE_ADD_NORMAL		(0x14)									//I2C Slave addess for normal working 0x28
-#define BOARD_I2C_SLAVE_ADD_ISP			(0x1C)									//I2C Slave addess for isp mode 0x38
-#define BOARD_I2C_BUF_ADD_NORMAL		(0x4000)
-#define BOARD_I2C_BUF_ADD_ISP			(0x3800)
-#define BOARD_SPI_MASTER_SPEED			(4000000)								//SPI master speed (Unit in Hz)
-#define BOARD_UART_BAUDRATE				(115200)								//Bound Rate of UART
-#define BOARD_ERROR_INFO_FLASH_PTR		((uint8_t *)0x1800)						//Error Info flash address
-
-//Marcos
-#define delay_us(x) 					__delay_cycles((long)(BOARD_CPU_F*(double)x/1000000))	//delay unit by us (CPU block)
-#define delay_ms(x) 					__delay_cycles((long)(BOARD_CPU_F*(double)x/1000))	//delay unit by ms (CPU block)
+/***2.1 External Macros ******/
+#define BOARD_VERSION					(0x1605240A)					//Software Version Info
+#define BOARD_CPU_F 					(24000000)						//CPU working frequency (Hz)
+#define BOARD_ERROR_INFO_FLASH_PTR		((uint8 *)0x1800)				//Error Info flash address
+#define DELAY_US(x) 					__delay_cycles((uint64)(BOARD_CPU_F*(uint64)x/1000000))
+#define DELAY_MS(x) 					__delay_cycles((uint64)(BOARD_CPU_F*(uint64)x/1000))
 
 //ADC Ports
-#define ADCCAL_15V_30C  				*((unsigned int *)0x1A1A)				//Temperature Sensor Calibration value -30 C, see device data sheet
-#define ADCCAL_15V_85C  				*((unsigned int *)0x1A1C)				//Temperature Sensor Calibration value 85 C, see device data sheet
-#define ADCPORT_DC60V					(ADC10_A_INPUT_A4)
-#define ADCPORT_DC13V					(ADC10_A_INPUT_A5)
-#define ADCPORT_TEMPSENSOR				(ADC10_A_INPUT_TEMPSENSOR)
+#define ADCPORT_DC60V					(4)
+#define ADCPORT_DC13V					(5)
+#define ADCPORT_TEMPSENSOR				(10)
 
-//GPIO Ports , refer to GPIO_ASSIGNMENT.xlsx
-#define GPIO_PIN_ALL					(0xFFFF)
-#define GET_STB_IN						(GPIO_getInputPinValue(GPIO_PORT_P1,GPIO_PIN1))
-#define GET_IW7027_FAULT_IN				(GPIO_getInputPinValue(GPIO_PORT_P6,GPIO_PIN0))
+//GPIO Ports access macro ,refer to GPIO hardware define .
+
+#define GET_STB_IN						(GPIO_getInputPinValue(GPIO_PORT_P1 , GPIO_PIN1))
+#define GET_IW7027_FAULT_IN				(GPIO_getInputPinValue(GPIO_PORT_P6 , GPIO_PIN0))
 #define SET_IW7027_POWER_ON				(GPIO_setOutputHighOnPin(GPIO_PORT_P1 , GPIO_PIN6))
 #define SET_IW7027_POWER_OFF			(GPIO_setOutputLowOnPin(GPIO_PORT_P1 , GPIO_PIN6))
 #define SET_LED_G_ON					(GPIO_setOutputHighOnPin(GPIO_PORT_P4 , GPIO_PIN7));
@@ -43,77 +41,71 @@
 #define SET_ERROR_OUT_HIGH				(GPIO_setOutputHighOnPin(GPIO_PORT_P4 , GPIO_PIN6));
 #define SET_ERROR_OUT_LOW				(GPIO_setOutputLowOnPin(GPIO_PORT_P4 , GPIO_PIN6));
 
-//Struct
+/***2.2 External Structures **/
+
+//Board I/O information structure.
 typedef struct BoardInfo
 {
-	//Board D60V voltage ,unit in V.
-	uint8_t bD60V;
-	//Board D13V voltage ,unit in V.
-	uint8_t bD13V;
-	//Board temperature ,unit in C. Note it is signed value ,has negtive value.
-	int8_t 	bTemprature;
+	//[0x00~0xFF] Board D60V voltage ,unit in V.
+	uint8 bD60V;
+	//[0x00~0xFF] Board D13V voltage ,unit in V.
+	uint8 bD13V;
+	//[-127 ~ 127] Board temperature ,unit in C. Note it is signed value ,has negtive value.
+	int8 bTemprature;
 	//IW7027_FAULT_IN Gpio value
-	uint8_t bIw7027Falut;
+	flag bIw7027Falut;
 	//Spi slave input frame rate.
-	uint8_t bSpiRxFreq;
+	uint8 bSpiRxFreq;
 	//Spi slave data format check result.
-	uint8_t bSpiRxValid;
-	uint8_t reserved[0x0A];
-}BoardInfo;
+	flag bSpiRxValid;
+	uint8 reserved[0x0A];
+} BoardInfo;
 
+//Parameters structure for Error handle
 typedef struct ErrorParam
 {
-	//Error amount ,stored in info section.
-	uint8_t eCount;
-	//Error Type
-	//[0x00] = No error
-	//[BIT0] = Power error
-	//[BIT1] = IW7027 open short error
-	//[BIT2] = Signal error
-	uint8_t eErrorType;
-	//Dc60V high limit,unit in V.
-	uint8_t	eDc60vMax;
-	//Dc60V low limit ,unit in V.
-	uint8_t	eDc60vMin;
-	//Dc13V high limit,unit in V.
-	uint8_t	eDc13vMax;
-	//Dc13V low limit,unit in V.
-	uint8_t	eDc13vMin;
-	//Spi Frame rate low limit,unit in Hz.
-	uint8_t	eSpiRxFreqMin;
-	//Spi data valid check on/off control
-	uint8_t eSpiDataErrorIgnore;
-	//IW7027 FAULT pin status.
-	uint8_t eIw7027FaultIgnore;
-	//IW7027 Error Type
-	//[0x00] = No error
-	//[BIT0] = Open error
-	//[BIT1] = Short error
-	//[BIT2] = D-S Short error
-	uint8_t eIw7027ErrorType;
-	//Error info save function enbale .
-	//when set to [0x01] ,if error happen , mcu will save boardinfo into internal flash.
-	uint8_t eErrorSaveEn;
-	uint8_t reserved[0x05];
-}ErrorParam;
+	//[0x00~0xFF] Error amount , stored in flash info section.
+	uint8 eCount;
+	//[0x00] = No error	[BIT0] = Power error [BIT1] = IW7027 open short error [BIT2] = Spi Rx Signal error
+	uint8 eErrorType;
+	//[0x00~0xFF] Dc60V high limit , unit in V.
+	uint8 eDc60vMax;
+	//[0x00~0xFF] Dc60V low limit , unit in V.
+	uint8 eDc60vMin;
+	//[0x00~0xFF] Dc13V high limit,unit in V.
+	uint8 eDc13vMax;
+	//[0x00~0xFF] Dc13V low limit,unit in V.
+	uint8 eDc13vMin;
+	//[0x00~0xFF] Spi Frame rate low limit,unit in Hz.
+	uint8 eSpiRxFreqMin;
+	//[1] Ignore Spi data error ,both format & frequency error.
+	flag eSpiDataErrorIgnore;
+	//[1] Ignore IW7027_FAULT_IN error.
+	flag eIw7027FaultIgnore;
+	//[0x00] = No error	[BIT0] = Open error [BIT1] = Short error [BIT2] = D-S Short error
+	uint8 eIw7027ErrorType;
+	//[1] Save Error Param & Board info to flash
+	flag eErrorSaveEn;
+	//RESERVED
+	uint8 reserved[0x05];
+} ErrorParam;
 
-//Board Parameters .
-extern BoardInfo System_BoardInfo ;
-extern ErrorParam System_ErrorParam ;
+/***2.3 External Variables ***/
+//Interface Global Variables - Paramters
+extern BoardInfo System_BoardInfo;
+extern ErrorParam System_ErrorParam;
 
-//Duty Buffers
-extern uint16_t System_InputDutyBuff[128] ;
-extern uint16_t System_OutputDutyBuff[128] ;
-extern uint16_t System_ManualDutyBuff[128] ;
+//Interface Global Variables - Duty buffers
+extern uint16 System_InputDutyBuff[128];
+extern uint16 System_OutputDutyBuff[128];
+extern uint16 System_ManualDutyBuff[128];
 
-//Hardware driver interface buffers
-extern uint8_t SpiSlave_RxBuff[256];
-extern uint8_t I2cSlave_Map[512];
-extern uint8_t Uart_RxBuff[256];
+//Interface Global Variables - Hardware interface buffers
+extern uint8 SpiSlave_RxBuff[256];
+extern uint8 Uart_RxBuff[256];
+extern uint8 I2cSlave_SpecialFuncBuff[];
 
-extern uint8_t System_I2c_SpecialFuncBuff[] ;
-extern uint64_t System_Version;
-extern uint64_t System_Isp_Password;
+/***2.4 External Functions ***/
 
 //Function Calls
 /**********************************************************
@@ -122,10 +114,10 @@ extern uint64_t System_Isp_Password;
  * @Param
  * 		NONE
  * @Return
- * 		STATUS_SUCCESS 	: MCU Normal
- * 		STATUS_FAIL		: MCU or Hardware demage
+ * 		FLAG_SUCCESS 	: MCU Normal
+ * 		FLAG_FAIL		: MCU or Hardware demage
  **********************************************************/
-uint8_t Mcu_init(void);
+extern uint8 Mcu_init(void);
 
 /**********************************************************
  * @Brief Board_reset
@@ -136,7 +128,7 @@ uint8_t Mcu_init(void);
  * @Return
  * 		NONE
  **********************************************************/
-void 	Mcu_reset(void);
+extern void Mcu_reset(void);
 
 /**********************************************************
  * @Brief Board_reset
@@ -145,10 +137,10 @@ void 	Mcu_reset(void);
  * 		*outputinfo : Output BoardInfo struct for other function to use.
  * 		*errorparam	: Error handle parameter struct
  * @Return
- * 		STATUS_SUCCESS: board function ok
- * 		STATUS_FAIL	: board in error status, ERROR_OUT is set
+ * 		FLAG_SUCCESS: board function ok
+ * 		FLAG_FAIL	: board in error status, ERROR_OUT is set
  **********************************************************/
-uint8_t Mcu_checkBoardStatus(BoardInfo *outputinfo, ErrorParam *errorparam);
+extern uint8 Mcu_checkBoardStatus(BoardInfo *outputinfo, ErrorParam *errorparam);
 
 /**********************************************************
  * @Brief Clock_init
@@ -159,10 +151,10 @@ uint8_t Mcu_checkBoardStatus(BoardInfo *outputinfo, ErrorParam *errorparam);
  * @Param
  * 		cpu_speed : Target CPU speed. unit in Hz
  * @Return
- * 		STATUS_SUCCESS 	: Clock normally set.
- * 		STATUS_FAIL		: Clock init fail , cristal or power error.
+ * 		FLAG_SUCCESS 	: Clock normally set.
+ * 		FLAG_FAIL		: Clock init fail , cristal or power error.
  **********************************************************/
-uint8_t Clock_init(uint32_t cpu_speed);
+extern uint8 Clock_init(uint32 cpu_speed);
 
 /**********************************************************
  * @Brief Gpio_init
@@ -170,9 +162,9 @@ uint8_t Clock_init(uint32_t cpu_speed);
  * @Param
  * 		NONE
  * @Return
- * 		STATUS_SUCCESS 	: GPIO initial success.
+ * 		FLAG_SUCCESS 	: GPIO initial success.
  **********************************************************/
-uint8_t Gpio_init(void);
+extern uint8 Gpio_init(void);
 
 /**********************************************************
  * @Brief Adc_init
@@ -180,10 +172,10 @@ uint8_t Gpio_init(void);
  * @Param
  * 		NONE
  * @Return
- * 		STATUS_SUCCESS 	: ADC initial success.
- * 		STATUS_FAIL		: Referance error .
+ * 		FLAG_SUCCESS 	: ADC initial success.
+ * 		FLAG_FAIL		: Referance error .
  **********************************************************/
-uint8_t Adc_init(void);
+extern uint8 Adc_init(void);
 
 /**********************************************************
  * @Brief Adc_init
@@ -193,7 +185,7 @@ uint8_t Adc_init(void);
  * @Return
  * 		ADC_Value , 0~0x3FF (10bit)
  **********************************************************/
-uint16_t Adc_getResult(uint8_t port);
+extern uint16 Adc_getResult(uint8 port);
 
 /**********************************************************
  * @Brief Adc_init
@@ -203,7 +195,7 @@ uint16_t Adc_getResult(uint8_t port);
  * @Return
  * 		Temprature value , unit in C .
  **********************************************************/
-int8_t Adc_getMcuTemperature(void);
+extern int8 Adc_getMcuTemperature(void);
 
 /**********************************************************
  * @Brief SpiMaster_init
@@ -211,9 +203,9 @@ int8_t Adc_getMcuTemperature(void);
  * @Param
  * 		spi_speed : spi master speed ,unit in Hz.
  * @Return
- * 		STATUS_SUCCESS
+ * 		FLAG_SUCCESS
  **********************************************************/
-uint8_t SpiMaster_init(uint32_t spi_speed);
+extern uint8 SpiMaster_init(uint32 spi_speed);
 
 /**********************************************************
  * @Brief SpiMaster_setCsPin
@@ -225,7 +217,7 @@ uint8_t SpiMaster_init(uint32_t spi_speed);
  * @Return
  * 		NONE
  **********************************************************/
-void 	SpiMaster_setCsPin(uint8_t chipsel);
+extern void SpiMaster_setCsPin(uint8 chipsel);
 
 /**********************************************************
  * @Brief SpiMaster_sendMultiByte
@@ -236,7 +228,7 @@ void 	SpiMaster_setCsPin(uint8_t chipsel);
  * @Return
  * 		readvalue : last returned value from MISO.
  **********************************************************/
-uint8_t SpiMaster_sendMultiByte(uint8_t *txdata , uint8_t length );
+extern uint8 SpiMaster_sendMultiByte(uint8 *txdata, uint8 length);
 
 /**********************************************************
  * @Brief SpiMaster_sendMultiByte
@@ -246,7 +238,7 @@ uint8_t SpiMaster_sendMultiByte(uint8_t *txdata , uint8_t length );
  * @Return
  * 		readvalue : returned value from MISO.
  **********************************************************/
-uint8_t SpiMaster_sendSingleByte(uint8_t txdata);
+extern uint8 SpiMaster_sendSingleByte(uint8 txdata);
 
 /**********************************************************
  * @Brief SpiSlave_init
@@ -261,9 +253,9 @@ uint8_t SpiMaster_sendSingleByte(uint8_t txdata);
  * @Param
  * 		NONE
  * @Return
- * 		STATUS_SUCCESS
+ * 		FLAG_SUCCESS
  **********************************************************/
-uint8_t SpiSlave_init(void);
+extern uint8 SpiSlave_init(void);
 
 /**********************************************************
  * @Brief SpiSlave_startRx
@@ -275,7 +267,7 @@ uint8_t SpiSlave_init(void);
  * @Return
  * 		NONE
  **********************************************************/
-void 	SpiSlave_startRx(void);
+extern void SpiSlave_startRx(void);
 
 /**********************************************************
  * @Brief SpiSlave_stopRx
@@ -288,7 +280,7 @@ void 	SpiSlave_startRx(void);
  * @Return
  * 		NONE
  **********************************************************/
-void 	SpiSlave_stopRx(void);
+extern void SpiSlave_stopRx(void);
 
 /**********************************************************
  * @Brief SpiSlave_enable
@@ -299,7 +291,7 @@ void 	SpiSlave_stopRx(void);
  * @Return
  * 		NONE
  **********************************************************/
-void 	SpiSlave_enable(void);
+extern void SpiSlave_enable(void);
 
 /**********************************************************
  * @Brief SpiSlave_enable
@@ -309,7 +301,7 @@ void 	SpiSlave_enable(void);
  * @Return
  * 		NONE
  **********************************************************/
-void 	SpiSlave_disable(void);
+extern void SpiSlave_disable(void);
 
 /**********************************************************
  * @Brief I2cSlave_init
@@ -318,9 +310,9 @@ void 	SpiSlave_disable(void);
  * @Param
  * 		slaveaddress : Slave address in 8bit mode with W/R bit.
  * @Return
- * 		STATUS_SUCCESS
+ * 		FLAG_SUCCESS
  **********************************************************/
-uint8_t I2cSlave_init(uint8_t slaveaddress);
+extern uint8 I2cSlave_init(uint8 slaveaddress);
 
 /**********************************************************
  * @Brief Uart_init
@@ -328,9 +320,9 @@ uint8_t I2cSlave_init(uint8_t slaveaddress);
  * @Param
  * 		baudrate : baudrate
  * @Return
- * 		STATUS_SUCCESS
+ * 		FLAG_SUCCESS
  **********************************************************/
-uint8_t Uart_init(uint32_t baudrate);
+extern uint8 Uart_init(uint32 baudrate);
 
 /**********************************************************
  * @Brief PwmOut_init
@@ -340,9 +332,9 @@ uint8_t Uart_init(uint32_t baudrate);
  * 					If set to 0 ,output is muted.
  * 		delay	: Rising edge delay from start . unit in 30.5us (ACLK frequency)
  * @Return
- * 		STATUS_SUCCESS
+ * 		FLAG_SUCCESS
  **********************************************************/
-void 	PwmOut_init(uint8_t initfreq ,uint16_t delay);
+extern void PwmOut_init(uint8 initfreq, uint16 delay);
 
 /**********************************************************
  * @Brief PwmOut_Sync
@@ -353,7 +345,9 @@ void 	PwmOut_init(uint8_t initfreq ,uint16_t delay);
  * @Return
  * 		NONE
  **********************************************************/
-void 	PwmOut_sync(void);
+extern void PwmOut_sync(void);
 
-
+extern void Mem_set8(uint32 memadd, uint8 value, uint16 size);
+extern void Mem_set16(uint32 memadd, uint16 value, uint16 size);
+extern void Mem_copy(uint32 target_add, uint32 source_add, uint16 size);
 #endif /* DRIVER_MCU_H_ */

@@ -10,11 +10,11 @@
  * 		*outputduty			: Duty Matrix Output
  * 		SpiRxFormatModel	: SPI format model selection
  * @Return
- * 		STATUS_SUCCESS		: SPI data format OK, convert finish.
- * 		STATUS_FAIL			: SPI data format NG, no output data.
+ * 		FLAG_SUCCESS		: SPI data format OK, convert finish.
+ * 		FLAG_FAIL			: SPI data format NG, no output data.
  *
  *****************************************************************/
-uint8_t SpiSlave_handle(uint8_t *spirx, uint16_t *outputduty, enum SpiRxFormatModel model)
+uint8 SpiSlave_handle(uint8 *spirx, uint16 *outputduty, enum SpiRxFormatModel model)
 {
 	switch(model)
 	{
@@ -28,10 +28,10 @@ uint8_t SpiSlave_handle(uint8_t *spirx, uint16_t *outputduty, enum SpiRxFormatMo
 			//Step 1 : Check Header
 			if( (spirx[0]==0x01) && (spirx[1]==0x40) && (spirx[2]>=0x01) )
 			{
-				uint8_t length 	= spirx[2];
-				uint8_t checksum= spirx[3+length];
-				uint8_t i 		= 0;
-				uint8_t sum 	= 0;
+				uint8 length 	= spirx[2];
+				uint8 checksum= spirx[3+length];
+				uint8 i 		= 0;
+				uint8 sum 	= 0;
 
 				//Step 2 : Check Sum
 				for(i=0;i<length+2;i++)
@@ -47,18 +47,18 @@ uint8_t SpiSlave_handle(uint8_t *spirx, uint16_t *outputduty, enum SpiRxFormatMo
 					{
 						outputduty[i] =  spirx[3+i]*0x0010 ;
 					}
-					return STATUS_SUCCESS;
+					return FLAG_SUCCESS;
 				}
 				//Error handle
 				else
 				{
-					return STATUS_FAIL;
+					return FLAG_FAIL;
 				}
 
 			}
 			else
 			{
-				return STATUS_FAIL;
+				return FLAG_FAIL;
 			}
 		} //End of Case HISIV600_8BIT
 
@@ -70,15 +70,15 @@ uint8_t SpiSlave_handle(uint8_t *spirx, uint16_t *outputduty, enum SpiRxFormatMo
 			 * Duty:			0x123    0x456 0x789    0xABC
 			 * Channel:         0		 1     2        3
 			 */
-			uint16_t i = 0;
-			uint32_t temp = 0;
+			uint16 i = 0;
+			uint32 temp = 0;
 			for(i=0;i<120;i=i+3)	//120ch 8bit = 80ch 12bit
 			{
 				temp 				= 0x010000 * spirx[i] + 0x000100 * spirx[i+1] + spirx[i+2];
 				outputduty[i/3] 	= temp >> 12;
 				outputduty[i/3 + 1] = temp & 0xFFF;
 			}
-			return STATUS_SUCCESS;
+			return FLAG_SUCCESS;
 		}//End of Case MFC11_12BIT_80CH
 
 		case CITRUS_12BIT_78CH:
@@ -114,10 +114,10 @@ uint8_t SpiSlave_handle(uint8_t *spirx, uint16_t *outputduty, enum SpiRxFormatMo
 			//check header
 			if(spirx[0] != 0x96)
 			{
-				return STATUS_FAIL;
+				return FLAG_FAIL;
 			}
 
-			uint16_t row,col;
+			uint16 row,col;
 			//col = 6 , row = 13 matrix
 			for(row = 0 ; row < 13 ;row++)
 			{
@@ -138,11 +138,11 @@ uint8_t SpiSlave_handle(uint8_t *spirx, uint16_t *outputduty, enum SpiRxFormatMo
 			}
 		}
 
-			return STATUS_SUCCESS;
+			return FLAG_SUCCESS;
 
 		default:
 			//undefined SPI format , return fail
-			return STATUS_FAIL;
+			return FLAG_FAIL;
 	}
 }
 

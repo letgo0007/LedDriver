@@ -1,5 +1,5 @@
 /* --COPYRIGHT--,BSD
- * Copyright (c) 2014, Texas Instruments Incorporated
+ * Copyright (c) 2016, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -498,7 +498,8 @@ typedef struct Timer_A_initCompareModeParam
 
 //*****************************************************************************
 //
-// The following are values that can be passed to the param parameter for
+// The following are values that can be passed to the compareOutputMode
+// parameter for functions: Timer_A_setOutputMode(); the param parameter for
 // functions: Timer_A_initCaptureMode(), Timer_A_initCompareMode(), and
 // Timer_A_outputPWM().
 //
@@ -515,8 +516,9 @@ typedef struct Timer_A_initCompareModeParam
 //*****************************************************************************
 //
 // The following are values that can be passed to the compareRegister parameter
-// for functions: Timer_A_setCompareValue(); the captureCompareRegister
-// parameter for functions: Timer_A_enableCaptureCompareInterrupt(),
+// for functions: Timer_A_setCompareValue(), and Timer_A_setOutputMode(); the
+// captureCompareRegister parameter for functions:
+// Timer_A_enableCaptureCompareInterrupt(),
 // Timer_A_disableCaptureCompareInterrupt(),
 // Timer_A_getCaptureCompareInterruptStatus(),
 // Timer_A_getSynchronizedCaptureCompareInput(),
@@ -997,6 +999,42 @@ extern void Timer_A_stop(uint16_t baseAddress);
 extern void Timer_A_setCompareValue(uint16_t baseAddress,
                                     uint16_t compareRegister,
                                     uint16_t compareValue);
+
+//*****************************************************************************
+//
+//! \brief Sets the output mode
+//!
+//! Sets the output mode for the timer even the timer is already running.
+//!
+//! \param baseAddress is the base address of the TIMER_A module.
+//! \param compareRegister selects the compare register being used.
+//!        Valid values are:
+//!        - \b TIMER_A_CAPTURECOMPARE_REGISTER_0
+//!        - \b TIMER_A_CAPTURECOMPARE_REGISTER_1
+//!        - \b TIMER_A_CAPTURECOMPARE_REGISTER_2
+//!        - \b TIMER_A_CAPTURECOMPARE_REGISTER_3
+//!        - \b TIMER_A_CAPTURECOMPARE_REGISTER_4
+//!        - \b TIMER_A_CAPTURECOMPARE_REGISTER_5
+//!        - \b TIMER_A_CAPTURECOMPARE_REGISTER_6
+//! \param compareOutputMode specifies the output mode.
+//!        Valid values are:
+//!        - \b TIMER_A_OUTPUTMODE_OUTBITVALUE [Default]
+//!        - \b TIMER_A_OUTPUTMODE_SET
+//!        - \b TIMER_A_OUTPUTMODE_TOGGLE_RESET
+//!        - \b TIMER_A_OUTPUTMODE_SET_RESET
+//!        - \b TIMER_A_OUTPUTMODE_TOGGLE
+//!        - \b TIMER_A_OUTPUTMODE_RESET
+//!        - \b TIMER_A_OUTPUTMODE_TOGGLE_SET
+//!        - \b TIMER_A_OUTPUTMODE_RESET_SET
+//!
+//! Modified bits are \b OUTMOD of \b TAxCCTLn register.
+//!
+//! \return None
+//
+//*****************************************************************************
+extern void Timer_A_setOutputMode(uint16_t baseAddress,
+                                  uint16_t compareRegister,
+                                  uint16_t compareOutputMode);
 
 //*****************************************************************************
 //

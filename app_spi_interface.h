@@ -1,7 +1,7 @@
 #ifndef APP_SPI_INTERFACE_H_
 #define APP_SPI_INTERFACE_H_
 
-#include "driverlib.h"
+#include "std.h"
 
 //Supported format model
 enum SpiRxFormatModel
@@ -12,7 +12,7 @@ enum SpiRxFormatModel
 };
 
 //Function Calls
-uint8_t SpiSlave_handle(uint8_t *spirx, uint16_t *outputduty, enum SpiRxFormatModel model);
+uint8 SpiSlave_handle(uint8 *spirx, uint16 *outputduty, enum SpiRxFormatModel model);
 
 
 #endif /* APP_SPI_INTERFACE_H_ */

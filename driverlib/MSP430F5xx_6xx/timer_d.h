@@ -1,5 +1,5 @@
 /* --COPYRIGHT--,BSD
- * Copyright (c) 2014, Texas Instruments Incorporated
+ * Copyright (c) 2016, Texas Instruments Incorporated
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -672,7 +672,8 @@ typedef struct Timer_D_outputPWMParam
 
 //*****************************************************************************
 //
-// The following are values that can be passed to the param parameter for
+// The following are values that can be passed to the compareOutputMode
+// parameter for functions: Timer_D_setOutputMode(); the param parameter for
 // functions: Timer_D_initCaptureMode(), Timer_D_initCompareMode(),
 // Timer_D_outputPWM(), and Timer_D_combineTDCCRToOutputPWM().
 //
@@ -689,9 +690,10 @@ typedef struct Timer_D_outputPWMParam
 //*****************************************************************************
 //
 // The following are values that can be passed to the compareRegister parameter
-// for functions: Timer_D_setCompareValue(), and
-// Timer_D_initCompareLatchLoadEvent(); the captureCompareRegister parameter
-// for functions: Timer_D_enableCaptureCompareInterrupt(),
+// for functions: Timer_D_setCompareValue(),
+// Timer_D_initCompareLatchLoadEvent(), and Timer_D_setOutputMode(); the
+// captureCompareRegister parameter for functions:
+// Timer_D_enableCaptureCompareInterrupt(),
 // Timer_D_disableCaptureCompareInterrupt(),
 // Timer_D_getCaptureCompareInterruptStatus(),
 // Timer_D_getSynchronizedCaptureCompareInput(),
@@ -1733,6 +1735,42 @@ extern void Timer_D_selectHighResClockRange(uint16_t baseAddress,
 //
 //*****************************************************************************
 extern uint16_t Timer_D_getCounterValue(uint16_t baseAddress);
+
+//*****************************************************************************
+//
+//! \brief Sets the output mode
+//!
+//! Sets the output mode for the timer even the timer is already running.
+//!
+//! \param baseAddress is the base address of the TIMER_D module.
+//! \param compareRegister selects the compare register being used.
+//!        Valid values are:
+//!        - \b TIMER_D_CAPTURECOMPARE_REGISTER_0
+//!        - \b TIMER_D_CAPTURECOMPARE_REGISTER_1
+//!        - \b TIMER_D_CAPTURECOMPARE_REGISTER_2
+//!        - \b TIMER_D_CAPTURECOMPARE_REGISTER_3
+//!        - \b TIMER_D_CAPTURECOMPARE_REGISTER_4
+//!        - \b TIMER_D_CAPTURECOMPARE_REGISTER_5
+//!        - \b TIMER_D_CAPTURECOMPARE_REGISTER_6
+//! \param compareOutputMode specifies the output mode.
+//!        Valid values are:
+//!        - \b TIMER_D_OUTPUTMODE_OUTBITVALUE [Default]
+//!        - \b TIMER_D_OUTPUTMODE_SET
+//!        - \b TIMER_D_OUTPUTMODE_TOGGLE_RESET
+//!        - \b TIMER_D_OUTPUTMODE_SET_RESET
+//!        - \b TIMER_D_OUTPUTMODE_TOGGLE
+//!        - \b TIMER_D_OUTPUTMODE_RESET
+//!        - \b TIMER_D_OUTPUTMODE_TOGGLE_SET
+//!        - \b TIMER_D_OUTPUTMODE_RESET_SET
+//!
+//! Modified bits are \b OUTMOD of \b TDxCCTLn register.
+//!
+//! \return None
+//
+//*****************************************************************************
+extern void Timer_D_setOutputMode(uint16_t baseAddress,
+                                  uint16_t compareRegister,
+                                  uint16_t compareOutputMode);
 
 //*****************************************************************************
 //
