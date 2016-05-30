@@ -15,126 +15,78 @@
 
 #include "app_dpl.h"
 
-
 /***2.1 Internal Marcos ******************************************************/
+
+#define DPL_DefaultParam			(DPL_DefaultParam_70XU30A)
+#define DPL_TempCalibratineTable	(DPL_TempCalibratineTable_70XU30A)
+#define DPL_ZoneOffsetTable			(DPL_ZoneOffsetTable_70XU30A)
 
 /***2.2 Internal Struct ******************************************************/
 
 /***2.3 Internal Variables ***************************************************/
+//Buffers
+uint16 DPL_tempSampleCount =
+{ 0 };
+uint16 DPL_tempDutyMatrix[DPL_LED_CH_MAX] =
+{ 0 };
+uint32 DPL_tempSumDutyMatrix[DPL_LED_CH_MAX] =
+{ 0 };
+uint16 DPL_tempDutyLimitTable[DPL_LED_CH_MAX] =
+{ 0 };
+uint16 DPL_InputGamma[0x100] =
+{ 0 };
 
 //Default params.
-static const DPL_Prama DPL_DefaultParam =
-{ .dplOn = 1, .dplChannelAmount = 78, .dplInputGammaEnable = 1, .dplSampleFrames = 120, .dplUpdateFrames = 1200, .dplLimitUpStep = 0x0080, .dplLimitDownStep =
-		0x0080, .dplGdDutyMax = 0x0800, .dplLdDutyMax = 0x0F00, .dplTemperatureCalibration = 0x0000, .dplLdDutySumLimitHighTemp = 0x0800,
-		.dplLdDutySumLimitLowTemp = 0x0700, .dplInputGammaGp0x000 = 0x0000, .dplInputGammaGp0x3F0 = 0x03F0, .dplInputGammaGp0x7F0 = 0x07F0,
-		.dplInputGammaGp0xBF0 = 0x0BF0, .dplInputGammaGp0xFF0 = 0x0FF0, };
+static const DPL_Prama DPL_DefaultParam_70XU30A =
+{ .dplOn = 1, .dplChannelAmount = 78, .dplInputGammaEnable = 1, .dplSampleFrames = 120, .dplUpdateFrames = 1200,
+		.dplLimitUpStep = 0x0080, .dplLimitDownStep = 0x0080, .dplGdDutyMax = 0x0800, .dplLdDutyMax = 0x0F00,
+		.dplTemperatureCalibration = 0x0000, .dplLdDutySumLimitHighTemp = 0x0800, .dplLdDutySumLimitLowTemp = 0x0700,
+		.dplInputGammaGp0x000 = 0x0000, .dplInputGammaGp0x3F0 = 0x03F0, .dplInputGammaGp0x7F0 = 0x07F0, .dplInputGammaGp0xBF0 =
+				0x0BF0, .dplInputGammaGp0xFF0 = 0x0FF0, };
 
 //To balance different enviroment temperature.
-static const int16 DPL_TempCalibratineTable[60] =
-{ 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80,
-		82, 84, 86, 88, 90, 92, 94, 96, 98, 100, 102, 104, 106, 108, 110, 112, 114, 116, 118, };
+static const int16 DPL_TempCalibratineTable_70XU30A[60] =
+{ 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64,
+		66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94, 96, 98, 100, 102, 104, 106, 108, 110, 112, 114, 116, 118, };
 
 //To balance LED environment temperature on different area of a LED Panel.
-static const uint16 DPL_ZoneOffsetTable[DPL_LED_CH_MAX] =
-{ 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0080, 0x0080, 0x0000, 0x0000, 0x0000, 0x0080, 0x0080, 0x0080, 0x0000, 0x0000, 0x0000,
-		0x0080, 0x0000, 0x0040, 0x0080, 0x0000, 0x0000, 0x0000, 0x0000, 0x0040, 0x0080, 0x0000, 0x0000, 0x0000, 0x0000, 0x0040, 0x0080, 0x0000, 0x0000, 0x0000,
-		0x0000, 0x0040, 0x0080, 0x0000, 0x0000, 0x0000, 0x0000, 0x0040, 0x0080, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0080,
-		0x0080, 0x0000, 0x0000, 0x0000, 0x0000, 0x0080, 0x0080, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
-		0x0000, 0x0000, 0x0000, 0x0000 };
+static const uint16 DPL_ZoneOffsetTable_70XU30A[DPL_LED_CH_MAX] =
+{
+/*ROW0*/0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+/*ROW1*/0x0000, 0x0000, 0x0080, 0x0080, 0x0000, 0x0000,
+/*ROW2*/0x0000, 0x0080, 0x0080, 0x0080, 0x0000, 0x0000,
+/*ROW3*/0x0000, 0x0080, 0x0000, 0x0040, 0x0080, 0x0000,
+/*ROW4*/0x0000, 0x0000, 0x0000, 0x0040, 0x0080, 0x0000,
+/*ROW5*/0x0000, 0x0000, 0x0000, 0x0040, 0x0080, 0x0000,
+/*ROW6*/0x0000, 0x0000, 0x0000, 0x0040, 0x0080, 0x0000,
+/*ROW7*/0x0000, 0x0000, 0x0000, 0x0040, 0x0080, 0x0000,
+/*ROW8*/0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+/*ROW9*/0x0000, 0x0000, 0x0080, 0x0080, 0x0000, 0x0000,
+/*ROWA*/0x0000, 0x0000, 0x0080, 0x0080, 0x0000, 0x0000,
+/*ROWB*/0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+/*ROWC*/0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+/*NC  */0x0000, 0x0000 };
 
 /***2.4 External Variables ***************************************************/
 
 /***2.5 Internal Functions ***************************************************/
 
-void DPL_limitLocalDuty(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam);
-void DPL_limitGlobalDuty(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam);
-void DPL_sumLocalDuty(uint16 *inputduty, uint32 *outputdutysum, DPL_Prama *dplparam);
-void DPL_updateParam(uint32 *inputdutysum, DPL_Prama *dplparam);
-void DPL_correctGamma(uint16 *inputduty, uint16 *outputduty, DPL_Prama *);
-void DPL_GammaUpdate(uint16 gp0, uint16 gp63, uint16 gp127, uint16 gp191, uint16 gp255);
-
-/***2.6 External Functions ***************************************************/
-
-/* DPL_Function
- * @Brief
- * 		Dynamic Power Limit function , limit local / global duty to protect LED bars.
- * 		This function has 4 sub functions:
- * 		DPL_limitLocalDuty		: Single CH LED duty limit.
- * 		DPL_limitGlobalDuty		: All CH LED limit.
- * 		DPL_sumLocalDuty		: Sample & Sum up every single CH duty every certain time(typ 1sec)
- * 		DPL_updateParam			: Update the limit tabel for DPL_limitLocalDuty accroding to certain amount samples (typ 60 samples)
- * @variables
- * 		*inputduty				: Duty matrix input
- * 		*outputduty				: Duty Matrix output (power limited)
- * 		dplparam				: DPL function parameters , DPL_Prama type .
- * @return
- * 		FLAG_SUCCESS			: DPL function finish
- *
- */
-uint8 DPL_Function(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam)
-{
-	static uint8 firstrun;
-
-	/*------------------------------------------------------------------
-	 *
-	 *Auto Initialize parameters for 1st run.
-	 *
-	 -------------------------------------------------------------------*/
-	if (firstrun == 0)
-	{
-		Mem_copy((uint32) *&dplparam, (uint32) &DPL_DefaultParam, sizeof(DPL_DefaultParam));
-		Mem_set16((uint32) &DPL_tempDutyLimitTable, dplparam->dplLdDutyMax, sizeof(DPL_tempDutyLimitTable) / 2);
-		firstrun = 1;
-	}
-
-	/*------------------------------------------------------------------
-	 *
-	 * DPL main sturct.
-	 *
-	 -------------------------------------------------------------------*/
-	if (dplparam->dplOn)
-	{
-		//STEP1: Gamma correction.
-		DPL_correctGamma(inputduty, inputduty, dplparam);
-		//STEP2: Input -> LD limit -> GD limit -> Output
-		DPL_limitLocalDuty(inputduty, DPL_tempDutyMatrix, dplparam);
-		DPL_limitGlobalDuty(DPL_tempDutyMatrix, outputduty, dplparam);
-		//STEP3: Sample
-		if (DPL_tempSampleCount % dplparam->dplSampleFrames == 1)
-		{
-			DPL_sumLocalDuty(outputduty, DPL_tempSumDutyMatrix, dplparam);
-		}
-		//STEP4: Update Param
-		if (DPL_tempSampleCount == dplparam->dplUpdateFrames)
-		{
-			DPL_updateParam(DPL_tempSumDutyMatrix, dplparam);
-			DPL_tempSampleCount = 0;
-		}
-		DPL_tempSampleCount++;
-	}
-	else    //when DPL is off , bypass input to output.
-	{
-		Mem_copy((uint32) &*outputduty, (uint32) &*inputduty, dplparam->dplChannelAmount * 2);
-		DPL_tempSampleCount = 0;
-	}
-	return FLAG_SUCCESS;
-}
-
 void DPL_limitLocalDuty(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam)
 {
+	static uint16 ldmax_now;
 	uint16 i = 0;
+
+	//If LD duty  modified , reset all duty limit to new max value.
+	if (ldmax_now != dplparam->dplLdDutyMax)
+	{
+		ldmax_now = dplparam->dplLdDutyMax;
+		Mem_set16((uint32) &DPL_tempDutyLimitTable, dplparam->dplLdDutyMax, sizeof(DPL_tempDutyLimitTable) / 2);
+	}
 
 	//Limit every local duty <= dplLdLimitTable
 	for (i = 0; i < dplparam->dplChannelAmount; i++)
 	{
-		if (inputduty[i] > (DPL_tempDutyLimitTable[i]))
-		{
-			outputduty[i] = DPL_tempDutyLimitTable[i];
-		}
-		else
-		{
-			outputduty[i] = inputduty[i];
-		}
+		outputduty[i] = min(inputduty[i], DPL_tempDutyLimitTable[i]);
 	}
 }
 
@@ -145,7 +97,7 @@ void DPL_limitGlobalDuty(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplpa
 	uint16 avg = 0;
 	uint32 gain = 0;
 
-	//calculate average duty
+	//Calculate average duty
 	for (i = 0; i < dplparam->dplChannelAmount; i++)
 	{
 		sum = sum + inputduty[i];
@@ -227,8 +179,10 @@ void DPL_correctGamma(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam
 {
 	static uint16 gp_now[5];
 
-	if ((gp_now[0] != dplparam->dplInputGammaGp0x000) || (gp_now[1] != dplparam->dplInputGammaGp0x3F0) || (gp_now[2] != dplparam->dplInputGammaGp0x7F0)
-			|| (gp_now[3] != dplparam->dplInputGammaGp0xBF0) || (gp_now[4] != dplparam->dplInputGammaGp0xFF0))
+	//If Gamma point changed. Caiculate 256 point Gamma table accroding to 5 point input.
+	if ((gp_now[0] != dplparam->dplInputGammaGp0x000) || (gp_now[1] != dplparam->dplInputGammaGp0x3F0)
+			|| (gp_now[2] != dplparam->dplInputGammaGp0x7F0) || (gp_now[3] != dplparam->dplInputGammaGp0xBF0)
+			|| (gp_now[4] != dplparam->dplInputGammaGp0xFF0))
 	{
 
 		gp_now[0] = dplparam->dplInputGammaGp0x000;
@@ -274,6 +228,65 @@ void DPL_correctGamma(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam
 		}
 	}
 
+}
+
+/***2.6 External Functions ***************************************************/
+
+/* DPL_Function
+ * @Brief
+ * 		Dynamic Power Limit function , limit local / global duty to protect LED bars.
+ * 		This function has 4 sub functions:
+ * 		DPL_limitLocalDuty		: Single CH LED duty limit.
+ * 		DPL_limitGlobalDuty		: All CH LED limit.
+ * 		DPL_sumLocalDuty		: Sample & Sum up every single CH duty every certain time(typ 1sec)
+ * 		DPL_updateParam			: Update the limit tabel for DPL_limitLocalDuty accroding to certain amount samples (typ 60 samples)
+ * @variables
+ * 		*inputduty				: Duty matrix input
+ * 		*outputduty				: Duty Matrix output (power limited)
+ * 		dplparam				: DPL function parameters , DPL_Prama type .
+ * @return
+ * 		FLAG_SUCCESS			: DPL function finish
+ *
+ */
+uint8 DPL_Function(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam)
+{
+	static uint8 firstrun;
+
+	//Auto initialize param.
+	if (firstrun == 0)
+	{
+		//Load default param.
+		Mem_copy((uint32) *&dplparam, (uint32) &DPL_DefaultParam, sizeof(DPL_DefaultParam));
+		firstrun = 1;
+	}
+
+	//DPL main struct.
+	if (dplparam->dplOn)
+	{
+		//STEP1: Gamma correction.
+		DPL_correctGamma(inputduty, inputduty, dplparam);
+		//STEP2: Input -> LD limit -> GD limit -> Output
+		DPL_limitLocalDuty(inputduty, DPL_tempDutyMatrix, dplparam);
+		DPL_limitGlobalDuty(DPL_tempDutyMatrix, outputduty, dplparam);
+		//STEP3: Sample
+		if (DPL_tempSampleCount % dplparam->dplSampleFrames == 1)
+		{
+			DPL_sumLocalDuty(outputduty, DPL_tempSumDutyMatrix, dplparam);
+		}
+		//STEP4: Update Param
+		if (DPL_tempSampleCount == dplparam->dplUpdateFrames)
+		{
+			DPL_updateParam(DPL_tempSumDutyMatrix, dplparam);
+			DPL_tempSampleCount = 0;
+		}
+		DPL_tempSampleCount++;
+	}
+	else    //when DPL is off , bypass input to output.
+	{
+		Mem_copy((uint32) &*outputduty, (uint32) &*inputduty, dplparam->dplChannelAmount * 2);
+		DPL_tempSampleCount = 0;
+	}
+	return FLAG_SUCCESS;
 }
 
 void DPL_caliberateTemp(int8 temp, DPL_Prama *dplparam)

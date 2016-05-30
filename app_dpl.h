@@ -14,15 +14,18 @@
 #ifndef APP_DPL_H_
 #define APP_DPL_H_
 /***1 Includes ***************************************************************/
+
 #include "std.h"
 
 /***2.1 External Macros ******************************************************/
+
 //Software Version
 #define DPL_VERSION					(0x01)
 //Maximum Size for LED data buffer size.
 #define DPL_LED_CH_MAX				(128)
 
 /***2.2 External Structures **************************************************/
+
 //Parameters Struct
 typedef struct DPL_Prama
 {
@@ -65,12 +68,13 @@ typedef struct DPL_Prama
 } DPL_Prama;
 
 /***2.3 External Variables ***************************************************/
+
 //Temp buffers (External access for Debug use only).
-uint16 DPL_tempSampleCount;
-uint16 DPL_tempDutyMatrix[DPL_LED_CH_MAX];
-uint32 DPL_tempSumDutyMatrix[DPL_LED_CH_MAX];
-uint16 DPL_tempDutyLimitTable[DPL_LED_CH_MAX];
-uint16 DPL_InputGamma[0x100];
+extern uint16 DPL_tempSampleCount;
+extern uint16 DPL_tempDutyMatrix[DPL_LED_CH_MAX];
+extern uint32 DPL_tempSumDutyMatrix[DPL_LED_CH_MAX];
+extern uint16 DPL_tempDutyLimitTable[DPL_LED_CH_MAX];
+extern uint16 DPL_InputGamma[0x100];
 //Dpl param
 extern DPL_Prama SysParam_Dpl;
 

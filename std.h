@@ -28,7 +28,7 @@ typedef _Bool flag;
 /*API standard return value for flag*/
 #define FLAG_SUCCESS			(1)
 #define FLAG_FAIL				(0)
-
+/*BIT Mask*/
 #define BIT0                   (0x0001)
 #define BIT1                   (0x0002)
 #define BIT2                   (0x0004)
@@ -55,5 +55,32 @@ inline int min(int a, int b)
 {
 	return a < b ? a : b;
 }
+
+/*Direct access to memory access*/
+#ifndef HWREG32
+#define HWREG32(x)    (*((volatile uint32 *)((uint16)x)))
+#endif
+#ifndef HWREG16
+#define HWREG16(x)    (*((volatile uint16 *)((uint16)x)))
+#endif
+#ifndef HWREG8
+#define HWREG8(x)     (*((volatile uint8 *)((uint16)x)))
+#endif
+
+/*.h file common structure*/
+/***1 Includes ***************************************************************/
+/***2.1 External Macros ******************************************************/
+/***2.2 External Structures **************************************************/
+/***2.3 External Variables ***************************************************/
+/***2.4 External Functions ***************************************************/
+
+/*.c file common structure*/
+/***1 Includes ***************************************************************/
+/***2.1 Internal Marcos ******************************************************/
+/***2.2 Internal Struct ******************************************************/
+/***2.3 Internal Variables ***************************************************/
+/***2.4 External Variables ***************************************************/
+/***2.5 Internal Functions ***************************************************/
+/***2.6 External Functions ***************************************************/
 
 #endif /* STD_H_ */

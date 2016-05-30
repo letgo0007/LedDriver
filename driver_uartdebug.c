@@ -105,6 +105,20 @@ void Uart_Console(uint8 *uartrxbuf)
 		PrintString("\r\nErase Error Info.\r\n");
 		FlashCtl_eraseSegment(BOARD_ERROR_INFO_FLASH_PTR);
 	}
+	else if (!memcmp(uartrxbuf, "mem ", 4) && uartrxbuf[8] == '=')
+	{
+		uint16 add;
+		uint16 val;
+		add = AsciiToHex(uartrxbuf[4]) * 0x1000 + AsciiToHex(uartrxbuf[5]) * 0x0100 + AsciiToHex(uartrxbuf[6]) * 0x0010
+				+ AsciiToHex(uartrxbuf[7]);
+		val = AsciiToHex(uartrxbuf[9]) * 0x10 + AsciiToHex(uartrxbuf[10]);
+		HWREG8(add) = val;
+		PrintString("\r\n Set Address [0x");
+		PrintInt(add);
+		PrintString("] = [0x");
+		PrintChar(val);
+		PrintString("]\r\n");
+	}
 	else if (!memcmp(uartrxbuf, "reboot", 6))
 	{
 		PrintString("\r\n MCU manual reboot. \r\n");
@@ -119,6 +133,7 @@ void Uart_Console(uint8 *uartrxbuf)
 				"output: Duty output\r\n"
 				"error : Error Status\r\n"
 				"erase : Clear Error Info\r\n"
+				"mem   : Memory direct modify\r\n"
 				"reboot: Reboot Mcu\r\n");
 
 	}
@@ -171,9 +186,9 @@ void PrintCharBCD(uint8 data)
  */
 void PrintEnter(void)
 {
-	// windows 	: CR + LF
-	// Mac		: CR
-	// Linux	: LF
+// windows 	: CR + LF
+// Mac		: CR
+// Linux	: LF
 	UartSendChar('\r');
 	UartSendChar('\n');
 
@@ -230,3 +245,20 @@ void PrintTime(Calendar *time)
 	PrintString("]");
 }
 
+uint8 AsciiToHex(uint8 hex)
+{
+	uint8 ascii = 0;
+	if ((hex >= '0') && (hex <= '9'))
+	{
+		ascii = hex - '0';
+	}
+	if ((hex >= 'a') && (hex <= 'f'))
+	{
+		ascii = hex - 'a' + 0x0A;
+	}
+	if ((hex >= 'A') && (hex <= 'F'))
+	{
+		ascii = hex - 'A' + 0x0A;
+	}
+	return ascii;
+}

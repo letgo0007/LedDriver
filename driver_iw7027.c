@@ -18,6 +18,7 @@
 #include "driver.h"
 
 /***2.1 Internal Marcos *******************************************************/
+
 #ifndef UART_DEBUG_ON
 #define UART_DEBUG_ON						(0)
 #endif
@@ -27,12 +28,15 @@
 #define IW_SPI_MASTER_TRANS_STOP_DELAY		(10)
 //Current change max step .
 #define	IW_CURRENT_CHANGE_STEP				(0x30)
+
 //Select model specified const .
 #define Iw7027_DefaultRegMap				(Iw7027_DefaultRegMap_70XU30A)
 #define Iw7027_LedSortMap					(Iw7027_LedSortMap_70XU30A)
+
 /***2.2 Internal Struct ******************************************************/
 
 /***2.3 Internal Variables ***************************************************/
+
 //Default Reg map for all IW7027 devices. 0x60 bytes for each device.
 static const uint8 Iw7027_DefaultRegMap_70XU30A[IW_DEVICE_AMOUNT * 0x60] =
 {

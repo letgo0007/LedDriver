@@ -38,5 +38,6 @@ extern void PrintInt(unsigned int data);
 extern void PrintArray(unsigned char *array, unsigned int length);
 extern void PrintString(unsigned char *string);
 extern void PrintTime(Calendar *time);
+extern uint8 AsciiToHex(uint8 hex);
 
 #endif /* DRIVER_UARTDEBUG_H_ */
