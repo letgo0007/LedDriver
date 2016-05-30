@@ -44,7 +44,7 @@ void Uart_Console(uint8 *uartrxbuf)
 	else if (!memcmp(uartrxbuf, "spi", 3))
 	{
 		PrintString("\r\nSpi Slave buffer:\r\n");
-		PrintArray(SpiSlave_RxBuff, 256);
+		PrintArray(HwBuf_SpiSlaveRx, 256);
 	}
 	else if (!memcmp(uartrxbuf, "i2c", 3))
 	{
@@ -58,7 +58,7 @@ void Uart_Console(uint8 *uartrxbuf)
 		for (i = 0; i < 80; i++)
 		{
 			PrintString(" ");
-			PrintInt(System_InputDutyBuff[i]);
+			PrintInt(HwBuf_InputDuty[i]);
 			if (i % 6 == 5)
 			{
 				PrintString("\r\n");
@@ -73,7 +73,7 @@ void Uart_Console(uint8 *uartrxbuf)
 		for (i = 0; i < 80; i++)
 		{
 			PrintString(" ");
-			PrintInt(System_OutputDutyBuff[i]);
+			PrintInt(HwBuf_OutputDuty[i]);
 			if (i % 6 == 5)
 			{
 				PrintString("\r\n");
@@ -83,22 +83,22 @@ void Uart_Console(uint8 *uartrxbuf)
 	}
 	else if (!memcmp(uartrxbuf, "iw", 2))
 	{
-		System_Iw7027Param.iwRunErrorCheck = 1;
-		Iw7027_updateWorkParams(&System_Iw7027Param);
+		SysParam_Iw7027.iwRunErrorCheck = 1;
+		Iw7027_updateWorkParams(&SysParam_Iw7027);
 		PrintString("IW7027 Error Status");
-		PrintArray((uint8 *) &System_Iw7027Param, sizeof(System_Iw7027Param));
+		PrintArray((uint8 *) &SysParam_Iw7027, sizeof(SysParam_Iw7027));
 		PrintEnter();
 	}
 	else if (!memcmp(uartrxbuf, "error", 5))
 	{
 		PrintString("\r\n Current Error Detect Param:\r\n");
-		PrintArray((uint8 *) &System_ErrorParam, sizeof(System_ErrorParam));
+		PrintArray((uint8 *) &SysParam_Error, sizeof(SysParam_Error));
 		PrintString("\r\n Current Board Status:\r\n");
-		PrintArray((uint8 *) &System_BoardInfo, sizeof(System_BoardInfo));
+		PrintArray((uint8 *) &SysParam_BoardInfo, sizeof(SysParam_BoardInfo));
 		PrintString("\r\n Flash Stored Error Param:\r\n");
-		PrintArray(BOARD_ERROR_INFO_FLASH_PTR, sizeof(System_ErrorParam));
+		PrintArray(BOARD_ERROR_INFO_FLASH_PTR, sizeof(SysParam_Error));
 		PrintString("\r\n Flash Stored Board Info:\r\n");
-		PrintArray(BOARD_ERROR_INFO_FLASH_PTR + 0x20, sizeof(System_BoardInfo));
+		PrintArray(BOARD_ERROR_INFO_FLASH_PTR + 0x20, sizeof(SysParam_BoardInfo));
 	}
 	else if (!memcmp(uartrxbuf, "erase", 5))
 	{

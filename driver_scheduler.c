@@ -48,8 +48,8 @@ void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
 	case 0: //No interrupt
 		break;
 	case 2: //CC1, set CPU wake up period.
-		TB0CCR1 += System_Schedule.schCpuTickPeriod;
-		System_Schedule.cpuTickCount++;
+		TB0CCR1 += SysParam_Schedule.schCpuTickPeriod;
+		SysParam_Schedule.cpuTickCount++;
 		if (Sch_CpuOnMark == 0)
 		{
 			Sch_CpuOnMark = TB0R;
@@ -58,12 +58,12 @@ void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
 		__bic_SR_register_on_exit(LPM0_bits);
 		break;
 	case 4: //CC2, set board check period.
-		TB0CCR2 += System_Schedule.schBoardCheckPeriod;
-		System_Schedule.taskFlagBoardCheck = 1;
+		TB0CCR2 += SysParam_Schedule.schBoardCheckPeriod;
+		SysParam_Schedule.taskFlagBoardCheck = 1;
 		break;
 	case 6: //CC3, set Manual Mode period.
-		TB0CCR3 += System_Schedule.schManualModePeriod;
-		System_Schedule.taskFlagManualMode = 1;
+		TB0CCR3 += SysParam_Schedule.schManualModePeriod;
+		SysParam_Schedule.taskFlagManualMode = 1;
 		break;
 	case 8: //CC4
 		break;
@@ -72,7 +72,7 @@ void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
 	case 12: //CC6
 		break;
 	case 14: //Overflow , calculate CPU load, uint in %.
-		System_Schedule.cpuLoad = Sch_CpuWorkTime * 100 / 0x10000;
+		SysParam_Schedule.cpuLoad = Sch_CpuWorkTime * 100 / 0x10000;
 		Sch_CpuWorkTime = 0;
 		break;
 	default:
@@ -96,7 +96,7 @@ void __attribute__ ((interrupt(RTC_VECTOR))) Sch_ISR_Rrc (void)
 		break;
 	case 2: //1 sec , update system time & set test 1Hz flag.
 		System_Time = RTC_A_getCalendarTime( RTC_A_BASE);
-		System_Schedule.testFlag1Hz = 1;
+		SysParam_Schedule.testFlag1Hz = 1;
 		break;
 	case 4: //1 min
 		break;
@@ -180,11 +180,11 @@ void Sch_init(void)
 	RTC_A_enableInterrupt(RTC_A_BASE, RTCRDYIE + RTCTEVIE);
 
 	//Set default scheduler timer
-	System_Schedule.schCpuTickPeriod = 32;	//1ms	1kHz
-	System_Schedule.schBoardCheckPeriod = 327;	//10ms	100Hz
-	System_Schedule.schManualModePeriod = 547;	//16.7ms 60Hz
-	System_Schedule.schSystemOn = 1;	//System On
-	System_Schedule.schLocalDimmingOn = 1;	//Local Dimming On
+	SysParam_Schedule.schCpuTickPeriod = 32;	//1ms	1kHz
+	SysParam_Schedule.schBoardCheckPeriod = 327;	//10ms	100Hz
+	SysParam_Schedule.schManualModePeriod = 547;	//16.7ms 60Hz
+	SysParam_Schedule.schSystemOn = 1;	//System On
+	SysParam_Schedule.schLocalDimmingOn = 1;	//Local Dimming On
 
 }
 /**********************************************************

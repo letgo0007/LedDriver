@@ -61,7 +61,7 @@
 /***2.3 Internal Variables ***/
 //ISP->NORMAL password in flash
 #pragma location=ISP_EXIT_PASSWORD_ADDRESS
-const uint32 Isp_exit_pw = ISP_PASSWORD;
+const uint32 ISP_ExitPwOnFlash = ISP_PASSWORD;
 
 //Default error detection parameters.
 const ErrorParam Default_ErrorParam =
@@ -73,15 +73,15 @@ const ErrorParam Default_ErrorParam =
 /*Error Save*/.eErrorSaveEn = 0, };
 
 /***2.4 External Variables ***/
-uint16 System_InputDutyBuff[128] =
+uint16 HwBuf_InputDuty[128] =
 { 0 };
-uint16 System_OutputDutyBuff[128] =
+uint16 HwBuf_OutputDuty[128] =
 { 0 };
-uint16 System_ManualDutyBuff[128] =
+uint16 HwBuf_TestDuty[128] =
 { 0 };
-uint8 SpiSlave_RxBuff[256] =
+uint8 HwBuf_SpiSlaveRx[256] =
 { 0 };
-uint8 Uart_RxBuff[256] =
+uint8 HwBuf_UartRx[256] =
 { 0 };
 
 /******************************************************************************
@@ -94,47 +94,47 @@ uint8 Uart_RxBuff[256] =
  *
  * Name            				origin    	length
  * ----------------------  		--------  	---------
- * System_Schedule				0x00		0x20
- * System_BoardInfo				0x20		0x10
- * System_ErrorParam			0x30		0x10
- * System_Iw7027Param			0x40		0x30
- * System_DplParam				0x70		0x30
- * I2cSlave_SpecialFuncBuff		0xA0		0x50
- * System_Version				0xF0		0x08
- * System_Isp_Password			0xF8		0x08
+ * SysParam_Schedule			0x00		0x20
+ * SysParam_BoardInfo			0x20		0x10
+ * SysParam_Error				0x30		0x10
+ * SysParam_Iw7027				0x40		0x30
+ * SysParam_Dpl					0x70		0x30
+ * HwBuf_I2cSlave				0xA0		0x50
+ * SysParam_Version				0xF0		0x08
+ * SysParam_IspPassword			0xF8		0x08
  * ----------------------  		--------  	---------
  * 								total		0x100
  ******************************************************************************/
 #pragma location = BOARD_I2C_BUF_ADD_NORMAL + 0x00
-Scheduler System_Schedule =
+Scheduler SysParam_Schedule =
 { 0 };
 
 #pragma location = BOARD_I2C_BUF_ADD_NORMAL + 0x20
-BoardInfo System_BoardInfo =
+BoardInfo SysParam_BoardInfo =
 { 0 };
 
 #pragma location = BOARD_I2C_BUF_ADD_NORMAL + 0x30
-ErrorParam System_ErrorParam =
+ErrorParam SysParam_Error =
 { 0 };
 
 #pragma location = BOARD_I2C_BUF_ADD_NORMAL + 0x40
-Iw7027Param System_Iw7027Param =
+Iw7027Param SysParam_Iw7027 =
 { 0 };
 
 #pragma location = BOARD_I2C_BUF_ADD_NORMAL + 0x70
-DPL_Prama System_DplParam =
+DPL_Prama SysParam_Dpl =
 { 0 };
 
 #pragma location = BOARD_I2C_BUF_ADD_NORMAL + 0xA0
-uint8 I2cSlave_SpecialFuncBuff[0x50] =
+uint8 HwBuf_I2cSlave[0x50] =
 { 0 };
 
 #pragma location = BOARD_I2C_BUF_ADD_NORMAL + 0xF0
-uint64 System_Version =
+uint64 SysParam_Version =
 { 0x1605240A };
 
 #pragma location = BOARD_I2C_BUF_ADD_NORMAL + 0xF8
-uint64 System_Isp_Password =
+uint64 SysParam_IspPassword =
 { 0 };
 
 /***2.5 Internal Functions ***/
@@ -168,7 +168,7 @@ int _system_pre_init(void)
 	__disable_interrupt();
 
 	//If pass word not correct , init I2C slave in ISP mode.
-	if (Isp_exit_pw != 0x20140217)
+	if (ISP_ExitPwOnFlash != 0x20140217)
 	{
 		//P4.6 = ERROR_OUT , P4.7 = LED_G , P3.0 = SDA ,P3.1 = SCL
 		P4OUT |= BIT7 + BIT6;
@@ -215,27 +215,27 @@ flag Mcu_init(void)
 	Uart_init(BOARD_UART_BAUDRATE);
 
 	//Check Power & turn on iw7027 power.
-	while (Adc_getResult(ADCPORT_DC60V) < 0x0200)
+	while (Adc_getResult(HW_ADCPORT_DC60V) < 0x0200)
 	{
 #if UART_DEBUG_ON
-	PrintString("DC60VADC = ");
-	PrintInt(Adc_getResult(ADCPORT_DC60V));
-	PrintEnter();
+		PrintString("DC60VADC = ");
+		PrintInt(Adc_getResult(HW_ADCPORT_DC60V));
+		PrintEnter();
 #endif
-	DELAY_MS(50);
+		DELAY_MS(50);
 	}
-	while (Adc_getResult(ADCPORT_DC13V) < 0x0200)
+	while (Adc_getResult(HW_ADCPORT_DC13V) < 0x0200)
 	{
 #if UART_DEBUG_ON
-	PrintString("DC13VADC = ");
-	PrintInt(Adc_getResult(ADCPORT_DC13V));
-	PrintEnter();
+		PrintString("DC13VADC = ");
+		PrintInt(Adc_getResult(HW_ADCPORT_DC13V));
+		PrintEnter();
 #endif
-	DELAY_MS(50);
+		DELAY_MS(50);
 	}
 
 	//Set default param.
-	System_ErrorParam = Default_ErrorParam;
+	SysParam_Error = Default_ErrorParam;
 
 #if UART_DEBUG_ON
 	PrintString("\e[32m\r\nMcu_init finish.\r\n\e[30m");
@@ -251,14 +251,14 @@ uint8 Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 	uint8 retval = 0;
 
 	//Load Board Hardware Info
-	boardinfo->bIw7027Falut = GET_IW7027_FAULT_IN;
-	boardinfo->bD60V = (uint32) Adc_getResult(ADCPORT_DC60V) * 84 / 0x3FF;
-	boardinfo->bD13V = (uint32) Adc_getResult(ADCPORT_DC13V) * 19 / 0x3FF;
+	boardinfo->bIw7027Falut = HW_GET_IW7027_FAULT_IN;
+	boardinfo->bD60V = (uint32) Adc_getResult(HW_ADCPORT_DC60V) * 84 / 0x3FF;
+	boardinfo->bD13V = (uint32) Adc_getResult(HW_ADCPORT_DC13V) * 19 / 0x3FF;
 	boardinfo->bTemprature = Adc_getMcuTemperature();
 
 	//BIT0 : Power error flag
-	if ((boardinfo->bD60V > errorparam->eDc60vMax) || (boardinfo->bD60V < errorparam->eDc60vMin) || (boardinfo->bD13V > errorparam->eDc13vMax)
-			|| (boardinfo->bD13V < errorparam->eDc13vMin))
+	if ((boardinfo->bD60V > errorparam->eDc60vMax) || (boardinfo->bD60V < errorparam->eDc60vMin)
+			|| (boardinfo->bD13V > errorparam->eDc13vMax) || (boardinfo->bD13V < errorparam->eDc13vMin))
 	{
 		retval |= BIT0;
 	}
@@ -281,7 +281,7 @@ uint8 Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 	//Set Error Out
 	if (retval)
 	{
-		SET_ERROR_OUT_LOW;
+		HW_SET_ERROR_OUT_LOW;
 		errorparam->eErrorType = retval;
 		//1st time error happen
 		if (!iserror)
@@ -290,7 +290,7 @@ uint8 Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 			PrintString("\e[31m\r\nERROR ! TYPE : \e[30m");
 			PrintChar(retval);
 			PrintEnter();
-			PrintArray((uint8 *) &System_BoardInfo, sizeof(System_BoardInfo));
+			PrintArray((uint8 *) &SysParam_BoardInfo, sizeof(SysParam_BoardInfo));
 			PrintEnter();
 #endif
 			if (errorparam->eErrorSaveEn)
@@ -298,8 +298,8 @@ uint8 Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 				errorparam->eCount = *BOARD_ERROR_INFO_FLASH_PTR;
 				errorparam->eCount++;
 				FlashCtl_eraseSegment(BOARD_ERROR_INFO_FLASH_PTR);
-				FlashCtl_write8((uint8*) errorparam, BOARD_ERROR_INFO_FLASH_PTR, sizeof(System_ErrorParam));
-				FlashCtl_write8((uint8*) boardinfo, BOARD_ERROR_INFO_FLASH_PTR + 0x20, sizeof(System_BoardInfo));
+				FlashCtl_write8((uint8*) errorparam, BOARD_ERROR_INFO_FLASH_PTR, sizeof(SysParam_Error));
+				FlashCtl_write8((uint8*) boardinfo, BOARD_ERROR_INFO_FLASH_PTR + 0x20, sizeof(SysParam_BoardInfo));
 			}
 
 		}
@@ -316,7 +316,7 @@ uint8 Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 #endif
 		}
 
-		SET_ERROR_OUT_HIGH;
+		HW_SET_ERROR_OUT_HIGH;
 		errorparam->eErrorType = retval;
 		iserror = 0;
 	}
@@ -469,15 +469,15 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) Gpio_ISR_Port1 (void)
 		PrintString("\e[31m***STB falling edge detect***\r\n\e[30m");
 #endif
 		DELAY_US(500);
-		if (!GET_STB_IN)
+		if (!HW_GET_STB_IN)
 		{
 			//Mute Backlight
-			Mem_set8((uint32) &System_ManualDutyBuff, 0x00, sizeof(System_ManualDutyBuff));
-			Iw7027_updateDuty((uint16*) System_ManualDutyBuff);
+			Mem_set8((uint32) &HwBuf_TestDuty, 0x00, sizeof(HwBuf_TestDuty));
+			Iw7027_updateDuty((uint16*) HwBuf_TestDuty);
 
 			//Hold CPU till STB get High , if STB = L for 1s, reset Mcu.
 			uint16 timeout = 0;
-			while (!GET_STB_IN)
+			while (!HW_GET_STB_IN)
 			{
 				DELAY_MS(10);
 				timeout++;
@@ -775,7 +775,7 @@ flag SpiSlave_init(void)
 	capparam.captureRegister = TIMER_A_CAPTURECOMPARE_REGISTER_2;
 	capparam.captureMode = TIMER_A_CAPTUREMODE_FALLING_EDGE;
 	capparam.captureInputSelect = TIMER_A_CAPTURE_INPUTSELECT_CCIxA;
-	capparam.synchronizeCaptureSource = TIMER_A_CAPTURE_ASYNCHRONOUS;	//TIMER_A_CAPTURE_SYNCHRONOUS;TIMER_A_CAPTURE_ASYNCHRONOUS
+	capparam.synchronizeCaptureSource = TIMER_A_CAPTURE_ASYNCHRONOUS;//TIMER_A_CAPTURE_SYNCHRONOUS;TIMER_A_CAPTURE_ASYNCHRONOUS
 	capparam.captureInterruptEnable = TIMER_A_CAPTURECOMPARE_INTERRUPT_ENABLE;
 	capparam.captureOutputMode = TIMER_A_OUTPUTMODE_OUTBITVALUE;
 	Timer_A_initCaptureMode(TIMER_A0_BASE, &capparam);
@@ -793,7 +793,7 @@ flag SpiSlave_init(void)
 
 	//Source = UCA0RXBUF , Destination = &rxbuff
 	DMA_setSrcAddress(DMA_CHANNEL_0, USCI_A_SPI_getReceiveBufferAddressForDMA(USCI_A0_BASE), DMA_DIRECTION_UNCHANGED);
-	DMA_setDstAddress(DMA_CHANNEL_0, (uint32) SpiSlave_RxBuff, DMA_DIRECTION_INCREMENT);
+	DMA_setDstAddress(DMA_CHANNEL_0, (uint32) HwBuf_SpiSlaveRx, DMA_DIRECTION_INCREMENT);
 
 	//Init Spi slave
 	uint8 uca0_returnValue = FLAG_FAIL;
@@ -833,7 +833,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) SpiSlave_ISR_CsPin (void)
 	case 4: // TA0.2 ,PWM1/SPI Slave CS
 		//Falling edge = START of frame
 		SpiSlave_stopRx();
-		System_Schedule.taskFlagSpiRx = 1;
+		SysParam_Schedule.taskFlagSpiRx = 1;
 		SpiSlave_startRx();
 		//Sync PWM out
 		PwmOut_sync();
@@ -851,7 +851,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) SpiSlave_ISR_CsPin (void)
 		break;
 	case 14: // overflow
 		//Calculate Spi Rx CS frequencey
-		System_BoardInfo.bSpiRxFreq = (SpiSlave_CsEdgeCount - 1) / 2;
+		SysParam_BoardInfo.bSpiRxFreq = (SpiSlave_CsEdgeCount - 1) / 2;
 		SpiSlave_CsEdgeCount = 0;
 		break;
 	default:
@@ -925,7 +925,7 @@ void I2cSlave_init(uint8 slaveaddress)
 	USCI_B_I2C_TRANSMIT_INTERRUPT);
 
 	//Clear Buffer
-	Mem_set8((uint32) &I2cSlave_SpecialFuncBuff, 0x00, sizeof(I2cSlave_SpecialFuncBuff));
+	Mem_set8((uint32) &HwBuf_I2cSlave, 0x00, sizeof(HwBuf_I2cSlave));
 
 }
 
@@ -1077,9 +1077,9 @@ void __attribute__ ((interrupt(USCI_B0_VECTOR))) I2cSlave_ISR (void)
 			txcount = 0;
 			break;
 		case 8:	    	// Vector  8: STPIFG
-			System_Schedule.taskFlagI2c = 1;
+			SysParam_Schedule.taskFlagI2c = 1;
 			//ISP mode entrance ,check pass word.
-			if (System_Isp_Password == 0x20140217)
+			if (SysParam_IspPassword == 0x20140217)
 			{
 				//Stop internal Timer
 				TB0CTL &= ~MC_3;
@@ -1180,11 +1180,11 @@ void __attribute__ ((interrupt(USCI_A1_VECTOR))) Uart_ISR (void)
 			_EINT();
 			//Disable Uart until
 			USCI_A_UART_disableInterrupt(USCI_A1_BASE, USCI_A_UART_RECEIVE_INTERRUPT);
-			Uart_Console(Uart_RxBuff);
+			Uart_Console(HwBuf_UartRx);
 			USCI_A_UART_enableInterrupt(USCI_A1_BASE, USCI_A_UART_RECEIVE_INTERRUPT);
 #endif
 			Uart_RxCount = 0;
-			Mem_set8((uint32) Uart_RxBuff, 0x00, sizeof(Uart_RxBuff));
+			Mem_set8((uint32) HwBuf_UartRx, 0x00, sizeof(HwBuf_UartRx));
 			break;
 		case '\b': // "backspace"
 			if (Uart_RxCount)
@@ -1193,7 +1193,7 @@ void __attribute__ ((interrupt(USCI_A1_VECTOR))) Uart_ISR (void)
 			}
 			break;
 		default:
-			Uart_RxBuff[Uart_RxCount] = rxdata;
+			HwBuf_UartRx[Uart_RxCount] = rxdata;
 			Uart_RxCount++;
 			break;
 		}

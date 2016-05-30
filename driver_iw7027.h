@@ -65,7 +65,7 @@ typedef struct Iw7027Param
 } Iw7027Param;
 
 /***2.3 External Variables ***/
-extern Iw7027Param System_Iw7027Param;
+extern Iw7027Param SysParam_Iw7027;
 
 /***2.4 External Functions ***/
 /**********************************************************

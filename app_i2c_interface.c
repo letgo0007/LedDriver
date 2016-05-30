@@ -60,7 +60,7 @@ uint8 I2cSlave_handleSpecialFunction(uint8 *sfbuff)
 
 		for (i = sfbuff[ I2C_MANUAL_START_CH]; i < sfbuff[ I2C_MANUAL_END_CH]; i++)
 		{
-			System_ManualDutyBuff[i] = duty;
+			HwBuf_TestDuty[i] = duty;
 		}
 
 		break;

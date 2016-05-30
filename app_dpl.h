@@ -72,7 +72,7 @@ uint32 DPL_tempSumDutyMatrix[DPL_LED_CH_MAX];
 uint16 DPL_tempDutyLimitTable[DPL_LED_CH_MAX];
 uint16 DPL_InputGamma[0x100];
 //Dpl param
-extern DPL_Prama System_DplParam;
+extern DPL_Prama SysParam_Dpl;
 
 /***2.4 External Functions ***************************************************/
 //DMA accelerated memory copy.

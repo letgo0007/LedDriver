@@ -59,7 +59,7 @@ typedef struct Scheduler
 /***2.3 External Variables ***/
 
 //System scheduler ,manage task & cpu schedule
-extern Scheduler System_Schedule;
+extern Scheduler SysParam_Schedule;
 
 //System time ,indicates system work time (Read Time Clock)since start up
 extern Calendar System_Time;

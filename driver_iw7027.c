@@ -248,9 +248,9 @@ uint8 Iw7027_init(void)
 #endif
 	//Step 1: Power ON .
 	//YZF 2016/4/30 : Force power off for 500ms to ensure IW7027 is powerd off AC DIP conditon.
-	SET_IW7027_POWER_OFF;
+	HW_SET_IW7027_POWER_OFF;
 	DELAY_MS(500);
-	SET_IW7027_POWER_ON;
+	HW_SET_IW7027_POWER_ON;
 	DELAY_MS(200);
 
 	//Step 2: check chip ID to ensure IW7027 is working .
@@ -281,17 +281,17 @@ uint8 Iw7027_init(void)
 		PrintString("[IW7027 INTIAL] -4 : Wait STB ...\r\n");
 #endif
 		DELAY_MS(200);
-	} while ( GET_STB_IN == 0);
+	} while ( HW_GET_STB_IN == 0);
 
 	//Step 5 : Set IW7027 status using default param.
-	System_Iw7027Param = Iw7027_DefaultParam;
-	Iw7027_updateWorkParams(&System_Iw7027Param);
+	SysParam_Iw7027 = Iw7027_DefaultParam;
+	Iw7027_updateWorkParams(&SysParam_Iw7027);
 	DELAY_MS(200);		//wait 200ms for pwm stable.
 #if UART_DEBUG_ON
 			PrintTime(&System_Time);
 			PrintString("[IW7027 INTIAL] -5 : Get STB , Set work status ...\r\n");
 			PrintString("Initial IW7027 work status:\r\n");
-			PrintArray((uint8 *)&System_Iw7027Param,sizeof(System_Iw7027Param));
+			PrintArray((uint8 *)&SysParam_Iw7027,sizeof(SysParam_Iw7027));
 			PrintEnter();
 #endif
 

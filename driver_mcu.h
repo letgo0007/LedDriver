@@ -25,22 +25,22 @@
 #define DELAY_MS(x) 					__delay_cycles((uint64)(BOARD_CPU_F*(uint64)x/1000))
 
 //ADC Ports
-#define ADCPORT_DC60V					(4)
-#define ADCPORT_DC13V					(5)
-#define ADCPORT_TEMPSENSOR				(10)
+#define HW_ADCPORT_DC60V				(4)
+#define HW_ADCPORT_DC13V				(5)
+#define HW_Hwbuf_UartRx					(10)
 
 //GPIO Ports access macro ,refer to GPIO hardware define .
-
-#define GET_STB_IN						(GPIO_getInputPinValue(GPIO_PORT_P1 , GPIO_PIN1))
-#define GET_IW7027_FAULT_IN				(GPIO_getInputPinValue(GPIO_PORT_P6 , GPIO_PIN0))
-#define SET_IW7027_POWER_ON				(GPIO_setOutputHighOnPin(GPIO_PORT_P1 , GPIO_PIN6))
-#define SET_IW7027_POWER_OFF			(GPIO_setOutputLowOnPin(GPIO_PORT_P1 , GPIO_PIN6))
-#define SET_LED_G_ON					(GPIO_setOutputHighOnPin(GPIO_PORT_P4 , GPIO_PIN7))
-#define SET_LED_G_OFF					(GPIO_setOutputLowOnPin(GPIO_PORT_P4 , GPIO_PIN7))
-#define TOGGLE_LED_G					(GPIO_toggleOutputOnPin(GPIO_PORT_P4 , GPIO_PIN7))
-#define SET_ERROR_OUT_HIGH				(GPIO_setOutputHighOnPin(GPIO_PORT_P4 , GPIO_PIN6))
-#define SET_ERROR_OUT_LOW				(GPIO_setOutputLowOnPin(GPIO_PORT_P4 , GPIO_PIN6))
-#define WATCHDOG_RESET					(WDT_A_resetTimer(WDT_A_BASE))
+#define HW_GET_STB_IN					(GPIO_getInputPinValue(GPIO_PORT_P1 , GPIO_PIN1))
+#define HW_GET_IW7027_FAULT_IN			(GPIO_getInputPinValue(GPIO_PORT_P6 , GPIO_PIN0))
+#define HW_SET_IW7027_POWER_ON			(GPIO_setOutputHighOnPin(GPIO_PORT_P1 , GPIO_PIN6))
+#define HW_SET_IW7027_POWER_OFF			(GPIO_setOutputLowOnPin(GPIO_PORT_P1 , GPIO_PIN6))
+#define HW_SET_LED_G_ON					(GPIO_setOutputHighOnPin(GPIO_PORT_P4 , GPIO_PIN7))
+#define HW_SET_LED_G_OFF				(GPIO_setOutputLowOnPin(GPIO_PORT_P4 , GPIO_PIN7))
+#define HW_TOGGLE_LED_G					(GPIO_toggleOutputOnPin(GPIO_PORT_P4 , GPIO_PIN7))
+#define HW_SET_ERROR_OUT_HIGH			(GPIO_setOutputHighOnPin(GPIO_PORT_P4 , GPIO_PIN6))
+#define HW_SET_ERROR_OUT_LOW			(GPIO_setOutputLowOnPin(GPIO_PORT_P4 , GPIO_PIN6))
+#define HW_WATCHDOG_RESET				(WDT_A_resetTimer(WDT_A_BASE))
+#define HW_WATCHDOG_HOLD				(WDT_A_hold(WDT_A_BASE))
 /***2.2 External Structures **/
 
 //Board I/O information structure.
@@ -92,18 +92,18 @@ typedef struct ErrorParam
 
 /***2.3 External Variables ***/
 //Interface Global Variables - Paramters
-extern BoardInfo System_BoardInfo;
-extern ErrorParam System_ErrorParam;
+extern BoardInfo SysParam_BoardInfo;
+extern ErrorParam SysParam_Error;
 
 //Interface Global Variables - Duty buffers
-extern uint16 System_InputDutyBuff[128];
-extern uint16 System_OutputDutyBuff[128];
-extern uint16 System_ManualDutyBuff[128];
+extern uint16 HwBuf_InputDuty[128];
+extern uint16 HwBuf_OutputDuty[128];
+extern uint16 HwBuf_TestDuty[128];
 
 //Interface Global Variables - Hardware interface buffers
-extern uint8 SpiSlave_RxBuff[256];
-extern uint8 Uart_RxBuff[256];
-extern uint8 I2cSlave_SpecialFuncBuff[];
+extern uint8 HwBuf_SpiSlaveRx[256];
+extern uint8 HwBuf_UartRx[256];
+extern uint8 HwBuf_I2cSlave[];
 
 /***2.4 External Functions ***/
 
