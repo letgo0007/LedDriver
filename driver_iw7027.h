@@ -13,38 +13,54 @@
 #ifndef DRIVER_IW7027_H_
 #define DRIVER_IW7027_H_
 
-/***1 Includes ***************/
+/***1 Includes ***************************************************************/
 
 #include "std.h"
 
-/***2.1 External Macros ******/
-// IW7027 Hardware info
-#define	IW7027_DRIVER_VERSION			(0x01)	//Driver Version.
-#define IW_DEVICE_AMOUNT				(0x05)	//IW7027 IC chip amount.
-#define IW_LED_CHANNEL					(78)	//Total valid LED channel number.
-#define IW_0							(0x01)	//Chip Select bit ,orderd from BIT0~BIT7
+/***2.1 External Macros ******************************************************/
+//Driver Software Version
+#define	IW_DRIVER_VERSION				(0x01)
+//IW7027 IC amount to be controled.
+#define IW_DEVICE_AMOUNT				(0x05)
+//Total available LED channel amount.
+#define IW_LED_CHANNEL					(78)
+//Single chip select bit ,orderd from BIT0~BIT7.
+#define IW_0							(0x01)
 #define IW_1							(0x02)
 #define IW_2							(0x04)
 #define IW_3							(0x08)
 #define IW_4							(0x10)
-#define IW_ALL							(0x1F)	//All device select bit
+//All chip select bit .
+#define IW_ALL							(0x1F)
 
-/***2.2 External Structures **/
+/***2.2 External Structures **************************************************/
+//IW7027 delay table select.
 enum Iw7027_Delay
 {
 	d2D = 0, d3D = 1, d2Dscan = 2, d3Dscan = 3,
 };
-
+//IW7027 working paramters struct
 typedef struct Iw7027Param
 {
+	//IW7027 PLL frequency,unit in Hz.
 	uint8 iwFrequency;
+	//IW7027 current.
 	uint8 iwCurrent;
+	//IW7027 delaytable seletc.
 	enum Iw7027_Delay iwDelayTableSelet;
+	//IW7027 Vsync frequency, unit in Hz.
 	uint8 iwVsyncFrequency;
+	//IW7027 Vsync delay, unit in 30.5us(32786Hz).
 	uint8 iwVsyncDelay;
+	//IW7027 Open/Short check enable. Set to 1 to run error check once.
 	uint8 iwRunErrorCheck;
+	//IW7027 Error status , [1] = Error , [0] = Normal.
 	uint8 iwIsError;
+	//IW7027 Open/Short Status. Each IW7027 has 6bytes
+	// 6 bytes : 	[open 0~7][open 8~15][short 0~7][short 8~15]
+	// 				[D-S short 0~7][D-S short 8~15]
 	uint8 iwOpenShortStatus[IW_DEVICE_AMOUNT * 6];
+	//RESERVED , fix the size of the struct to 0x30 bytes for I2C slave access.
 	uint8 reserved[0x08];
 } Iw7027Param;
 
@@ -52,9 +68,6 @@ typedef struct Iw7027Param
 extern Iw7027Param System_Iw7027Param;
 
 /***2.4 External Functions ***/
-
-
-//Function Calls
 /**********************************************************
  * @Brief Iw7027_writeMultiByte
  * 		Write Multiple bytes to IW7027 , bsaed on SPI interface spec.
@@ -153,7 +166,7 @@ extern uint8 Iw7027_init(void);
  * 		FLAG_SUCCESS 	: Initial success.
  * 		FLAG_FAIL		: Initial fail.
  **********************************************************/
-extern uint8 Iw7027_updateDuty(uint16 *dutymatrix, const uint8 *ledsortmap);
+extern uint8 Iw7027_updateDuty(uint16 *dutymatrix);
 
 /**********************************************************
  * @Brief Iw7027_updateDuty
@@ -223,6 +236,5 @@ extern uint8 Iw7027_updateWorkParams(Iw7027Param *iwparam);
  * @Return
  * 		NONE
  **********************************************************/
-
 
 #endif /* DRIVER_IW7027_H_ */

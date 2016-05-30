@@ -14,7 +14,7 @@
 #define DRIVER_MCU_H_
 /***1 Includes ***************/
 
-#include "driverlib/MSP430F5xx_6xx/gpio.h"
+#include "driverlib.h"
 #include "std.h"
 
 /***2.1 External Macros ******/
@@ -35,12 +35,12 @@
 #define GET_IW7027_FAULT_IN				(GPIO_getInputPinValue(GPIO_PORT_P6 , GPIO_PIN0))
 #define SET_IW7027_POWER_ON				(GPIO_setOutputHighOnPin(GPIO_PORT_P1 , GPIO_PIN6))
 #define SET_IW7027_POWER_OFF			(GPIO_setOutputLowOnPin(GPIO_PORT_P1 , GPIO_PIN6))
-#define SET_LED_G_ON					(GPIO_setOutputHighOnPin(GPIO_PORT_P4 , GPIO_PIN7));
-#define SET_LED_G_OFF					(GPIO_setOutputLowOnPin(GPIO_PORT_P4 , GPIO_PIN7));
-#define TOGGLE_LED_G					(GPIO_toggleOutputOnPin(GPIO_PORT_P4 , GPIO_PIN7));
-#define SET_ERROR_OUT_HIGH				(GPIO_setOutputHighOnPin(GPIO_PORT_P4 , GPIO_PIN6));
-#define SET_ERROR_OUT_LOW				(GPIO_setOutputLowOnPin(GPIO_PORT_P4 , GPIO_PIN6));
-
+#define SET_LED_G_ON					(GPIO_setOutputHighOnPin(GPIO_PORT_P4 , GPIO_PIN7))
+#define SET_LED_G_OFF					(GPIO_setOutputLowOnPin(GPIO_PORT_P4 , GPIO_PIN7))
+#define TOGGLE_LED_G					(GPIO_toggleOutputOnPin(GPIO_PORT_P4 , GPIO_PIN7))
+#define SET_ERROR_OUT_HIGH				(GPIO_setOutputHighOnPin(GPIO_PORT_P4 , GPIO_PIN6))
+#define SET_ERROR_OUT_LOW				(GPIO_setOutputLowOnPin(GPIO_PORT_P4 , GPIO_PIN6))
+#define WATCHDOG_RESET					(WDT_A_resetTimer(WDT_A_BASE))
 /***2.2 External Structures **/
 
 //Board I/O information structure.
@@ -117,7 +117,7 @@ extern uint8 I2cSlave_SpecialFuncBuff[];
  * 		FLAG_SUCCESS 	: MCU Normal
  * 		FLAG_FAIL		: MCU or Hardware demage
  **********************************************************/
-extern uint8 Mcu_init(void);
+extern flag Mcu_init(void);
 
 /**********************************************************
  * @Brief Board_reset
@@ -154,7 +154,7 @@ extern uint8 Mcu_checkBoardStatus(BoardInfo *outputinfo, ErrorParam *errorparam)
  * 		FLAG_SUCCESS 	: Clock normally set.
  * 		FLAG_FAIL		: Clock init fail , cristal or power error.
  **********************************************************/
-extern uint8 Clock_init(uint32 cpu_speed);
+extern flag Clock_init(uint32 cpu_speed);
 
 /**********************************************************
  * @Brief Gpio_init
@@ -164,7 +164,7 @@ extern uint8 Clock_init(uint32 cpu_speed);
  * @Return
  * 		FLAG_SUCCESS 	: GPIO initial success.
  **********************************************************/
-extern uint8 Gpio_init(void);
+extern void Gpio_init(void);
 
 /**********************************************************
  * @Brief Adc_init
@@ -175,7 +175,7 @@ extern uint8 Gpio_init(void);
  * 		FLAG_SUCCESS 	: ADC initial success.
  * 		FLAG_FAIL		: Referance error .
  **********************************************************/
-extern uint8 Adc_init(void);
+extern flag Adc_init(void);
 
 /**********************************************************
  * @Brief Adc_init
@@ -205,7 +205,7 @@ extern int8 Adc_getMcuTemperature(void);
  * @Return
  * 		FLAG_SUCCESS
  **********************************************************/
-extern uint8 SpiMaster_init(uint32 spi_speed);
+extern flag SpiMaster_init(uint32 spi_speed);
 
 /**********************************************************
  * @Brief SpiMaster_setCsPin
@@ -228,7 +228,7 @@ extern void SpiMaster_setCsPin(uint8 chipsel);
  * @Return
  * 		readvalue : last returned value from MISO.
  **********************************************************/
-extern uint8 SpiMaster_sendMultiByte(uint8 *txdata, uint8 length);
+extern uint8 SpiMaster_sendMultiByte(uint8 *txdata, uint16 length);
 
 /**********************************************************
  * @Brief SpiMaster_sendMultiByte
@@ -255,7 +255,7 @@ extern uint8 SpiMaster_sendSingleByte(uint8 txdata);
  * @Return
  * 		FLAG_SUCCESS
  **********************************************************/
-extern uint8 SpiSlave_init(void);
+extern flag SpiSlave_init(void);
 
 /**********************************************************
  * @Brief SpiSlave_startRx
@@ -284,8 +284,8 @@ extern void SpiSlave_stopRx(void);
 
 /**********************************************************
  * @Brief SpiSlave_enable
- * 		Disable Spi CS interrpt & SpiSlave.
- * 		No longer receive any data .
+ * 		Enable Spi CS interrpt & SpiSlave.
+ * 		SpiSlave_RxBuff will start update data.
  * @Param
  * 		NONE
  * @Return
@@ -295,7 +295,8 @@ extern void SpiSlave_enable(void);
 
 /**********************************************************
  * @Brief SpiSlave_enable
- * 		Enable Spi CS interrpt & SpiSlave.
+ * 		Disable Spi CS interrpt & SpiSlave.
+ * 		SpiSlave_RxBuff will nolonger update.
  * @Param
  * 		NONE
  * @Return
@@ -303,28 +304,28 @@ extern void SpiSlave_enable(void);
  **********************************************************/
 extern void SpiSlave_disable(void);
 
-/**********************************************************
+/******************************************************************************
  * @Brief I2cSlave_init
  * 		Initialize I2C slave with seleted I2C address.
  * 		I2C slave routine is handled by I2cSlave_ISR.
  * @Param
- * 		slaveaddress : Slave address in 8bit mode with W/R bit.
+ * 		slaveaddress : Slave address in 7bit mode without W/R bit.
  * @Return
- * 		FLAG_SUCCESS
- **********************************************************/
-extern uint8 I2cSlave_init(uint8 slaveaddress);
+ * 		NONE
+ *****************************************************************************/
+extern void I2cSlave_init(uint8 slaveaddress);
 
-/**********************************************************
+/******************************************************************************
  * @Brief Uart_init
- * 		Initialize I2C slave with seleted I2C address.
+ * 		Initialize Uart module.
  * @Param
- * 		baudrate : baudrate
+ * 		baudrate : baudrate , selectable value : 115200 ,9600
  * @Return
  * 		FLAG_SUCCESS
- **********************************************************/
-extern uint8 Uart_init(uint32 baudrate);
+ *****************************************************************************/
+extern flag Uart_init(uint32 baudrate);
 
-/**********************************************************
+/******************************************************************************
  * @Brief PwmOut_init
  * 		Initialize & start PWM output.
  * @Param
@@ -333,10 +334,10 @@ extern uint8 Uart_init(uint32 baudrate);
  * 		delay	: Rising edge delay from start . unit in 30.5us (ACLK frequency)
  * @Return
  * 		FLAG_SUCCESS
- **********************************************************/
+ *****************************************************************************/
 extern void PwmOut_init(uint8 initfreq, uint16 delay);
 
-/**********************************************************
+/******************************************************************************
  * @Brief PwmOut_Sync
  * 		Reset PWM timer to synchronize pwm phase.
  * 		Use this function to synchronize pwm output from pwm input.
@@ -344,10 +345,45 @@ extern void PwmOut_init(uint8 initfreq, uint16 delay);
  * 		NONE
  * @Return
  * 		NONE
- **********************************************************/
+ *****************************************************************************/
 extern void PwmOut_sync(void);
 
+/******************************************************************************
+ * @Brief Mem_set8
+ * 		Set RAM to certain value (8bit) with DMA support.
+ * 		The speed is higher than memset() in string.h , do not hold cpu.
+ * @Param
+ * 		memadd	: Target Memory address
+ * 		value	: 8bit value to set.
+ * 		size	: Memory size ,uint in byte(8bit)
+ * @Return
+ * 		NONE
+ *****************************************************************************/
 extern void Mem_set8(uint32 memadd, uint8 value, uint16 size);
+
+/******************************************************************************
+ * @Brief Mem_set16
+ * 		Set RAM to certain value (16bit) with DMA support.
+ * 		The speed is higher than memset() in string.h , do not hold cpu.
+ * @Param
+ * 		memadd	: Target Memory address
+ * 		value	: 16bit value to set.
+ * 		size	: Memory size ,uint in word(16bit)
+ * @Return
+ * 		NONE
+ *****************************************************************************/
 extern void Mem_set16(uint32 memadd, uint16 value, uint16 size);
+
+/******************************************************************************
+ * @Brief Mem_copy
+ * 		Copy RAM function with DMA support.
+ * 		The speed is higher than memcpy() in string.h , do not hold cpu.
+ * @Param
+ * 		target_add	: Target Memory address
+ * 		source_add	: Source Memory address
+ * 		size		: Memory size ,uint in byte(8bit)
+ * @Return
+ * 		NONE
+ *****************************************************************************/
 extern void Mem_copy(uint32 target_add, uint32 source_add, uint16 size);
 #endif /* DRIVER_MCU_H_ */

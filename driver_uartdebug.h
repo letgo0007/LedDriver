@@ -9,23 +9,25 @@
  * ----------------------------------------------------------------------------
  * 1		20160527 Yang Zhifang	ALL		Init	Initial Version
  *
- ******************************************************************************/
+ *****************************************************************************/
 #ifndef DRIVER_UARTDEBUG_H_
 #define DRIVER_UARTDEBUG_H_
 
-/*1 Includes */
+/***1 Includes ***************************************************************/
 
 #include "driverlib/MSP430F5xx_6xx/rtc_a.h"
 #include "std.h"
 
-/*2.1 External Macros */
-#define	UART_DEBUG_ON					(1)
+/***2.1 External Macros ******************************************************/
+#ifndef UART_DEBUG_ON
+#define UART_DEBUG_ON						(1)
+#endif
 
-/*2.2 External Structures */
+/***2.2 External Structures **************************************************/
 
-/*2.3 External Variables */
+/***2.3 External Variables ***************************************************/
 
-/*2.4 External Functions */
+/***2.4 External Functions ***************************************************/
 extern void Uart_Console(uint8 *uartrxbuf);
 extern void UartSendChar(unsigned char data);
 extern void UartSendInt(unsigned int data);

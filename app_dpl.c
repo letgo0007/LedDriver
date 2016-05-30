@@ -1,15 +1,68 @@
+/******************************************************************************
+ * @file 	[app_dpl.c]
+ *
+ * [Dynamic Power Limit] function for local dimming led driver.
+ *
+ * Copyright (c) 2016 SHARP CORPORATION
+ *
+ * @change 	[DATE]	 [EDITOR] 		[MODEL] [TYPE] 	[COMMENT]
+ * ----------------------------------------------------------------------------
+ * 1		20160527 Yang Zhifang	ALL		Init	Initial Version
+ *
+ *****************************************************************************/
+
+/***1 Includes ***************************************************************/
+
 #include "app_dpl.h"
-#include "math.h"
-extern Mem_copy(uint32 target_add, uint32 source_add, uint16 size);
-extern Mem_set16();
+
+
+/***2.1 Internal Marcos ******************************************************/
+
+/***2.2 Internal Struct ******************************************************/
+
+/***2.3 Internal Variables ***************************************************/
+
+//Default params.
+static const DPL_Prama DPL_DefaultParam =
+{ .dplOn = 1, .dplChannelAmount = 78, .dplInputGammaEnable = 1, .dplSampleFrames = 120, .dplUpdateFrames = 1200, .dplLimitUpStep = 0x0080, .dplLimitDownStep =
+		0x0080, .dplGdDutyMax = 0x0800, .dplLdDutyMax = 0x0F00, .dplTemperatureCalibration = 0x0000, .dplLdDutySumLimitHighTemp = 0x0800,
+		.dplLdDutySumLimitLowTemp = 0x0700, .dplInputGammaGp0x000 = 0x0000, .dplInputGammaGp0x3F0 = 0x03F0, .dplInputGammaGp0x7F0 = 0x07F0,
+		.dplInputGammaGp0xBF0 = 0x0BF0, .dplInputGammaGp0xFF0 = 0x0FF0, };
+
+//To balance different enviroment temperature.
+static const int16 DPL_TempCalibratineTable[60] =
+{ 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80,
+		82, 84, 86, 88, 90, 92, 94, 96, 98, 100, 102, 104, 106, 108, 110, 112, 114, 116, 118, };
+
+//To balance LED environment temperature on different area of a LED Panel.
+static const uint16 DPL_ZoneOffsetTable[DPL_LED_CH_MAX] =
+{ 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0080, 0x0080, 0x0000, 0x0000, 0x0000, 0x0080, 0x0080, 0x0080, 0x0000, 0x0000, 0x0000,
+		0x0080, 0x0000, 0x0040, 0x0080, 0x0000, 0x0000, 0x0000, 0x0000, 0x0040, 0x0080, 0x0000, 0x0000, 0x0000, 0x0000, 0x0040, 0x0080, 0x0000, 0x0000, 0x0000,
+		0x0000, 0x0040, 0x0080, 0x0000, 0x0000, 0x0000, 0x0000, 0x0040, 0x0080, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0080,
+		0x0080, 0x0000, 0x0000, 0x0000, 0x0000, 0x0080, 0x0080, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+		0x0000, 0x0000, 0x0000, 0x0000 };
+
+/***2.4 External Variables ***************************************************/
+
+/***2.5 Internal Functions ***************************************************/
+
+void DPL_limitLocalDuty(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam);
+void DPL_limitGlobalDuty(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam);
+void DPL_sumLocalDuty(uint16 *inputduty, uint32 *outputdutysum, DPL_Prama *dplparam);
+void DPL_updateParam(uint32 *inputdutysum, DPL_Prama *dplparam);
+void DPL_correctGamma(uint16 *inputduty, uint16 *outputduty, DPL_Prama *);
+void DPL_GammaUpdate(uint16 gp0, uint16 gp63, uint16 gp127, uint16 gp191, uint16 gp255);
+
+/***2.6 External Functions ***************************************************/
+
 /* DPL_Function
  * @Brief
  * 		Dynamic Power Limit function , limit local / global duty to protect LED bars.
  * 		This function has 4 sub functions:
  * 		DPL_limitLocalDuty		: Single CH LED duty limit.
  * 		DPL_limitGlobalDuty		: All CH LED limit.
- * 		DPL_sumLocalDuty	: Sample & Sum up every single CH duty every certain time(typ 1sec)
- * 		DPL_updateParam	: Update the limit tabel for DPL_limitLocalDuty accroding to certain amount samples (typ 60 samples)
+ * 		DPL_sumLocalDuty		: Sample & Sum up every single CH duty every certain time(typ 1sec)
+ * 		DPL_updateParam			: Update the limit tabel for DPL_limitLocalDuty accroding to certain amount samples (typ 60 samples)
  * @variables
  * 		*inputduty				: Duty matrix input
  * 		*outputduty				: Duty Matrix output (power limited)
@@ -22,7 +75,11 @@ uint8 DPL_Function(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam)
 {
 	static uint8 firstrun;
 
-	//Auto Initialize
+	/*------------------------------------------------------------------
+	 *
+	 *Auto Initialize parameters for 1st run.
+	 *
+	 -------------------------------------------------------------------*/
 	if (firstrun == 0)
 	{
 		Mem_copy((uint32) *&dplparam, (uint32) &DPL_DefaultParam, sizeof(DPL_DefaultParam));
@@ -32,7 +89,7 @@ uint8 DPL_Function(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam)
 
 	/*------------------------------------------------------------------
 	 *
-	 *
+	 * DPL main sturct.
 	 *
 	 -------------------------------------------------------------------*/
 	if (dplparam->dplOn)
@@ -149,12 +206,12 @@ void DPL_updateParam(uint32 *inputdutysum, DPL_Prama *dplparam)
 		//YZF 2016/5/20: + 0x0020 for noise reduction , avoid limit jump around high limit.
 		if (avgduty > highlimit + 0x0020)
 		{
-			DPL_tempDutyLimitTable[i] = fmax(DPL_tempDutyLimitTable[i] - dplparam->dplLimitDownStep, highlimit);
+			DPL_tempDutyLimitTable[i] = max(DPL_tempDutyLimitTable[i] - dplparam->dplLimitDownStep, highlimit);
 		}
 		//Duty sum high , Limit step down ,but no higher than dplLdDutyMax.
 		else if (avgduty < lowlimit - 0x0020)
 		{
-			DPL_tempDutyLimitTable[i] = fmin(DPL_tempDutyLimitTable[i] + dplparam->dplLimitUpStep, dplparam->dplLdDutyMax);
+			DPL_tempDutyLimitTable[i] = min(DPL_tempDutyLimitTable[i] + dplparam->dplLimitUpStep, dplparam->dplLdDutyMax);
 		}
 	}
 
@@ -222,8 +279,8 @@ void DPL_correctGamma(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam
 void DPL_caliberateTemp(int8 temp, DPL_Prama *dplparam)
 {
 	//Set high/low limt
-	temp = fmax(temp, 0);
-	temp = fmin(temp, 59);
+	temp = max(temp, 0);
+	temp = min(temp, 59);
 
 	//Set temp caliberation
 	dplparam->dplTemperatureCalibration = DPL_TempCalibratineTable[temp];

@@ -9,63 +9,61 @@
  * ----------------------------------------------------------------------------
  * 1		20160527 Yang Zhifang	ALL		Init	Initial Version
  *
- ******************************************************************************/
+ *****************************************************************************/
 
-/***1 Includes ***************/
+/***1 Includes ***************************************************************/
 
 #include "driver_mcu.h"
-
-#include <adc10_a.h>
-#include <dma.h>
-#include <flashctl.h>
-#include <in430.h>
-#include <inc/hw_memmap.h>
-#include <intrinsics.h>
-#include <msp430f5249.h>
-#include <msp430f5xx_6xxgeneric.h>
-#include <pmm.h>
-#include <ref.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <timer_a.h>
-#include <ucs.h>
-#include <usci_a_spi.h>
-#include <usci_a_uart.h>
-#include <usci_b_i2c.h>
-#include <usci_b_spi.h>
-#include <wdt_a.h>
 
 #include "app_dpl.h"
 #include "driver_iw7027.h"
 #include "driver_scheduler.h"
 #include "driver_uartdebug.h"
 
-/***2.1 Internal Marcos ******/
+/***2.1 Internal Marcos ******************************************************/
+//XT1 frequency, if no external XT1,set to 0
+#define BOARD_XT1_F						(0)
+//XT2 frequency, if no external XT2,set to 0
+#define BOARD_XT2_F						(0)
+//High speed Sub_System_Clock
+#define BOARD_SMCLK_F					(BOARD_CPU_F)
+//Low speed Assist_Clock
+#define BOARD_ACLK_F					(32768)
+//I2C Slave addess for [NORMAL] mode ,7bit mode
+#define BOARD_I2C_SLAVE_ADD_NORMAL		(0x14)
+//I2C Slave addess for [ISP] mode ,7bit mode
+#define BOARD_I2C_SLAVE_ADD_ISP			(0x1C)
+//I2C buffer start address for [NORMAL] mode .
+#define BOARD_I2C_BUF_ADD_NORMAL		(0x4000)
+//I2C buffer start address for [ISP] mode .
+#define BOARD_I2C_BUF_ADD_ISP			(0x3C00)
+//SPI master speed (unit in Hz)
+#define BOARD_SPI_MASTER_SPEED			(4000000)
+//Bound Rate of UART
+#define BOARD_UART_BAUDRATE				(115200)
+//Temperature Sensor Calibration value for 30C
+#define BOARD_ADCCAL_15V_30C  			*((uint16 *)0x1A1A)
+//Temperature Sensor Calibration value for 85C
+#define BOARD_ADCCAL_15V_85C  			*((uint16 *)0x1A1C)
 
-#define BOARD_XT1_F						(0)				//XT1 frequency, if no external XT1,set to 0
-#define BOARD_XT2_F						(0)				//XT2 frequency, if no external XT2,set to 0
-#define BOARD_SMCLK_F					(BOARD_CPU_F)	//High speed Sub_System_Clock
-#define BOARD_ACLK_F					(32768)			//Low speed Assist_Clock
-#define BOARD_I2C_SLAVE_ADD_NORMAL		(0x14)			//I2C Slave addess for [NORMAL] mode ,7bit mode
-#define BOARD_I2C_SLAVE_ADD_ISP			(0x1C)			//I2C Slave addess for [ISP] mode ,7bit mode
-#define BOARD_I2C_BUF_ADD_NORMAL		(0x4000)		//I2C buffer start address for [NORMAL] mode .
-#define BOARD_I2C_BUF_ADD_ISP			(0x3C00)		//I2C buffer start address for [ISP] mode .
-#define BOARD_SPI_MASTER_SPEED			(4000000)		//SPI master speed (unit in Hz)
-#define BOARD_UART_BAUDRATE				(115200)		//Bound Rate of UART
-#define BOARD_ADCCAL_15V_30C  			*((uint16 *)0x1A1A)	//Temperature Sensor Calibration value for 30C
-#define BOARD_ADCCAL_15V_85C  			*((uint16 *)0x1A1C)	//Temperature Sensor Calibration value for 85C
-
-#define ISP_ENTRANCE_PASSWORD_ADDRESS	(0xF8)
-#define ISP_EXIT_PASSWORD_ADDRESS		(0xF000)
-#define ISP_INITIAL_ADDRESS				(0xF200)
-#define ISP_ISR_ADDRESS					(0xF400)
+//ISP<->NORMAL password value (4byte)
 #define ISP_PASSWORD					(0x20140217)
+//NORMAL->ISP password address (1byte)
+#define ISP_ENTRANCE_PASSWORD_ADDRESS	(0xF8)
+//ISP->NORMAL password address (3byte)
+#define ISP_EXIT_PASSWORD_ADDRESS		(0xF000)
+//ISP initial program flash address.
+#define ISP_INITIAL_ADDRESS				(0xF200)
+//ISP interrupt service program flash address.
+#define ISP_ISR_ADDRESS					(0xF400)
 /***2.2 Internal Struct ******/
 
 /***2.3 Internal Variables ***/
+//ISP->NORMAL password in flash
 #pragma location=ISP_EXIT_PASSWORD_ADDRESS
 const uint32 Isp_exit_pw = ISP_PASSWORD;
 
+//Default error detection parameters.
 const ErrorParam Default_ErrorParam =
 {
 /*DC13V*/.eDc13vMax = 16, .eDc13vMin = 10,
@@ -133,14 +131,13 @@ uint8 I2cSlave_SpecialFuncBuff[0x50] =
 
 #pragma location = BOARD_I2C_BUF_ADD_NORMAL + 0xF0
 uint64 System_Version =
-{ 0 };
+{ 0x1605240A };
 
 #pragma location = BOARD_I2C_BUF_ADD_NORMAL + 0xF8
 uint64 System_Isp_Password =
 { 0 };
 
 /***2.5 Internal Functions ***/
-
 #pragma location=ISP_INITIAL_ADDRESS
 int _system_pre_init(void)
 {
@@ -155,6 +152,19 @@ int _system_pre_init(void)
 	 **************************************************************/
 
 	WDTCTL = WDTPW + WDTHOLD; // Stop WDT
+	//All ports set to Input with Pull Down.
+	PAOUT = 0;
+	PBOUT = 0;
+	PCOUT = 0;
+	PDOUT = 0;
+	PADIR = 0;
+	PBDIR = 0;
+	PCDIR = 0;
+	PDDIR = 0;
+	PAREN = 0;
+	PBREN = 0;
+	PCREN = 0;
+	PDREN = 0;
 	__disable_interrupt();
 
 	//If pass word not correct , init I2C slave in ISP mode.
@@ -172,7 +182,7 @@ int _system_pre_init(void)
 		UCB0CTL1 &= ~UCSWRST;
 		UCB0IE |= UCRXIE + UCTXIE + UCSTTIE + UCSTPIE;
 
-		//Clear ISP mode RAM buffer
+		//Clear ISP mode RAM buffer .
 		uint16 i;
 		for (i = 0; i < 512; i++)
 		{
@@ -183,17 +193,13 @@ int _system_pre_init(void)
 		__bis_SR_register(LPM0_bits);
 	}
 
-	/*==================================*/
-	/* Choose if segment initialization */
-	/* should be done or not. */
-	/*==================================*/
 	return 1;
 }
 
 /***2.6 External Functions ***/
-uint8 Mcu_init(void)
+flag Mcu_init(void)
 {
-	//16s watch dog timer
+	//16s watch dog timer ,512k / 32k = 16s
 	WDT_A_initWatchdogTimer(WDT_A_BASE, WDT_A_CLOCKSOURCE_ACLK, WDT_A_CLOCKDIVIDER_512K);
 	WDT_A_start(WDT_A_BASE);
 
@@ -208,7 +214,27 @@ uint8 Mcu_init(void)
 	I2cSlave_init(BOARD_I2C_SLAVE_ADD_NORMAL);
 	Uart_init(BOARD_UART_BAUDRATE);
 
-	//Set Default & get 1st board status.
+	//Check Power & turn on iw7027 power.
+	while (Adc_getResult(ADCPORT_DC60V) < 0x0200)
+	{
+#if UART_DEBUG_ON
+	PrintString("DC60VADC = ");
+	PrintInt(Adc_getResult(ADCPORT_DC60V));
+	PrintEnter();
+#endif
+	DELAY_MS(50);
+	}
+	while (Adc_getResult(ADCPORT_DC13V) < 0x0200)
+	{
+#if UART_DEBUG_ON
+	PrintString("DC13VADC = ");
+	PrintInt(Adc_getResult(ADCPORT_DC13V));
+	PrintEnter();
+#endif
+	DELAY_MS(50);
+	}
+
+	//Set default param.
 	System_ErrorParam = Default_ErrorParam;
 
 #if UART_DEBUG_ON
@@ -255,8 +281,7 @@ uint8 Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 	//Set Error Out
 	if (retval)
 	{
-		SET_ERROR_OUT_LOW
-		;
+		SET_ERROR_OUT_LOW;
 		errorparam->eErrorType = retval;
 		//1st time error happen
 		if (!iserror)
@@ -291,8 +316,7 @@ uint8 Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 #endif
 		}
 
-		SET_ERROR_OUT_HIGH
-		;
+		SET_ERROR_OUT_HIGH;
 		errorparam->eErrorType = retval;
 		iserror = 0;
 	}
@@ -301,10 +325,10 @@ uint8 Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 
 void Mcu_reset(void)
 {
-	//Set watch dog timer to 64 cpu cycles.
+	//Set watch dog timer to 512 cpu cycles.
 	WDT_A_initWatchdogTimer(WDT_A_BASE, WDT_A_CLOCKSOURCE_SMCLK, WDT_A_CLOCKDIVIDER_512);
 	WDT_A_start(WDT_A_BASE);
-	//Wait 100cyles for watch dog reboot.
+	//Wait 612cyles for watch dog reboot.
 	__delay_cycles(512 + 100);
 }
 
@@ -318,7 +342,7 @@ void Mcu_invokeBsl(void)
 	((void (*)()) 0x1000)();
 }
 
-uint8 Gpio_init(void)
+void Gpio_init(void)
 {
 	//STEP1 : Set default value for all ports = input with pull down resistor
 	GPIO_setAsInputPinWithPullDownResistor(GPIO_PORT_PA, GPIO_PIN_ALL16);
@@ -422,7 +446,6 @@ uint8 Gpio_init(void)
 	//P7.6  NC , not available for MSP430F5247
 	//P7.7  NC , not available for MSP430F5247
 
-	return FLAG_SUCCESS;
 }
 
 //P1 GPIO ISR
@@ -437,12 +460,11 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) Gpio_ISR_Port1 (void)
 {
 	switch (__even_in_range(P1IV, 14))
 	{
-	case 0:	//No interrupt
+	case 0:		//No interrupt
 		break;
-	case 2:	//P1.0
+	case 2:		//P1.0
 		break;
-	case 4:	//P1.1
-			//STB ISR
+	case 4:		//P1.1, STB falling edge ISR.
 #if UART_DEBUG_ON
 		PrintString("\e[31m***STB falling edge detect***\r\n\e[30m");
 #endif
@@ -451,7 +473,7 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) Gpio_ISR_Port1 (void)
 		{
 			//Mute Backlight
 			Mem_set8((uint32) &System_ManualDutyBuff, 0x00, sizeof(System_ManualDutyBuff));
-			Iw7027_updateDuty((uint16*) System_ManualDutyBuff, Iw7027_LedSortMap);
+			Iw7027_updateDuty((uint16*) System_ManualDutyBuff);
 
 			//Hold CPU till STB get High , if STB = L for 1s, reset Mcu.
 			uint16 timeout = 0;
@@ -469,17 +491,17 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) Gpio_ISR_Port1 (void)
 		GPIO_clearInterrupt(GPIO_PORT_P1, GPIO_PIN1);
 
 		break;
-	case 6:			//P1.2
+	case 6:		//P1.2
 		break;
-	case 8:			//P1.3
+	case 8:		//P1.3
 		break;
-	case 10:			//P1.4
+	case 10:	//P1.4
 		break;
-	case 12:			//P1.5
+	case 12:	//P1.5
 		break;
-	case 14:			//P1.6
+	case 14:	//P1.6
 		break;
-	case 16:			//P1.7
+	case 16:	//P1.7
 		break;
 	default:
 		break;
@@ -487,7 +509,7 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) Gpio_ISR_Port1 (void)
 
 }
 
-uint8 Adc_init(void)
+flag Adc_init(void)
 {
 	//Set P6.4 P6.5 as ADC input
 	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P6, GPIO_PIN4);
@@ -580,7 +602,7 @@ int8 Adc_getMcuTemperature(void)
 	return ((int8) temperature);
 }
 
-uint8 Clock_init(uint32 cpu_speed)
+flag Clock_init(uint32 cpu_speed)
 {
 	//Set VCore = 3 for 24MHz clock
 	PMM_setVCore(PMM_CORE_LEVEL_3);
@@ -596,7 +618,7 @@ uint8 Clock_init(uint32 cpu_speed)
 	return FLAG_SUCCESS;
 }
 
-uint8 SpiMaster_init(uint32 spi_speed)
+flag SpiMaster_init(uint32 spi_speed)
 {
 	//P4.1 = MOSI , P4.2 = MISO , P4.3 = CLK
 	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P4, GPIO_PIN1);
@@ -682,7 +704,7 @@ void SpiMaster_setCsPin(uint8 chipsel)
 	}
 }
 
-uint8 SpiMaster_sendMultiByte(uint8 *txdata, uint8 length)
+uint8 SpiMaster_sendMultiByte(uint8 *txdata, uint16 length)
 {
 	//Send multiple bytes till count down
 	while (length--)
@@ -726,7 +748,7 @@ uint8 SpiMaster_sendSingleByte(uint8 txdata)
 
 }
 
-uint8 SpiSlave_init(void)
+flag SpiSlave_init(void)
 {
 	//P2.7 = CLK , P3.3 = MOSI , P3.4 = MISO
 	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P2, GPIO_PIN7);
@@ -779,6 +801,7 @@ uint8 SpiSlave_init(void)
 	USCI_A0_BASE, USCI_A_SPI_MSB_FIRST,
 	USCI_A_SPI_PHASE_DATA_CHANGED_ONFIRST_CAPTURED_ON_NEXT,
 	USCI_A_SPI_CLOCKPOLARITY_INACTIVITY_HIGH);
+
 	if (FLAG_FAIL == uca0_returnValue)
 	{
 		return FLAG_FAIL;
@@ -874,7 +897,7 @@ void SpiSlave_enable(void)
 	USCI_A_SPI_enable(USCI_A0_BASE);
 }
 
-uint8 I2cSlave_init(uint8 slaveaddress)
+void I2cSlave_init(uint8 slaveaddress)
 {
 	//P3.0 = SDA , P3.1 = SCL
 	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P3, GPIO_PIN0);
@@ -901,10 +924,9 @@ uint8 I2cSlave_init(uint8 slaveaddress)
 	USCI_B_I2C_RECEIVE_INTERRUPT +
 	USCI_B_I2C_TRANSMIT_INTERRUPT);
 
+	//Clear Buffer
 	Mem_set8((uint32) &I2cSlave_SpecialFuncBuff, 0x00, sizeof(I2cSlave_SpecialFuncBuff));
-	System_Version = 0x201605250A;
-	System_Isp_Password = 0x00000000;
-	return FLAG_SUCCESS;
+
 }
 
 #pragma location=0xF400
@@ -1089,7 +1111,7 @@ void __attribute__ ((interrupt(USCI_B0_VECTOR))) I2cSlave_ISR (void)
 
 }
 
-uint8 Uart_init(uint32 baudrate)
+flag Uart_init(uint32 baudrate)
 {
 	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P4, GPIO_PIN4);
 	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P4, GPIO_PIN5);

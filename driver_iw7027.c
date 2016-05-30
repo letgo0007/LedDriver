@@ -11,26 +11,30 @@
  *
  ******************************************************************************/
 
-/***1 Includes ***************/
+/***1 Includes ****************************************************************/
+
 #include "driver_iw7027.h"
 
-#include <msp430f5xx_6xxgeneric.h>
+#include "driver.h"
 
-#include "driver_mcu.h"
-
-/***2.1 Internal Marcos ******/
-#define IW_SPI_MASTER_TRANS_START_DELAY	(50)	//CS -> SPI delay(unit:us) , see IW7027 application note
-#define IW_SPI_MASTER_TRANS_STOP_DELAY	(10)	//SPI -> CS delay(unit:us) , see IW7027 application note
-#define	IW_CURRENT_CHANGE_STEP			(0x30)
-
+/***2.1 Internal Marcos *******************************************************/
 #ifndef UART_DEBUG_ON
-#define UART_DEBUG_ON		(0)
+#define UART_DEBUG_ON						(0)
 #endif
+//CS -> SPI delay(unit:us) , see IW7027 application note
+#define IW_SPI_MASTER_TRANS_START_DELAY		(50)
+//SPI -> CS delay(unit:us) , see IW7027 application note
+#define IW_SPI_MASTER_TRANS_STOP_DELAY		(10)
+//Current change max step .
+#define	IW_CURRENT_CHANGE_STEP				(0x30)
+//Select model specified const .
+#define Iw7027_DefaultRegMap				(Iw7027_DefaultRegMap_70XU30A)
+#define Iw7027_LedSortMap					(Iw7027_LedSortMap_70XU30A)
+/***2.2 Internal Struct ******************************************************/
 
-/***2.2 Internal Struct ******/
-/***2.3 Internal Variables ***/
-//Buffers & Const Tables
-static const uint8 Iw7027_DefaultRegMap[IW_DEVICE_AMOUNT * 0x60] =
+/***2.3 Internal Variables ***************************************************/
+//Default Reg map for all IW7027 devices. 0x60 bytes for each device.
+static const uint8 Iw7027_DefaultRegMap_70XU30A[IW_DEVICE_AMOUNT * 0x60] =
 {
 /*IW_0*/
 /*0x0x*/0x06, 0x00, 0x00, 0x00, 0x27, 0x00, 0x4E, 0x00, 0x76, 0x00, 0x9D, 0x00, 0xC4, 0x00, 0xEC, 0x01,
@@ -72,26 +76,33 @@ static const uint8 Iw7027_DefaultRegMap[IW_DEVICE_AMOUNT * 0x60] =
 /*0x4x*/0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99,
 /*0x5x*/0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, 0x01, 0x99, };
 
-static const uint8 Iw7027_LedSortMap[80] =
+//Mapping const to convert LED channel mark form "TV Front View" to "Hardware View" .
+static const uint8 Iw7027_LedSortMap_70XU30A[80] =
 {
-/*ROW0*/17, 16, 15, 77, 78, 79,
-/*ROW1*/14, 13, 12, 74, 75, 76,
-/*ROW2*/11, 10, 9, 71, 72, 73,
-/*ROW3*/8, 7, 6, 68, 69, 70,
-/*ROW4*/5, 4, 3, 65, 66, 67,
-/*ROW5*/2, 1, 0, 62, 63, 64,
-/*ROW6*/38, 37, 36, 59, 60, 61,
-/*ROW7*/35, 34, 33, 56, 57, 58,
-/*ROW8*/32, 31, 30, 53, 54, 55,
-/*ROW9*/29, 28, 27, 50, 51, 52,
-/*ROWA*/26, 25, 24, 45, 48, 49,
-/*ROWB*/23, 22, 21, 42, 43, 44,
-/*ROWC*/20, 19, 18, 39, 40, 41,
-/*NC  */46, 47 };
-/***2.4 External Variables ***/
-/***2.5 Internal Functions ***/
+/*ROW0*/0x11, 0x10, 0x0F, 0x4D, 0x4E, 0x4F,
+/*ROW1*/0x0E, 0x0D, 0x0C, 0x4A, 0x4B, 0x4C,
+/*ROW2*/0x0B, 0x0A, 0x09, 0x47, 0x48, 0x49,
+/*ROW3*/0x08, 0x07, 0x06, 0x44, 0x45, 0x46,
+/*ROW4*/0x05, 0x04, 0x03, 0x41, 0x42, 0x43,
+/*ROW5*/0x02, 0x01, 0x00, 0x3E, 0x3F, 0x40,
+/*ROW6*/0x26, 0x25, 0x24, 0x3B, 0x3C, 0x3D,
+/*ROW7*/0x23, 0x22, 0x21, 0x38, 0x39, 0x3A,
+/*ROW8*/0x20, 0x1F, 0x1E, 0x35, 0x36, 0x37,
+/*ROW9*/0x1D, 0x1C, 0x1B, 0x32, 0x33, 0x34,
+/*ROWA*/0x1A, 0x19, 0x18, 0x2D, 0x30, 0x31,
+/*ROWB*/0x17, 0x16, 0x15, 0x2A, 0x2B, 0x2C,
+/*ROWC*/0x14, 0x13, 0x12, 0x27, 0x28, 0x29,
+/*NC  */0x2E, 0x2F, };
 
-/***2.6 External Functions ***/
+static const Iw7027Param Iw7027_DefaultParam =
+{ .iwFrequency = 120, .iwCurrent = 0x42, .iwDelayTableSelet = d2D, .iwVsyncFrequency = 120, .iwVsyncDelay = 1, .iwRunErrorCheck = 1, .iwIsError = 0 };
+
+/***2.4 External Variables ***************************************************/
+
+/***2.5 Internal Functions ***************************************************/
+
+/***2.6 External Functions ***************************************************/
+
 void Iw7027_writeMultiByte(uint8 chipsel, uint8 regaddress, uint8 length, uint8 *txdata)
 {
 	//Selest chip
@@ -168,7 +179,7 @@ uint8 Iw7027_readMultiByte(uint8 chipsel, uint8 regaddress, uint8 length, uint8 
 
 	//set out dummy clocks to read byte
 	SpiMaster_sendSingleByte(0x00);
-	for (i = 0; i < length; i++)
+	while (length--)
 	{
 		rxdata[i] = SpiMaster_sendSingleByte(0x00);
 	}
@@ -229,56 +240,37 @@ uint8 Iw7027_init(void)
 	uint8 status = 0;
 	uint8 i = 0;
 
-	SET_IW7027_POWER_OFF;
-	DELAY_MS(500);
-
 #if UART_DEBUG_ON
 	PrintTime(&System_Time);
 	PrintString("[IW7027 INTIAL] Start...\r\n");
 	PrintTime(&System_Time);
-	PrintString("[IW7027 INTIAL] -1 : Power Check\r\n");
+	PrintString("[IW7027 INTIAL] -1 : Power On & Delay.\r\n");
 #endif
-
-	//Step 1 : Check Power & turn on iw7027 power.
-	while (Adc_getResult(ADCPORT_DC60V) < 0x0200)
-	{
-		;
-	}
-	while (Adc_getResult(ADCPORT_DC13V) < 0x0200)
-	{
-		;
-	}
-#if UART_DEBUG_ON
-	PrintString("DC60V ADC= ");
-	PrintInt(Adc_getResult(ADCPORT_DC60V));
-	PrintString(" , DC13V ADC= ");
-	PrintInt(Adc_getResult(ADCPORT_DC13V));
-	PrintEnter();
-	PrintTime(&System_Time);
-	PrintString("[IW7027 INTIAL] -1 : Power Check OK , Turn ON IW7027 .\r\n");
-#endif
+	//Step 1: Power ON .
+	//YZF 2016/4/30 : Force power off for 500ms to ensure IW7027 is powerd off AC DIP conditon.
+	SET_IW7027_POWER_OFF;
+	DELAY_MS(500);
 	SET_IW7027_POWER_ON;
 	DELAY_MS(200);
 
 	//Step 2: check chip ID to ensure IW7027 is working .
 	do
 	{
-		status = Iw7027_checkReadWithTimeout( IW_ALL, 0x6B, 0x24, 0xFF);
 #if UART_DEBUG_ON
 		PrintTime(&System_Time);
 		PrintString("[IW7027 INTIAL] -2 : Read Chip ID\r\n");
 #endif
+		status = Iw7027_checkReadWithTimeout(IW_ALL, 0x6B, 0x24, 0xFF);
 	} while (status == 0);
 
 	//Step 3 : Write Initial setting in sequence  from chip IW0 to IW_N
-
 	for (i = 0; i < IW_DEVICE_AMOUNT; i++)
 	{
+		Iw7027_writeMultiByte(IW_0 << i, 0x00, 0x60, (uint8 *) &Iw7027_DefaultRegMap[0x60 * i]);
 #if UART_DEBUG_ON
 		PrintTime(&System_Time);
 		PrintString("[IW7027 INTIAL] -3 : Write Initial Reg Map\r\n");
 #endif
-		Iw7027_writeMultiByte( IW_0 << i, 0x00, 0x60, *Iw7027_DefaultRegMap[0x60 * i]);
 	}
 
 	//Step 4 :wait STB
@@ -291,36 +283,31 @@ uint8 Iw7027_init(void)
 		DELAY_MS(200);
 	} while ( GET_STB_IN == 0);
 
-	//Step 5 : Set default IW7027 status ;
-	System_Iw7027Param.iwCurrent = 0x42;
-	System_Iw7027Param.iwFrequency = 120;
-	System_Iw7027Param.iwDelayTableSelet = d2D;
-	System_Iw7027Param.iwVsyncFrequency = 120;
-	System_Iw7027Param.iwVsyncDelay = 1;
-	System_Iw7027Param.iwRunErrorCheck = 1;
-
-#if UART_DEBUG_ON
-	PrintTime(&System_Time);
-	PrintString("[IW7027 INTIAL] -5 : Get STB , Set work status ...\r\n");
-	PrintString("Initial IW7027 work status:\r\n");
-	PrintArray((uint8 *)&System_Iw7027Param,sizeof(System_Iw7027Param));
-	PrintEnter();
-#endif
-
+	//Step 5 : Set IW7027 status using default param.
+	System_Iw7027Param = Iw7027_DefaultParam;
 	Iw7027_updateWorkParams(&System_Iw7027Param);
 	DELAY_MS(200);		//wait 200ms for pwm stable.
+#if UART_DEBUG_ON
+			PrintTime(&System_Time);
+			PrintString("[IW7027 INTIAL] -5 : Get STB , Set work status ...\r\n");
+			PrintString("Initial IW7027 work status:\r\n");
+			PrintArray((uint8 *)&System_Iw7027Param,sizeof(System_Iw7027Param));
+			PrintEnter();
+#endif
 
 	//Step 6 : Initialize Done ,turn on BL
+	Iw7027_writeSingleByte(IW_ALL, 0x00, 0x07);
 #if UART_DEBUG_ON
 	PrintTime(&System_Time);
 	PrintString("[IW7027 INTIAL] -6 : Initialize finish , turn on BL..\r\n");
 	PrintString("\e[32mBL on ,enter main loop.\r\n\e[30m");
 #endif
-	Iw7027_writeSingleByte(IW_ALL, 0x00, 0x07);
-	return FLAG_SUCCESS;
+
+	//Return status
+	return status;
 }
 
-uint8 Iw7027_updateDuty(uint16 *dutymatrix, const uint8 *ledsortmap)
+uint8 Iw7027_updateDuty(uint16 *dutymatrix)
 {
 	uint8 i;
 
@@ -330,8 +317,8 @@ uint8 Iw7027_updateDuty(uint16 *dutymatrix, const uint8 *ledsortmap)
 	for (i = 0; i < IW_LED_CHANNEL; i++)
 	{
 		//convert 1 16bit data -> 2 8bit data . with resorted in LED hardware order
-		Iw7027_SortBuff[2 * ledsortmap[i]] = dutymatrix[i] >> 8;
-		Iw7027_SortBuff[2 * ledsortmap[i] + 1] = dutymatrix[i] & 0xFF;
+		Iw7027_SortBuff[2 * Iw7027_LedSortMap[i]] = dutymatrix[i] >> 8;
+		Iw7027_SortBuff[2 * Iw7027_LedSortMap[i] + 1] = dutymatrix[i] & 0xFF;
 	}
 
 	//Sequence write chip IW0 ~ IW_N
