@@ -34,9 +34,12 @@ Calendar System_Time =
 { 0 };
 
 /***2.5 Internal Functions ***/
+#pragma LOCATION(Isr_Scheduler_TimerB0,0x4E00)
+#pragma LOCATION(Isr_Scheduler_Rtc,0x4F00)
+
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=TIMER0_B1_VECTOR
-__interrupt void Sch_ISR_TimerB0(void)
+__interrupt void Isr_Scheduler_TimerB0(void)
 #elif defined(__GNUC__)
 void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
 #else
@@ -83,9 +86,9 @@ void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
 
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=RTC_VECTOR
-__interrupt void Sch_ISR_Rrc(void)
+__interrupt void Isr_Scheduler_Rtc(void)
 #elif defined(__GNUC__)
-void __attribute__ ((interrupt(RTC_VECTOR))) Sch_ISR_Rrc (void)
+void __attribute__ ((interrupt(RTC_VECTOR))) Isr_Scheduler_Rtc (void)
 #else
 #error Compiler not supported!
 #endif

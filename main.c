@@ -21,10 +21,12 @@
 #include "driver_scheduler.h"
 #include "driver_uartdebug.h"
 #include "std.h"
+extern void Mcu_Boot(void);
 
 int main(void)
 {
 	//Initialize Driver
+	//Mcu_Boot();
 	Mcu_init();
 	Sch_init();
 	Iw7027_init();

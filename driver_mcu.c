@@ -61,7 +61,7 @@
 /***2.3 Internal Variables ***/
 //ISP->NORMAL password in flash
 #pragma location=ISP_EXIT_PASSWORD_ADDRESS
-const uint32 ISP_ExitPwOnFlash = ISP_PASSWORD;
+static const uint32 ISP_ExitPwOnFlash = ISP_PASSWORD;
 
 //Default error detection parameters.
 const ErrorParam Default_ErrorParam =
@@ -92,53 +92,116 @@ uint8 HwBuf_UartRx[256] =
  * Refer to TI compiler #pragma cmd list file :
  * http://www.ti.com/lit/ug/slau132l/slau132l.pdf
  *
- * Name            				origin    	length
- * ----------------------  		--------  	---------
- * SysParam_Schedule			0x00		0x20
- * SysParam_BoardInfo			0x20		0x10
- * SysParam_Error				0x30		0x10
- * SysParam_Iw7027				0x40		0x30
- * SysParam_Dpl					0x70		0x30
- * HwBuf_I2cSlave				0xA0		0x50
- * SysParam_Version				0xF0		0x08
- * SysParam_IspPassword			0xF8		0x08
- * ----------------------  		--------  	---------
- * 								total		0x100
+ * Name            			origin    	length
+ * ----------------------  	--------  	---------
+ * SysParam_Schedule		0x00		0x20
+ * SysParam_BoardInfo		0x20		0x10
+ * SysParam_Error			0x30		0x10
+ * SysParam_Iw7027			0x40		0x30
+ * SysParam_Dpl				0x70		0x30
+ * HwBuf_I2cSlave			0xA0		0x50
+ * SysParam_Version			0xF0		0x08
+ * SysParam_IspPassword		0xF8		0x08
+ * ----------------------  	--------  	---------
+ * 							total		0x100
  ******************************************************************************/
-#pragma location = BOARD_I2C_BUF_ADD_NORMAL + 0x00
+#pragma LOCATION(SysParam_Schedule , BOARD_I2C_BUF_ADD_NORMAL + 0x00)
+#pragma LOCATION(SysParam_BoardInfo , BOARD_I2C_BUF_ADD_NORMAL + 0x20)
+#pragma LOCATION(SysParam_Error , BOARD_I2C_BUF_ADD_NORMAL + 0x30)
+#pragma LOCATION(SysParam_Iw7027 , BOARD_I2C_BUF_ADD_NORMAL + 0x40)
+#pragma LOCATION(SysParam_Dpl , BOARD_I2C_BUF_ADD_NORMAL + 0x70)
+#pragma LOCATION(HwBuf_I2cSlave , BOARD_I2C_BUF_ADD_NORMAL + 0xA0)
+#pragma LOCATION(SysParam_Version , BOARD_I2C_BUF_ADD_NORMAL + 0xF0)
+#pragma LOCATION(SysParam_IspPassword , BOARD_I2C_BUF_ADD_NORMAL + 0xF8)
+
 Scheduler SysParam_Schedule =
 { 0 };
 
-#pragma location = BOARD_I2C_BUF_ADD_NORMAL + 0x20
 BoardInfo SysParam_BoardInfo =
 { 0 };
 
-#pragma location = BOARD_I2C_BUF_ADD_NORMAL + 0x30
 ErrorParam SysParam_Error =
 { 0 };
 
-#pragma location = BOARD_I2C_BUF_ADD_NORMAL + 0x40
 Iw7027Param SysParam_Iw7027 =
 { 0 };
 
-#pragma location = BOARD_I2C_BUF_ADD_NORMAL + 0x70
 DPL_Prama SysParam_Dpl =
 { 0 };
 
-#pragma location = BOARD_I2C_BUF_ADD_NORMAL + 0xA0
 uint8 HwBuf_I2cSlave[0x50] =
 { 0 };
 
-#pragma location = BOARD_I2C_BUF_ADD_NORMAL + 0xF0
 uint64 SysParam_Version =
 { 0x1605240A };
 
-#pragma location = BOARD_I2C_BUF_ADD_NORMAL + 0xF8
 uint64 SysParam_IspPassword =
 { 0 };
 
 /***2.5 Internal Functions ***/
-#pragma location=ISP_INITIAL_ADDRESS
+
+/******************************************************************************
+ * Set Flash Structure
+ * The system with ISP(in system programming) function define the flash into
+ * [Boot] 		: Reset interrupt service & ISP program. This section should
+ * 				NOT be modified in ISP progress.
+ * [App-ISR] 	: Interrupt Service Routine , must place at address <0xFFFF
+ * 				Interrupt Vector of MSP430 only support 16bit address.
+ * [App-VECTOR] : Interrupt Vector defines jump address for each hardware
+ * 				interrupt . Note that the "Reset Vector" @ 0xFFFE~0xFFFF
+ * 				must always set to 0x4400(_c_int00_noargs_noexit) to ensure
+ * 				system can reset normally.
+ * [App-FUNC] 	: Main program area.
+ * [App-CONST] 	: Const table area.
+ *
+ * The Flash address of each section is set as below :
+ *
+ * [Boot]	     			origin    	length		Remark
+ * ----------------------  	--------  	---------	----------
+ * _c_int00_noargs_noexit	0x4400		0x001a		C/C++ complier Gerenate
+ * __TI_ISR_TRAP			0x441a		0x0008		C/C++ complier Gerenate
+ * _system_pre_init			0x4480					ISP function.
+ * ----------------------  	--------  	---------	----------
+ * 							total		0x400
+ *
+ * [App-ISR]		    	origin    	length		Remark
+ * ----------------------  	--------  	---------	----------
+ * Isr_Gpio_P1				0x4800
+ * Isr_SpiSlave_Cs			0x4900
+ * Isr_I2cSlave				0x4A00
+ * Isr_Uart					0x4D00
+ * Isr_Scheduler_TimerB0	0x4E00					@driver_scheduler.c
+ * Isr_Scheduler_Rtc		0x4F00					@driver_scheduler.c
+ * ----------------------  	--------  	---------	----------
+ * 							total		0x800
+ *
+ * [App-VECTOR]			  	origin    	length		Remark
+ * ----------------------  	--------  	---------	----------
+ * 							0xFE00		0x200
+ * ----------------------  	--------  	---------	----------
+ * 							total		T.B.D.
+ *
+ * [App-FUNC]  			  	origin    	length		Remark
+ * ----------------------  	--------  	---------	----------
+ * main()					0x10000
+ * ----------------------  	--------  	---------	----------
+ * 							total		TBD
+ *
+ * [App-CONST]     			origin    	length		Remark
+ * ----------------------  	--------  	---------	----------
+ * 							0x20000
+ * ----------------------  	--------  	---------	----------
+ * 							total		TBD
+ *
+ ******************************************************************************/
+//Place ISR
+#pragma LOCATION(_system_pre_init,0x4480)
+#pragma LOCATION(Isr_Gpio_P1,0x4800)
+#pragma LOCATION(Isr_SpiSlave_Cs,0x4900)
+#pragma LOCATION(Isr_I2cSlave,0x4A00)
+#pragma LOCATION(Isr_Uart,0x4D00)
+
+/*Boot */
 int _system_pre_init(void)
 {
 	/**************************************************************
@@ -180,20 +243,468 @@ int _system_pre_init(void)
 		UCB0CTL0 = UCMODE_3 + UCSYNC;
 		UCB0I2COA = BOARD_I2C_SLAVE_ADD_ISP;
 		UCB0CTL1 &= ~UCSWRST;
-		UCB0IE |= UCRXIE + UCTXIE + UCSTTIE + UCSTPIE;
+		//UCB0IE |= UCRXIE + UCTXIE + UCSTTIE + UCSTPIE;
 
-		//Clear ISP mode RAM buffer .
-		uint16 i;
-		for (i = 0; i < 512; i++)
+		static uint8 data_buff[512];
+		static uint8 op_buff[4];
+		static uint16 txcount;
+		static uint16 rxcount;
+		static uint32 op_add;
+		static uint8 *op_ptr;
+
+		while (1)
 		{
-			HWREG8( BOARD_I2C_BUF_ADD_ISP + i ) = 0xFF;
-		}
-		//Enable Interrupt & Turn Off CPU.
-		__enable_interrupt();
-		__bis_SR_register(LPM0_bits);
+			//RX
+			if (UCB0IFG & UCRXIFG)
+			{
+				//Buffer I2C slave data
+				if (rxcount < 3)	// 0~2 bytes is address.
+				{
+					op_buff[2 - rxcount] = UCB0RXBUF;
+				}
+				else	// 3+ bytes is data.
+				{
+					data_buff[rxcount - 3] = UCB0RXBUF;
+				}
+
+				rxcount++;
+				UCB0IFG &= ~UCRXIFG;
+			}
+			//TX
+			if (UCB0IFG & UCTXIFG)
+			{
+				UCB0TXBUF = op_ptr[txcount];
+				txcount++;
+				UCB0IFG &= ~UCTXIFG;
+			}
+			//START
+			if (UCB0IFG & UCSTTIFG)
+			{
+				//Calculate operation address & pointer
+				op_add = (*((volatile uint32 *) &op_buff[0]));
+				op_ptr = (uint8 *) (op_add & 0x0FFFFF);
+
+				//Reset count
+				txcount = 0;
+				rxcount = 0;
+				UCB0IFG &= ~UCSTTIFG;
+			}
+			//STOP
+			if (UCB0IFG & UCSTPIFG)
+			{
+				//Calculate operation address & pointer
+				op_add = (*((volatile uint32 *) &op_buff[0]));
+				op_ptr = (uint8 *) (op_add & 0x0FFFFF);
+
+				//Flash operation according to opp_add
+				//Segment Erase
+				if ((op_add >= 0x104400) && (op_add <= 0x124400))
+				{
+					FCTL3 = FWKEY;                            // Clear Lock bit
+					FCTL1 = FWKEY + ERASE;                      // Set Erase bit
+					*op_ptr = 0xFF;
+					FCTL1 = FWKEY;                            // Clear WRT bit
+					FCTL3 = FWKEY + LOCK;                       // Set LOCK bit
+				}
+				//Segment Write 512B flash
+				if ((rxcount > 2) && (op_add >= 0x004400) && (op_add <= 0x024400))
+				{
+					uint16 i;
+					uint8 * Flash_ptr;                     // Initialize Flash pointer
+					Flash_ptr = (uint8 *) op_add;
+
+					FCTL3 = FWKEY;                            // Clear Lock bit
+					FCTL1 = FWKEY + ERASE;                      // Set Erase bit
+					*Flash_ptr = 0;                           // Dummy write to erase Flash seg
+					FCTL1 = FWKEY + WRT;                        // Set WRT bit for write operation
+					for (i = 0; i < rxcount - 3; i++)
+					{
+						*Flash_ptr++ = data_buff[i];        // Write value to flash
+					}
+					FCTL1 = FWKEY;                            // Clear WRT bit
+					FCTL3 = FWKEY + LOCK;                       // Set LOCK bit
+				}
+				//Segment Write 128B flash (info flash)
+				if ((rxcount > 2) && (op_add >= 0x001800) && (op_add <= 0x00197F))
+				{
+					uint16 i;
+					uint8 * Flash_ptr;                     // Initialize Flash pointer
+					Flash_ptr = (uint8 *) op_add;
+
+					FCTL3 = FWKEY;                            // Clear Lock bit
+					FCTL1 = FWKEY + ERASE;                      // Set Erase bit
+					*Flash_ptr = 0;                           // Dummy write to erase Flash seg
+					FCTL1 = FWKEY + WRT;                        // Set WRT bit for write operation
+					for (i = 0; i < rxcount - 3; i++)
+					{
+						*Flash_ptr++ = data_buff[i];        // Write value to flash
+					}
+					FCTL1 = FWKEY;                            // Clear WRT bit
+					FCTL3 = FWKEY + LOCK;                       // Set LOCK bit
+				}
+				//Reboot
+				if (op_add == 0xFFFFFF)
+				{                       //Reboot CMD
+					PMMCTL0 |= PMMSWBOR;
+				}
+
+				UCB0IFG &= ~UCSTPIFG;
+			}                       //end of stop
+		}                       //end of while (1)
+
 	}
 
 	return 1;
+}
+
+//P1 GPIO ISR
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector=PORT1_VECTOR
+__interrupt void Isr_Gpio_P1(void)
+#elif defined(__GNUC__)
+void __attribute__ ((interrupt(PORT1_VECTOR))) Isr_Gpio_P1 (void)
+#else
+#error Compiler not supported!
+#endif
+{
+	switch (__even_in_range(P1IV, 14))
+	{
+	case 0:		//No interrupt
+		break;
+	case 2:		//P1.0
+		break;
+	case 4:		//P1.1, STB falling edge ISR.
+#if UART_DEBUG_ON
+		PrintString("\e[31m***STB falling edge detect***\r\n\e[30m");
+#endif
+		DELAY_US(500);
+		if (!HW_GET_STB_IN)
+		{
+			//Mute Backlight
+			Mem_set8((uint32) &HwBuf_TestDuty, 0x00, sizeof(HwBuf_TestDuty));
+			Iw7027_updateDuty((uint16*) HwBuf_TestDuty);
+
+			//Hold CPU till STB get High , if STB = L for 1s, reset Mcu.
+			uint16 timeout = 0;
+			while (!HW_GET_STB_IN)
+			{
+				DELAY_MS(10);
+				timeout++;
+				if (timeout > 100)
+				{
+					Mcu_reset();
+				}
+			}
+		}
+
+		GPIO_clearInterrupt(GPIO_PORT_P1, GPIO_PIN1);
+
+		break;
+	case 6:		//P1.2
+		break;
+	case 8:		//P1.3
+		break;
+	case 10:	//P1.4
+		break;
+	case 12:	//P1.5
+		break;
+	case 14:	//P1.6
+		break;
+	case 16:	//P1.7
+		break;
+	default:
+		break;
+	}
+
+}
+
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector=TIMER0_A1_VECTOR
+__interrupt void Isr_SpiSlave_Cs(void)
+#elif defined(__GNUC__)
+void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) Isr_SpiSlave_Cs (void)
+#else
+#error Compiler not supported!
+#endif
+{
+	//Edge count to calculate SpiSlave cs frequency
+	static uint8 SpiSlave_CsEdgeCount;
+
+	switch (__even_in_range(TA0IV, 14))
+	{
+	case 0: // No interrupt
+		break;
+	case 2: // TA0.1
+		break;
+	case 4: // TA0.2 ,PWM1/SPI Slave CS
+		//Falling edge = START of frame
+		SpiSlave_stopRx();
+		SysParam_Schedule.taskFlagSpiRx = 1;
+		SpiSlave_startRx();
+		//Sync PWM out
+		PwmOut_sync();
+		//Calulate freq
+		SpiSlave_CsEdgeCount++;
+		Timer_A_clearCaptureCompareInterrupt(TIMER_A0_BASE, TIMER_A_CAPTURECOMPARE_REGISTER_2);
+		break;
+	case 6: //TA0.3
+		break;
+	case 8: //TA0.4
+		break;
+	case 10: //TA0.5
+		break;
+	case 12: // reserved
+		break;
+	case 14: // overflow
+		//Calculate Spi Rx CS frequencey
+		SysParam_BoardInfo.bSpiRxFreq = (SpiSlave_CsEdgeCount - 1) / 2;
+		SpiSlave_CsEdgeCount = 0;
+		break;
+	default:
+		break;
+	}
+}
+
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector = USCI_B0_VECTOR
+__interrupt void Isr_I2cSlave(void)
+#elif defined(__GNUC__)
+void __attribute__ ((interrupt(USCI_B0_VECTOR))) Isr_I2cSlave (void)
+#else
+#error Compiler not supported!
+#endif
+{
+	static uint32 op_add;
+	static uint8 *op_ptr;
+	static uint8 op_buff[3];
+	static uint32 rxcount;
+	static uint32 txcount;
+
+	if (UCB0I2COA == BOARD_I2C_SLAVE_ADD_ISP)
+	{	//ISP mode
+		switch (__even_in_range(UCB0IV, 12))
+		{
+		case 0:	// Vector  0: No interrupts
+			break;
+		case 2:	// Vector  2: ALIFG
+			break;
+		case 4:	// Vector  4: NACKIFG
+			break;
+		case 6:	// Vector  6: STTIFG
+			//Handle RX isr first when conflict with START.
+			if (UCB0IFG & UCRXIFG)
+			{
+				if (rxcount <= 2)
+				{	    	//0~2 bytes are address
+					op_buff[rxcount] = UCB0RXBUF;
+				}
+				else
+				{	    	//3~ bytes are data
+					HWREG8( BOARD_I2C_BUF_ADD_ISP + rxcount - 3 ) = UCB0RXBUF;
+				}
+				rxcount++;
+				UCB0IFG &= ~ UCRXIFG;
+			}
+
+			//Calculate operation adderss.
+			op_add = (*((volatile uint32 *) &op_buff[0]));
+			//op_add = 0x00010000 * op_buff[0]  + 0x00000100 * op_buff[1]  + op_buff[2] ;
+			op_ptr = (uint8 *) (op_add & 0x0FFFFF);
+
+			//Reset count value.
+			rxcount = 0;
+			txcount = 0;
+			break;
+		case 8:	    	// Vector  8: STPIFG
+
+			//Handle RX isr first when conflict with STOP.
+			if (UCB0IFG & UCRXIFG)
+			{
+				if (rxcount <= 2)
+				{	    	//Firsr 3 bytes is address
+					op_buff[rxcount] = UCB0RXBUF;
+				}
+				else
+				{	    	//check address valid;
+					HWREG8( BOARD_I2C_BUF_ADD_ISP + rxcount - 3 ) = UCB0RXBUF;
+				}
+				rxcount++;
+				UCB0IFG &= ~ UCRXIFG;
+			}
+			UCB0IFG &= ~ UCSTPIFG;
+
+			//Calculate operation address.
+			op_add = (*((volatile uint32 *) &op_buff[0]));
+			//op_add = 0x00010000 * op_buff[0]  + 0x00000100 * op_buff[1]  + op_buff[2] ;
+			op_ptr = (uint8 *) (op_add & 0x0FFFFF);
+
+			//Flash control
+
+			__disable_interrupt();	//Disable ISR when flash write.
+
+			if ((op_add >= 0x104400) && (op_add <= 0x124400))
+			{	//Erase
+				FCTL3 = FWKEY;                            // Clear Lock bit
+				FCTL1 = FWKEY + ERASE;                      // Set Erase bit
+				*op_ptr = 0xFF;
+				FCTL1 = FWKEY;                            // Clear WRT bit
+				FCTL3 = FWKEY + LOCK;                       // Set LOCK bit
+			}
+			if ((rxcount > 2) && (op_add >= 0x004400) && (op_add <= 0x024400))
+			{                       //Write
+				uint16 i;
+				uint8 * Flash_ptr;                     // Initialize Flash pointer
+				Flash_ptr = (uint8 *) op_add;
+
+				FCTL3 = FWKEY;                            // Clear Lock bit
+				FCTL1 = FWKEY + ERASE;                      // Set Erase bit
+				*Flash_ptr = 0;                           // Dummy write to erase Flash seg
+				FCTL1 = FWKEY + WRT;                        // Set WRT bit for write operation
+				for (i = 0; i < rxcount - 3; i++)
+				{
+					*Flash_ptr++ = HWREG8(BOARD_I2C_BUF_ADD_ISP + i);        // Write value to flash
+				}
+				FCTL1 = FWKEY;                            // Clear WRT bit
+				FCTL3 = FWKEY + LOCK;                       // Set LOCK bit
+			}
+			__enable_interrupt();
+
+			//ISP mode special CMDs
+			if (op_add == 0xFFFFFF)
+			{                       //Reboot CMD
+				PMMCTL0 |= PMMSWBOR;
+			}
+
+			break;
+		case 10:                       // Vector 10: RXIFG
+			if (rxcount <= 2)
+			{                       //0~2 bytes is address
+				op_buff[2 - rxcount] = UCB0RXBUF;
+			}
+			else
+			{                       //3~ bytes are data , buffer to RAM
+				HWREG8( BOARD_I2C_BUF_ADD_ISP + rxcount - 3 ) = UCB0RXBUF;
+			}
+			rxcount++;
+			break;
+		case 12:                       // Vector 12: TXIFG
+			//Return data to I2C Master for READ operation
+			UCB0TXBUF = op_ptr[txcount];
+			txcount++;
+			break;
+		default:
+			break;
+		}
+	}
+
+	if (UCB0I2COA == BOARD_I2C_SLAVE_ADD_NORMAL)
+	{	    	//Normal Mode
+		switch (__even_in_range(UCB0IV, 12))
+		{
+		case 0:	    	// Vector  0: No interrupts
+			break;
+		case 2:	    	// Vector  2: ALIFG
+			break;
+		case 4:	    	// Vector  4: NACKIFG
+			break;
+		case 6:	    	// Vector  6: STTIFG
+			rxcount = 0;
+			txcount = 0;
+			break;
+		case 8:	    	// Vector  8: STPIFG
+			SysParam_Schedule.taskFlagI2c = 1;
+			//ISP mode entrance ,check pass word.
+			if (SysParam_IspPassword == 0x20140217)
+			{
+				//Stop internal Timer
+				TB0CTL &= ~MC_3;
+				TA0CTL &= ~MC_3;
+				RTCCTL01_H |= RTCHOLD_H;
+				//Set I2C address to ISP mode
+				UCB0I2COA = BOARD_I2C_SLAVE_ADD_ISP;
+			}
+			break;
+		case 10:	    	// Vector 10: RXIFG
+			if (rxcount == 0)
+			{
+				op_add = UCB0RXBUF;
+			}
+			else
+			{
+				HWREG8( BOARD_I2C_BUF_ADD_NORMAL + op_add + rxcount - 1) = UCB0RXBUF;
+			}
+			rxcount++;
+			break;
+		case 12:	    	// Vector 12: TXIFG
+			UCB0TXBUF = HWREG8(BOARD_I2C_BUF_ADD_NORMAL + op_add + txcount);
+			txcount++;
+			break;
+		default:
+			break;
+		}
+	}
+
+}
+
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector=USCI_A1_VECTOR
+__interrupt void Isr_Uart(void)
+#elif defined(__GNUC__)
+void __attribute__ ((interrupt(USCI_A1_VECTOR))) Isr_Uart (void)
+#else
+#error Compiler not supported!
+#endif
+{
+	//Rxed data count
+	static uint8 Uart_RxCount;
+
+	switch (__even_in_range(UCA1IV, 4))
+	{
+	case 0:
+		break;                             	// Vector 0 - no interrupt
+	case 2:                                   	// Vector 2 - RXIFG
+	{
+		//Read 1 byte
+		uint8 rxdata;
+		rxdata = USCI_A_UART_receiveData(USCI_A1_BASE);
+
+		//Loop back RX
+		USCI_A_UART_transmitData(USCI_A1_BASE, rxdata);
+
+		//Check rxed char.
+		switch (rxdata)
+		{
+		case '\r': //"enter"
+#if UART_DEBUG_ON
+			//Enable all interrupt to ensure Uart console do not block other interrupt
+			_EINT();
+			//Disable Uart until
+			USCI_A_UART_disableInterrupt(USCI_A1_BASE, USCI_A_UART_RECEIVE_INTERRUPT);
+			Uart_Console(HwBuf_UartRx);
+			USCI_A_UART_enableInterrupt(USCI_A1_BASE, USCI_A_UART_RECEIVE_INTERRUPT);
+#endif
+			Uart_RxCount = 0;
+			Mem_set8((uint32) HwBuf_UartRx, 0x00, sizeof(HwBuf_UartRx));
+			break;
+		case '\b': // "backspace"
+			if (Uart_RxCount)
+			{
+				Uart_RxCount--;
+			}
+			break;
+		default:
+			HwBuf_UartRx[Uart_RxCount] = rxdata;
+			Uart_RxCount++;
+			break;
+		}
+		break;
+	}
+
+	case 4:
+		break;                             // Vector 4 - TXIFG
+	default:
+		break;
+	}
 }
 
 /***2.6 External Functions ***/
@@ -445,67 +956,6 @@ void Gpio_init(void)
 	//P7.6  NC
 	//P7.6  NC , not available for MSP430F5247
 	//P7.7  NC , not available for MSP430F5247
-
-}
-
-//P1 GPIO ISR
-#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
-#pragma vector=PORT1_VECTOR
-__interrupt void Gpio_ISR_Port1(void)
-#elif defined(__GNUC__)
-void __attribute__ ((interrupt(PORT1_VECTOR))) Gpio_ISR_Port1 (void)
-#else
-#error Compiler not supported!
-#endif
-{
-	switch (__even_in_range(P1IV, 14))
-	{
-	case 0:		//No interrupt
-		break;
-	case 2:		//P1.0
-		break;
-	case 4:		//P1.1, STB falling edge ISR.
-#if UART_DEBUG_ON
-		PrintString("\e[31m***STB falling edge detect***\r\n\e[30m");
-#endif
-		DELAY_US(500);
-		if (!HW_GET_STB_IN)
-		{
-			//Mute Backlight
-			Mem_set8((uint32) &HwBuf_TestDuty, 0x00, sizeof(HwBuf_TestDuty));
-			Iw7027_updateDuty((uint16*) HwBuf_TestDuty);
-
-			//Hold CPU till STB get High , if STB = L for 1s, reset Mcu.
-			uint16 timeout = 0;
-			while (!HW_GET_STB_IN)
-			{
-				DELAY_MS(10);
-				timeout++;
-				if (timeout > 100)
-				{
-					Mcu_reset();
-				}
-			}
-		}
-
-		GPIO_clearInterrupt(GPIO_PORT_P1, GPIO_PIN1);
-
-		break;
-	case 6:		//P1.2
-		break;
-	case 8:		//P1.3
-		break;
-	case 10:	//P1.4
-		break;
-	case 12:	//P1.5
-		break;
-	case 14:	//P1.6
-		break;
-	case 16:	//P1.7
-		break;
-	default:
-		break;
-	}
 
 }
 
@@ -812,53 +1262,6 @@ flag SpiSlave_init(void)
 	return FLAG_SUCCESS;
 }
 
-#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
-#pragma vector=TIMER0_A1_VECTOR
-__interrupt void SpiSlave_ISR_CsPin(void)
-#elif defined(__GNUC__)
-void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) SpiSlave_ISR_CsPin (void)
-#else
-#error Compiler not supported!
-#endif
-{
-	//Edge count to calculate SpiSlave cs frequency
-	static uint8 SpiSlave_CsEdgeCount;
-
-	switch (__even_in_range(TA0IV, 14))
-	{
-	case 0: // No interrupt
-		break;
-	case 2: // TA0.1
-		break;
-	case 4: // TA0.2 ,PWM1/SPI Slave CS
-		//Falling edge = START of frame
-		SpiSlave_stopRx();
-		SysParam_Schedule.taskFlagSpiRx = 1;
-		SpiSlave_startRx();
-		//Sync PWM out
-		PwmOut_sync();
-		//Calulate freq
-		SpiSlave_CsEdgeCount++;
-		Timer_A_clearCaptureCompareInterrupt(TIMER_A0_BASE, TIMER_A_CAPTURECOMPARE_REGISTER_2);
-		break;
-	case 6: //TA0.3
-		break;
-	case 8: //TA0.4
-		break;
-	case 10: //TA0.5
-		break;
-	case 12: // reserved
-		break;
-	case 14: // overflow
-		//Calculate Spi Rx CS frequencey
-		SysParam_BoardInfo.bSpiRxFreq = (SpiSlave_CsEdgeCount - 1) / 2;
-		SpiSlave_CsEdgeCount = 0;
-		break;
-	default:
-		break;
-	}
-}
-
 void SpiSlave_startRx(void)
 {
 	//Reset DMA
@@ -929,188 +1332,6 @@ void I2cSlave_init(uint8 slaveaddress)
 
 }
 
-#pragma location=0xF400
-#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
-#pragma vector = USCI_B0_VECTOR
-__interrupt void I2cSlave_ISR(void)
-#elif defined(__GNUC__)
-void __attribute__ ((interrupt(USCI_B0_VECTOR))) I2cSlave_ISR (void)
-#else
-#error Compiler not supported!
-#endif
-{
-	static uint32 op_add;
-	static uint8 *op_ptr;
-	static uint8 op_buff[3];
-	static uint32 rxcount;
-	static uint32 txcount;
-
-	if (UCB0I2COA == BOARD_I2C_SLAVE_ADD_ISP)
-	{	//ISP mode
-		switch (__even_in_range(UCB0IV, 12))
-		{
-		case 0:	// Vector  0: No interrupts
-			break;
-		case 2:	// Vector  2: ALIFG
-			break;
-		case 4:	// Vector  4: NACKIFG
-			break;
-		case 6:	// Vector  6: STTIFG
-			//Handle RX isr first when conflict with START.
-			if (UCB0IFG & UCRXIFG)
-			{
-				if (rxcount <= 2)
-				{	    	//0~2 bytes are address
-					op_buff[rxcount] = UCB0RXBUF;
-				}
-				else
-				{	    	//3~ bytes are data
-					HWREG8( BOARD_I2C_BUF_ADD_ISP + rxcount - 3 ) = UCB0RXBUF;
-				}
-				rxcount++;
-				UCB0IFG &= ~ UCRXIFG;
-			}
-
-			//Calculate operation adderss.
-			op_add = (*((volatile uint32 *) &op_buff[0]));
-			//op_add = 0x00010000 * op_buff[0]  + 0x00000100 * op_buff[1]  + op_buff[2] ;
-			op_ptr = (uint8 *) (op_add & 0x0FFFFF);
-
-			//Reset count value.
-			rxcount = 0;
-			txcount = 0;
-			break;
-		case 8:	    	// Vector  8: STPIFG
-
-			//Handle RX isr first when conflict with STOP.
-			if (UCB0IFG & UCRXIFG)
-			{
-				if (rxcount <= 2)
-				{	    	//Firsr 3 bytes is address
-					op_buff[rxcount] = UCB0RXBUF;
-				}
-				else
-				{	    	//check address valid;
-					HWREG8( BOARD_I2C_BUF_ADD_ISP + rxcount - 3 ) = UCB0RXBUF;
-				}
-				rxcount++;
-				UCB0IFG &= ~ UCRXIFG;
-			}
-			UCB0IFG &= ~ UCSTPIFG;
-
-			//Calculate operation address.
-			op_add = (*((volatile uint32 *) &op_buff[0]));
-			//op_add = 0x00010000 * op_buff[0]  + 0x00000100 * op_buff[1]  + op_buff[2] ;
-			op_ptr = (uint8 *) (op_add & 0x0FFFFF);
-
-			//Flash control
-
-			__disable_interrupt();	//Disable ISR when flash write.
-
-			if ((op_add >= 0x104400) && (op_add <= 0x124400))
-			{	//Erase
-				FCTL3 = FWKEY;                            // Clear Lock bit
-				FCTL1 = FWKEY + ERASE;                      // Set Erase bit
-				*op_ptr = 0xFF;
-				FCTL1 = FWKEY;                            // Clear WRT bit
-				FCTL3 = FWKEY + LOCK;                       // Set LOCK bit
-			}
-			if ((rxcount > 2) && (op_add >= 0x004400) && (op_add <= 0x024400))
-			{                       //Write
-				uint16 i;
-				uint8 * Flash_ptr;                     // Initialize Flash pointer
-				Flash_ptr = (uint8 *) op_add;
-
-				FCTL3 = FWKEY;                            // Clear Lock bit
-				FCTL1 = FWKEY + ERASE;                      // Set Erase bit
-				*Flash_ptr = 0;                           // Dummy write to erase Flash seg
-				FCTL1 = FWKEY + WRT;                        // Set WRT bit for write operation
-				for (i = 0; i < rxcount - 3; i++)
-				{
-					*Flash_ptr++ = HWREG8(BOARD_I2C_BUF_ADD_ISP + i);        // Write value to flash
-				}
-				FCTL1 = FWKEY;                            // Clear WRT bit
-				FCTL3 = FWKEY + LOCK;                       // Set LOCK bit
-			}
-			__enable_interrupt();
-
-			//ISP mode special CMDs
-			if (op_add == 0xFFFFFF)
-			{                       //Reboot CMD
-				PMMCTL0 |= PMMSWBOR;
-			}
-
-			break;
-		case 10:                       // Vector 10: RXIFG
-			if (rxcount <= 2)
-			{                       //0~2 bytes is address
-				op_buff[2 - rxcount] = UCB0RXBUF;
-			}
-			else
-			{                       //3~ bytes are data , buffer to RAM
-				HWREG8( BOARD_I2C_BUF_ADD_ISP + rxcount - 3 ) = UCB0RXBUF;
-			}
-			rxcount++;
-			break;
-		case 12:                       // Vector 12: TXIFG
-			//Return data to I2C Master for READ operation
-			UCB0TXBUF = op_ptr[txcount];
-			txcount++;
-			break;
-		default:
-			break;
-		}
-	}
-
-	if (UCB0I2COA == BOARD_I2C_SLAVE_ADD_NORMAL)
-	{	    	//Normal Mode
-		switch (__even_in_range(UCB0IV, 12))
-		{
-		case 0:	    	// Vector  0: No interrupts
-			break;
-		case 2:	    	// Vector  2: ALIFG
-			break;
-		case 4:	    	// Vector  4: NACKIFG
-			break;
-		case 6:	    	// Vector  6: STTIFG
-			rxcount = 0;
-			txcount = 0;
-			break;
-		case 8:	    	// Vector  8: STPIFG
-			SysParam_Schedule.taskFlagI2c = 1;
-			//ISP mode entrance ,check pass word.
-			if (SysParam_IspPassword == 0x20140217)
-			{
-				//Stop internal Timer
-				TB0CTL &= ~MC_3;
-				TA0CTL &= ~MC_3;
-				RTCCTL01_H |= RTCHOLD_H;
-				//Set I2C address to ISP mode
-				UCB0I2COA = BOARD_I2C_SLAVE_ADD_ISP;
-			}
-			break;
-		case 10:	    	// Vector 10: RXIFG
-			if (rxcount == 0)
-			{
-				op_add = UCB0RXBUF;
-			}
-			else
-			{
-				HWREG8( BOARD_I2C_BUF_ADD_NORMAL + op_add + rxcount - 1) = UCB0RXBUF;
-			}
-			rxcount++;
-			break;
-		case 12:	    	// Vector 12: TXIFG
-			UCB0TXBUF = HWREG8(BOARD_I2C_BUF_ADD_NORMAL + op_add + txcount);
-			txcount++;
-			break;
-		default:
-			break;
-		}
-	}
-
-}
-
 flag Uart_init(uint32 baudrate)
 {
 	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P4, GPIO_PIN4);
@@ -1144,67 +1365,6 @@ flag Uart_init(uint32 baudrate)
 	USCI_A_UART_RECEIVE_INTERRUPT);
 
 	return FLAG_SUCCESS;
-}
-
-#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
-#pragma vector=USCI_A1_VECTOR
-__interrupt void Uart_ISR(void)
-#elif defined(__GNUC__)
-void __attribute__ ((interrupt(USCI_A1_VECTOR))) Uart_ISR (void)
-#else
-#error Compiler not supported!
-#endif
-{
-	//Rxed data count
-	static uint8 Uart_RxCount;
-
-	switch (__even_in_range(UCA1IV, 4))
-	{
-	case 0:
-		break;                             	// Vector 0 - no interrupt
-	case 2:                                   	// Vector 2 - RXIFG
-	{
-		//Read 1 byte
-		uint8 rxdata;
-		rxdata = USCI_A_UART_receiveData(USCI_A1_BASE);
-
-		//Loop back RX
-		USCI_A_UART_transmitData(USCI_A1_BASE, rxdata);
-
-		//Check rxed char.
-		switch (rxdata)
-		{
-		case '\r': //"enter"
-#if UART_DEBUG_ON
-			//Enable all interrupt to ensure Uart console do not block other interrupt
-			_EINT();
-			//Disable Uart until
-			USCI_A_UART_disableInterrupt(USCI_A1_BASE, USCI_A_UART_RECEIVE_INTERRUPT);
-			Uart_Console(HwBuf_UartRx);
-			USCI_A_UART_enableInterrupt(USCI_A1_BASE, USCI_A_UART_RECEIVE_INTERRUPT);
-#endif
-			Uart_RxCount = 0;
-			Mem_set8((uint32) HwBuf_UartRx, 0x00, sizeof(HwBuf_UartRx));
-			break;
-		case '\b': // "backspace"
-			if (Uart_RxCount)
-			{
-				Uart_RxCount--;
-			}
-			break;
-		default:
-			HwBuf_UartRx[Uart_RxCount] = rxdata;
-			Uart_RxCount++;
-			break;
-		}
-		break;
-	}
-
-	case 4:
-		break;                             // Vector 4 - TXIFG
-	default:
-		break;
-	}
 }
 
 void PwmOut_init(uint8 initfreq, uint16 delay)

@@ -57,15 +57,13 @@ inline int min(int a, int b)
 }
 
 /*Direct access to memory access*/
-#ifndef HWREG32
-#define HWREG32(x)    (*((volatile uint32 *)((uint16)x)))
-#endif
-#ifndef HWREG16
-#define HWREG16(x)    (*((volatile uint16 *)((uint16)x)))
-#endif
-#ifndef HWREG8
-#define HWREG8(x)     (*((volatile uint8 *)((uint16)x)))
-#endif
+
+#define HREG32(x)    (*((volatile uint32 *)((uint16)x)))
+
+#define HREG16(x)    (*((volatile uint16 *)((uint16)x)))
+
+#define HREG8(x)     (*((volatile uint8 *)((uint16)x)))
+
 
 /*.h file common structure*/
 /***1 Includes ***************************************************************/

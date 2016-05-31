@@ -61,8 +61,9 @@ MEMORY
     INFOB                   : origin = 0x1900, length = 0x0080
     INFOC                   : origin = 0x1880, length = 0x0080
     INFOD                   : origin = 0x1800, length = 0x0080
-    FLASH                   : origin = 0x4400, length = 0xBB80
-    FLASH2                  : origin = 0x10000,length = 0x14400
+    FLASH                   : origin = 0x4400, length = 0x1C00
+    FLASH_CONST             : origin = 0x6000, length = 0x9E00
+    FLASH2	                : origin = 0x10000,length = 0x14400
     INT00                   : origin = 0xFF80, length = 0x0002
     INT01                   : origin = 0xFF82, length = 0x0002
     INT02                   : origin = 0xFF84, length = 0x0002
@@ -151,7 +152,7 @@ SECTIONS
 #ifndef __LARGE_DATA_MODEL__
     .const      : {} > FLASH                /* Constant data                     */
 #else
-    .const      : {} > FLASH | FLASH2       /* Constant data                     */
+    .const      : {} > FLASH_CONST | FLASH | FLASH2       /* Constant data                     */
 #endif
     .cio        : {} > RAM                  /* C I/O Buffer                      */
 
