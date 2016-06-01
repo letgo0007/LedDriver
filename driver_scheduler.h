@@ -15,7 +15,7 @@
 
 /***1 Includes ***************/
 
-#include "driverlib/MSP430F5xx_6xx/rtc_a.h"
+#include "driverlib.h"
 #include "std.h"
 
 /***2.1 External Macros ******/

@@ -32,7 +32,7 @@
 //I2C Slave addess for [NORMAL] mode ,7bit mode
 #define BOARD_I2C_SLAVE_ADD_NORMAL		(0x14)
 //I2C Slave addess for [ISP] mode ,7bit mode
-#define BOARD_I2C_SLAVE_ADD_ISP			(0x1C)
+#define ISP_I2C_SLAVE_ADDRESS			(0x1C)
 //I2C buffer start address for [NORMAL] mode .
 #define BOARD_I2C_BUF_ADD_NORMAL		(0x4000)
 //I2C buffer start address for [ISP] mode .
@@ -46,41 +46,42 @@
 //Temperature Sensor Calibration value for 85C
 #define BOARD_ADCCAL_15V_85C  			*((uint16 *)0x1A1C)
 
-//ISP<->NORMAL password value (4byte)
-#define ISP_PASSWORD					(0x20140217)
-//NORMAL->ISP password address (1byte)
-#define ISP_ENTRANCE_PASSWORD_ADDRESS	(0xF8)
-//ISP->NORMAL password address (3byte)
-#define ISP_EXIT_PASSWORD_ADDRESS		(0xF000)
-//ISP initial program flash address.
-#define ISP_INITIAL_ADDRESS				(0xF200)
-//ISP interrupt service program flash address.
-#define ISP_ISR_ADDRESS					(0xF400)
+//ISP mode I2C slave address
+#define ISP_I2C_SLAVE_ADDRESS		(0x1C)
+//ISP exit flag address on flash
+#define ISP_EXIT_FLAG_ADDRESS		(0x1900)
+//ISP exit password value ,must = 32bit.
+#define ISP_EXIT_PASSWORD32			(0x20140217)
+
 /***2.2 Internal Struct ******/
 
 /***2.3 Internal Variables ***/
-//ISP->NORMAL password in flash
-#pragma location=ISP_EXIT_PASSWORD_ADDRESS
-static const uint32 ISP_ExitPwOnFlash = ISP_PASSWORD;
 
+//ISP->NORMAL password in flash
 //Default error detection parameters.
 const ErrorParam Default_ErrorParam =
-{
-/*DC13V*/.eDc13vMax = 16, .eDc13vMin = 10,
-/*DC60V*/.eDc60vMax = 70, .eDc60vMin = 50,
-/*SPI*/.eSpiRxFreqMin = 20, .eSpiDataErrorIgnore = 1,
-/*IW7027*/.eIw7027FaultIgnore = 0,
-/*Error Save*/.eErrorSaveEn = 0, };
+{ .eDc13vMax = 16, .eDc13vMin = 10, .eDc60vMax = 70, .eDc60vMin = 50, .eSpiRxFreqMin = 20, .eSpiDataErrorIgnore = 1,
+		.eIw7027FaultIgnore = 0, .eErrorSaveEn = 0, };
+
+//Write ISP_INIT_EXIT_FLAG to flash to exit isp mode on 1st run.
+//Note that need open the project Properties - Debug - MSP43x Options - Erase Options = Enable Erase Flash & Info
+#pragma LOCATION(ISP_INIT_EXIT_FLAG,ISP_EXIT_FLAG_ADDRESS)
+volatile static const uint32 ISP_INIT_EXIT_FLAG = 0x20140217;
 
 /***2.4 External Variables ***/
+
+//Local Dimming duty information buffer
 uint16 HwBuf_InputDuty[128] =
 { 0 };
 uint16 HwBuf_OutputDuty[128] =
 { 0 };
 uint16 HwBuf_TestDuty[128] =
 { 0 };
+
+//Spi Slave hardware buffer
 uint8 HwBuf_SpiSlaveRx[256] =
 { 0 };
+//Uart rx hardware buffer.
 uint8 HwBuf_UartRx[256] =
 { 0 };
 
@@ -158,9 +159,9 @@ uint64 SysParam_IspPassword =
  *
  * [Boot]	     			origin    	length		Remark
  * ----------------------  	--------  	---------	----------
- * _c_int00_noargs_noexit	0x4400		0x001a		C/C++ complier Gerenate
- * __TI_ISR_TRAP			0x441a		0x0008		C/C++ complier Gerenate
- * _system_pre_init			0x4480					ISP function.
+ * _c_int00_noargs_noexit	0x4400		0x001a		@C/C++ complier lib
+ * __TI_ISR_TRAP			0x441a		0x0008		@C/C++ complier lib
+ * _system_pre_init			0x4480
  * ----------------------  	--------  	---------	----------
  * 							total		0x400
  *
@@ -194,14 +195,13 @@ uint64 SysParam_IspPassword =
  * 							total		TBD
  *
  ******************************************************************************/
-//Place ISR
-#pragma LOCATION(_system_pre_init,0x4480)
+//Place ISR & Boot
 #pragma LOCATION(Isr_Gpio_P1,0x4800)
 #pragma LOCATION(Isr_SpiSlave_Cs,0x4900)
 #pragma LOCATION(Isr_I2cSlave,0x4A00)
 #pragma LOCATION(Isr_Uart,0x4D00)
+#pragma LOCATION(_system_pre_init,0x4480)
 
-/*Boot */
 int _system_pre_init(void)
 {
 	/**************************************************************
@@ -214,7 +214,9 @@ int _system_pre_init(void)
 	 * initialization sequences.
 	 **************************************************************/
 
-	WDTCTL = WDTPW + WDTHOLD; // Stop WDT
+	//Watch dog source = ACLK , length = 32k ,reset time = 1s.
+	WDTCTL = WDTPW + WDTCNTCL + WDTHOLD + WDTSSEL_1 + WDTIS_4;
+
 	//All ports set to Input with Pull Down.
 	PAOUT = 0;
 	PBOUT = 0;
@@ -228,33 +230,44 @@ int _system_pre_init(void)
 	PBREN = 0;
 	PCREN = 0;
 	PDREN = 0;
+
 	__disable_interrupt();
 
-	//If pass word not correct , init I2C slave in ISP mode.
-	if (ISP_ExitPwOnFlash != 0x20140217)
+	//Check password .
+	if (ISP_INIT_EXIT_FLAG == ISP_EXIT_PASSWORD32) //Password correct , go to main()
+	{
+
+		return 1;
+	}
+	else //Password wrong , run ISP function.
 	{
 		//P4.6 = ERROR_OUT , P4.7 = LED_G , P3.0 = SDA ,P3.1 = SCL
 		P4OUT |= BIT7 + BIT6;
 		P4DIR |= BIT7 + BIT6;
 		P3SEL |= BIT0 + BIT1;
 
-		//Initialize I2C slave in ISP mode address
+		//Initialize I2C slave in ISP mode address ,without ISR function.
 		UCB0CTL1 |= UCSWRST;
 		UCB0CTL0 = UCMODE_3 + UCSYNC;
-		UCB0I2COA = BOARD_I2C_SLAVE_ADD_ISP;
+		UCB0I2COA = ISP_I2C_SLAVE_ADDRESS;
 		UCB0CTL1 &= ~UCSWRST;
-		//UCB0IE |= UCRXIE + UCTXIE + UCSTTIE + UCSTPIE;
 
-		static uint8 data_buff[512];
-		static uint8 op_buff[4];
-		static uint16 txcount;
-		static uint16 rxcount;
-		static uint32 op_add;
-		static uint8 *op_ptr;
+		uint8 op_buff[4] =
+		{ 0 };	//Operation address byte buffer
+		uint32 op_add = 0;			//Operation address
+		uint8 *op_ptr = 0;			//Operation pointer
+		uint16 txcount = 0;			//I2c tx count
+		uint16 rxcount = 0;			//I2c rx count
+		uint8 data_buff[512] =
+		{ 0 };	//Buffer for flash segment write, flash segment size = 512 for MSP430 normal.
 
 		while (1)
 		{
-			//RX
+			//Feed watch dog
+			uint8 newWDTStatus = (WDTCTL & 0x00FF) | WDTCNTCL;
+			WDTCTL = WDTPW + newWDTStatus;
+
+			//I2C Slave RX Event (Master Write)
 			if (UCB0IFG & UCRXIFG)
 			{
 				//Buffer I2C slave data
@@ -270,17 +283,19 @@ int _system_pre_init(void)
 				rxcount++;
 				UCB0IFG &= ~UCRXIFG;
 			}
-			//TX
+
+			//I2C Slave TX Event (Master Read)
 			if (UCB0IFG & UCTXIFG)
 			{
 				UCB0TXBUF = op_ptr[txcount];
 				txcount++;
 				UCB0IFG &= ~UCTXIFG;
 			}
-			//START
+
+			//I2C Slave START Event (Master call slave address)
 			if (UCB0IFG & UCSTTIFG)
 			{
-				//Calculate operation address & pointer
+				//Calculate operation address & pointer , for "Restart" conditon.
 				op_add = (*((volatile uint32 *) &op_buff[0]));
 				op_ptr = (uint8 *) (op_add & 0x0FFFFF);
 
@@ -289,72 +304,73 @@ int _system_pre_init(void)
 				rxcount = 0;
 				UCB0IFG &= ~UCSTTIFG;
 			}
-			//STOP
+
+			//I2C Slave STOP Event (Master send STOP)
 			if (UCB0IFG & UCSTPIFG)
 			{
 				//Calculate operation address & pointer
 				op_add = (*((volatile uint32 *) &op_buff[0]));
 				op_ptr = (uint8 *) (op_add & 0x0FFFFF);
 
-				//Flash operation according to opp_add
-				//Segment Erase
-				if ((op_add >= 0x104400) && (op_add <= 0x124400))
+				/* Flash operation according to opp_add
+				 * Address				Operation
+				 * -----------------	----------
+				 * 0x104400~0x124400 	ERASE
+				 * 0x004400~0x024400	WRITE
+				 * 0xFFFFFF				EXIT ISP
+				 *
+				 */
+
+				if ((op_add >= 0x104400) && (op_add <= 0x124400))	//ERASE
 				{
-					FCTL3 = FWKEY;                            // Clear Lock bit
-					FCTL1 = FWKEY + ERASE;                      // Set Erase bit
+					FCTL3 = FWKEY;
+					FCTL1 = FWKEY + ERASE;
 					*op_ptr = 0xFF;
-					FCTL1 = FWKEY;                            // Clear WRT bit
-					FCTL3 = FWKEY + LOCK;                       // Set LOCK bit
+					FCTL1 = FWKEY;
+					FCTL3 = FWKEY + LOCK;
 				}
-				//Segment Write 512B flash
-				if ((rxcount > 2) && (op_add >= 0x004400) && (op_add <= 0x024400))
+				else if ((rxcount > 2) && (op_add >= 0x004400) && (op_add <= 0x024400))	//WRITE
 				{
 					uint16 i;
-					uint8 * Flash_ptr;                     // Initialize Flash pointer
-					Flash_ptr = (uint8 *) op_add;
+					uint8 * flash_ptr;
+					flash_ptr = (uint8 *) op_add;
 
-					FCTL3 = FWKEY;                            // Clear Lock bit
-					FCTL1 = FWKEY + ERASE;                      // Set Erase bit
-					*Flash_ptr = 0;                           // Dummy write to erase Flash seg
-					FCTL1 = FWKEY + WRT;                        // Set WRT bit for write operation
+					FCTL3 = FWKEY;
+					FCTL1 = FWKEY + WRT;
 					for (i = 0; i < rxcount - 3; i++)
 					{
-						*Flash_ptr++ = data_buff[i];        // Write value to flash
+						*flash_ptr++ = data_buff[i];
 					}
-					FCTL1 = FWKEY;                            // Clear WRT bit
-					FCTL3 = FWKEY + LOCK;                       // Set LOCK bit
+					FCTL1 = FWKEY;
+					FCTL3 = FWKEY + LOCK;
 				}
-				//Segment Write 128B flash (info flash)
-				if ((rxcount > 2) && (op_add >= 0x001800) && (op_add <= 0x00197F))
+				if (op_add == 0xFFFFFF)	//EXIT ISP
 				{
-					uint16 i;
-					uint8 * Flash_ptr;                     // Initialize Flash pointer
-					Flash_ptr = (uint8 *) op_add;
+					//Write ISP EXIT Password.
+					unsigned long * flash_ptr;
+					flash_ptr = (unsigned long *) ISP_EXIT_FLAG_ADDRESS;
+					//Erase segment first
+					FCTL3 = FWKEY;
+					FCTL1 = FWKEY + ERASE;
+					*flash_ptr = 0;
+					//Long-word(32bit) write
+					FCTL1 = FWKEY + BLKWRT;
+					*flash_ptr = 0x20140217;
+					//Lock Flash
+					FCTL1 = FWKEY;
+					FCTL3 = FWKEY + LOCK;
 
-					FCTL3 = FWKEY;                            // Clear Lock bit
-					FCTL1 = FWKEY + ERASE;                      // Set Erase bit
-					*Flash_ptr = 0;                           // Dummy write to erase Flash seg
-					FCTL1 = FWKEY + WRT;                        // Set WRT bit for write operation
-					for (i = 0; i < rxcount - 3; i++)
-					{
-						*Flash_ptr++ = data_buff[i];        // Write value to flash
-					}
-					FCTL1 = FWKEY;                            // Clear WRT bit
-					FCTL3 = FWKEY + LOCK;                       // Set LOCK bit
-				}
-				//Reboot
-				if (op_add == 0xFFFFFF)
-				{                       //Reboot CMD
+					//Reboot
 					PMMCTL0 |= PMMSWBOR;
 				}
 
 				UCB0IFG &= ~UCSTPIFG;
-			}                       //end of stop
-		}                       //end of while (1)
+			}
+
+		}	//End of while (1)
 
 	}
 
-	return 1;
 }
 
 //P1 GPIO ISR
@@ -397,7 +413,7 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) Isr_Gpio_P1 (void)
 			}
 		}
 
-		GPIO_clearInterrupt(GPIO_PORT_P1, GPIO_PIN1);
+		P1IFG &= ~BIT1;
 
 		break;
 	case 6:		//P1.2
@@ -418,6 +434,7 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) Isr_Gpio_P1 (void)
 
 }
 
+//SPI Slave CS pin interrupt service
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=TIMER0_A1_VECTOR
 __interrupt void Isr_SpiSlave_Cs(void)
@@ -475,173 +492,62 @@ void __attribute__ ((interrupt(USCI_B0_VECTOR))) Isr_I2cSlave (void)
 #endif
 {
 	static uint32 op_add;
-	static uint8 *op_ptr;
-	static uint8 op_buff[3];
 	static uint32 rxcount;
 	static uint32 txcount;
 
-	if (UCB0I2COA == BOARD_I2C_SLAVE_ADD_ISP)
-	{	//ISP mode
-		switch (__even_in_range(UCB0IV, 12))
+	switch (__even_in_range(UCB0IV, 12))
+	{
+	case 0:	    	// Vector  0: No interrupts
+		break;
+	case 2:	    	// Vector  2: ALIFG
+		break;
+	case 4:	    	// Vector  4: NACKIFG
+		break;
+	case 6:	    	// Vector  6: STTIFG
+		rxcount = 0;
+		txcount = 0;
+		break;
+	case 8:	    	// Vector  8: STPIFG
+		//Set I2C task flag.
+		SysParam_Schedule.taskFlagI2c = 1;
+		//ISP mode entrance ,check pass word.
+		if (SysParam_IspPassword == 0x20140217)
 		{
-		case 0:	// Vector  0: No interrupts
-			break;
-		case 2:	// Vector  2: ALIFG
-			break;
-		case 4:	// Vector  4: NACKIFG
-			break;
-		case 6:	// Vector  6: STTIFG
-			//Handle RX isr first when conflict with START.
-			if (UCB0IFG & UCRXIFG)
-			{
-				if (rxcount <= 2)
-				{	    	//0~2 bytes are address
-					op_buff[rxcount] = UCB0RXBUF;
-				}
-				else
-				{	    	//3~ bytes are data
-					HWREG8( BOARD_I2C_BUF_ADD_ISP + rxcount - 3 ) = UCB0RXBUF;
-				}
-				rxcount++;
-				UCB0IFG &= ~ UCRXIFG;
-			}
+			//Stop internal Timer
+			TB0CTL &= ~MC_3;
+			TA0CTL &= ~MC_3;
+			RTCCTL01_H |= RTCHOLD_H;
 
-			//Calculate operation adderss.
-			op_add = (*((volatile uint32 *) &op_buff[0]));
-			//op_add = 0x00010000 * op_buff[0]  + 0x00000100 * op_buff[1]  + op_buff[2] ;
-			op_ptr = (uint8 *) (op_add & 0x0FFFFF);
+			//Erase ISP Flag
+			unsigned long * flash_ptr;
+			flash_ptr = (unsigned long *) ISP_EXIT_FLAG_ADDRESS;
+			FCTL3 = FWKEY;
+			FCTL1 = FWKEY + ERASE;
+			*flash_ptr = 0;
+			FCTL1 = FWKEY;
+			FCTL3 = FWKEY + LOCK;
 
-			//Reset count value.
-			rxcount = 0;
-			txcount = 0;
-			break;
-		case 8:	    	// Vector  8: STPIFG
-
-			//Handle RX isr first when conflict with STOP.
-			if (UCB0IFG & UCRXIFG)
-			{
-				if (rxcount <= 2)
-				{	    	//Firsr 3 bytes is address
-					op_buff[rxcount] = UCB0RXBUF;
-				}
-				else
-				{	    	//check address valid;
-					HWREG8( BOARD_I2C_BUF_ADD_ISP + rxcount - 3 ) = UCB0RXBUF;
-				}
-				rxcount++;
-				UCB0IFG &= ~ UCRXIFG;
-			}
-			UCB0IFG &= ~ UCSTPIFG;
-
-			//Calculate operation address.
-			op_add = (*((volatile uint32 *) &op_buff[0]));
-			//op_add = 0x00010000 * op_buff[0]  + 0x00000100 * op_buff[1]  + op_buff[2] ;
-			op_ptr = (uint8 *) (op_add & 0x0FFFFF);
-
-			//Flash control
-
-			__disable_interrupt();	//Disable ISR when flash write.
-
-			if ((op_add >= 0x104400) && (op_add <= 0x124400))
-			{	//Erase
-				FCTL3 = FWKEY;                            // Clear Lock bit
-				FCTL1 = FWKEY + ERASE;                      // Set Erase bit
-				*op_ptr = 0xFF;
-				FCTL1 = FWKEY;                            // Clear WRT bit
-				FCTL3 = FWKEY + LOCK;                       // Set LOCK bit
-			}
-			if ((rxcount > 2) && (op_add >= 0x004400) && (op_add <= 0x024400))
-			{                       //Write
-				uint16 i;
-				uint8 * Flash_ptr;                     // Initialize Flash pointer
-				Flash_ptr = (uint8 *) op_add;
-
-				FCTL3 = FWKEY;                            // Clear Lock bit
-				FCTL1 = FWKEY + ERASE;                      // Set Erase bit
-				*Flash_ptr = 0;                           // Dummy write to erase Flash seg
-				FCTL1 = FWKEY + WRT;                        // Set WRT bit for write operation
-				for (i = 0; i < rxcount - 3; i++)
-				{
-					*Flash_ptr++ = HWREG8(BOARD_I2C_BUF_ADD_ISP + i);        // Write value to flash
-				}
-				FCTL1 = FWKEY;                            // Clear WRT bit
-				FCTL3 = FWKEY + LOCK;                       // Set LOCK bit
-			}
-			__enable_interrupt();
-
-			//ISP mode special CMDs
-			if (op_add == 0xFFFFFF)
-			{                       //Reboot CMD
-				PMMCTL0 |= PMMSWBOR;
-			}
-
-			break;
-		case 10:                       // Vector 10: RXIFG
-			if (rxcount <= 2)
-			{                       //0~2 bytes is address
-				op_buff[2 - rxcount] = UCB0RXBUF;
-			}
-			else
-			{                       //3~ bytes are data , buffer to RAM
-				HWREG8( BOARD_I2C_BUF_ADD_ISP + rxcount - 3 ) = UCB0RXBUF;
-			}
-			rxcount++;
-			break;
-		case 12:                       // Vector 12: TXIFG
-			//Return data to I2C Master for READ operation
-			UCB0TXBUF = op_ptr[txcount];
-			txcount++;
-			break;
-		default:
-			break;
+			//Reboot to ISP
+			Mcu_reset();
 		}
-	}
-
-	if (UCB0I2COA == BOARD_I2C_SLAVE_ADD_NORMAL)
-	{	    	//Normal Mode
-		switch (__even_in_range(UCB0IV, 12))
+		break;
+	case 10:	    	// Vector 10: RXIFG
+		if (rxcount == 0)
 		{
-		case 0:	    	// Vector  0: No interrupts
-			break;
-		case 2:	    	// Vector  2: ALIFG
-			break;
-		case 4:	    	// Vector  4: NACKIFG
-			break;
-		case 6:	    	// Vector  6: STTIFG
-			rxcount = 0;
-			txcount = 0;
-			break;
-		case 8:	    	// Vector  8: STPIFG
-			SysParam_Schedule.taskFlagI2c = 1;
-			//ISP mode entrance ,check pass word.
-			if (SysParam_IspPassword == 0x20140217)
-			{
-				//Stop internal Timer
-				TB0CTL &= ~MC_3;
-				TA0CTL &= ~MC_3;
-				RTCCTL01_H |= RTCHOLD_H;
-				//Set I2C address to ISP mode
-				UCB0I2COA = BOARD_I2C_SLAVE_ADD_ISP;
-			}
-			break;
-		case 10:	    	// Vector 10: RXIFG
-			if (rxcount == 0)
-			{
-				op_add = UCB0RXBUF;
-			}
-			else
-			{
-				HWREG8( BOARD_I2C_BUF_ADD_NORMAL + op_add + rxcount - 1) = UCB0RXBUF;
-			}
-			rxcount++;
-			break;
-		case 12:	    	// Vector 12: TXIFG
-			UCB0TXBUF = HWREG8(BOARD_I2C_BUF_ADD_NORMAL + op_add + txcount);
-			txcount++;
-			break;
-		default:
-			break;
+			op_add = UCB0RXBUF;
 		}
+		else
+		{
+			HWREG8(BOARD_I2C_BUF_ADD_NORMAL + op_add + rxcount - 1) = UCB0RXBUF;
+		}
+		rxcount++;
+		break;
+	case 12:	    	// Vector 12: TXIFG
+		UCB0TXBUF = HWREG8(BOARD_I2C_BUF_ADD_NORMAL + op_add + txcount);
+		txcount++;
+		break;
+	default:
+		break;
 	}
 
 }
@@ -662,7 +568,7 @@ void __attribute__ ((interrupt(USCI_A1_VECTOR))) Isr_Uart (void)
 	{
 	case 0:
 		break;                             	// Vector 0 - no interrupt
-	case 2:                                   	// Vector 2 - RXIFG
+	case 2:                             	// Vector 2 - RXIFG
 	{
 		//Read 1 byte
 		uint8 rxdata;
@@ -724,24 +630,17 @@ flag Mcu_init(void)
 	SpiSlave_init();
 	I2cSlave_init(BOARD_I2C_SLAVE_ADD_NORMAL);
 	Uart_init(BOARD_UART_BAUDRATE);
+#if UART_DEBUG_ON
+	PrintString("\e[32m\r\nMCU init start, checking power... ");
+#endif
 
 	//Check Power & turn on iw7027 power.
 	while (Adc_getResult(HW_ADCPORT_DC60V) < 0x0200)
 	{
-#if UART_DEBUG_ON
-		PrintString("DC60VADC = ");
-		PrintInt(Adc_getResult(HW_ADCPORT_DC60V));
-		PrintEnter();
-#endif
 		DELAY_MS(50);
 	}
 	while (Adc_getResult(HW_ADCPORT_DC13V) < 0x0200)
 	{
-#if UART_DEBUG_ON
-		PrintString("DC13VADC = ");
-		PrintInt(Adc_getResult(HW_ADCPORT_DC13V));
-		PrintEnter();
-#endif
 		DELAY_MS(50);
 	}
 
@@ -749,7 +648,13 @@ flag Mcu_init(void)
 	SysParam_Error = Default_ErrorParam;
 
 #if UART_DEBUG_ON
-	PrintString("\e[32m\r\nMcu_init finish.\r\n\e[30m");
+	PrintString("\r\nDC60VADC = ");
+	PrintInt(Adc_getResult(HW_ADCPORT_DC60V));
+	PrintString("  DC13VADC = ");
+	PrintInt(Adc_getResult(HW_ADCPORT_DC13V));
+	PrintString("\r\nLast Reset Source: ");
+	PrintChar(SYSRSTIV);
+	PrintString("\r\nMcu_init finish.\r\n\e[30m");
 #endif
 
 	__enable_interrupt();
@@ -794,7 +699,7 @@ uint8 Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 	{
 		HW_SET_ERROR_OUT_LOW;
 		errorparam->eErrorType = retval;
-		//1st time error happen
+//1st time error happen
 		if (!iserror)
 		{
 #if UART_DEBUG_ON
@@ -1159,13 +1064,13 @@ uint8 SpiMaster_sendMultiByte(uint8 *txdata, uint16 length)
 	//Send multiple bytes till count down
 	while (length--)
 	{
-		//TX buffer ready?
+//TX buffer ready?
 		while (!USCI_B_SPI_getInterruptStatus(USCI_B1_BASE, USCI_B_SPI_TRANSMIT_INTERRUPT))
 		{
 			;
 		}
-		//Transmit Data to slave
-		//PrintChar(*txdata);
+//Transmit Data to slave
+//PrintChar(*txdata);
 		USCI_B_SPI_transmitData(USCI_B1_BASE, *(txdata++));
 	}
 

@@ -14,11 +14,7 @@
 
 #include "driver_scheduler.h"
 
-#include <intrinsics.h>
-#include <msp430f5249.h>
-#include <msp430f5xx_6xxgeneric.h>
-#include <stdbool.h>
-#include <timer_b.h>
+#include "std.h"
 
 
 /***2.1 Internal Marcos ******/

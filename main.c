@@ -2,8 +2,6 @@
  * @file 	[main.c]
  *
  * Main loop of the project with C standard basic function :
- * _system_pre_init() 	: Low level initial before RAM & STACK is initialized.
- * main() 				: main loop for C standard .
  *
  * Copyright (c) 2016 SHARP CORPORATION
  *
