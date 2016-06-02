@@ -80,9 +80,9 @@ extern DPL_Prama SysParam_Dpl;
 
 /***2.4 External Functions ***************************************************/
 //DMA accelerated memory copy.
-extern void Mem_copy(uint32 target_add, uint32 source_add, uint16 size);
+extern void Mem_copy();
 //DMA accelerated memory set.
-extern void Mem_set16(uint32 memadd, uint16 value, uint16 size);
+extern void Mem_set16();
 //DPL main struct
 extern uint8 DPL_Function(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam);
 extern void DPL_caliberateTemp(int8 temp, DPL_Prama *dplparam);

@@ -18,7 +18,7 @@
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
 				<configuration artifactExtension="out" artifactName="${ProjName}" buildProperties="" cleanCommand="${CG_CLEAN_CMD}" description="" id="com.ti.ccstudio.buildDefinitions.MSP430.Debug.978675078" name="Debug__TI" parent="com.ti.ccstudio.buildDefinitions.MSP430.Debug" postbuildStep="" prebuildStep="">
 					<folderInfo id="com.ti.ccstudio.buildDefinitions.MSP430.Debug.978675078." name="/" resourcePath="">
-						<toolChain id="com.ti.ccstudio.buildDefinitions.MSP430_16.3.exe.DebugToolchain.398761647" name="TI Build Tools" superClass="com.ti.ccstudio.buildDefinitions.MSP430_16.3.exe.DebugToolchain" targetTool="com.ti.ccstudio.buildDefinitions.MSP430_16.3.exe.linkerDebug.161144886">
+						<toolChain id="com.ti.ccstudio.buildDefinitions.MSP430_16.3.exe.DebugToolchain.398761647" name="TI Build Tools" secondaryOutputs="com.ti.ccstudio.buildDefinitions.MSP430_16.3.hex.outputType__BIN" superClass="com.ti.ccstudio.buildDefinitions.MSP430_16.3.exe.DebugToolchain" targetTool="com.ti.ccstudio.buildDefinitions.MSP430_16.3.exe.linkerDebug.161144886">
 							<option id="com.ti.ccstudio.buildDefinitions.core.OPT_TAGS.1019314730" superClass="com.ti.ccstudio.buildDefinitions.core.OPT_TAGS" valueType="stringList">
 								<listOptionValue builtIn="false" value="DEVICE_CONFIGURATION_ID=MSP430F5249"/>
 								<listOptionValue builtIn="false" value="DEVICE_ENDIANNESS=little"/>
@@ -86,6 +86,8 @@
 							<tool id="com.ti.ccstudio.buildDefinitions.MSP430_16.3.hex.1435281849" name="MSP430 Hex Utility" superClass="com.ti.ccstudio.buildDefinitions.MSP430_16.3.hex">
 								<option id="com.ti.ccstudio.buildDefinitions.MSP430_16.3.hex.ROMWIDTH.1141960298" name="Specify rom width (--romwidth, -romwidth=width)" superClass="com.ti.ccstudio.buildDefinitions.MSP430_16.3.hex.ROMWIDTH" value="8" valueType="string"/>
 								<option id="com.ti.ccstudio.buildDefinitions.MSP430_16.3.hex.MEMWIDTH.1465740395" name="Specify memory width (--memwidth, -memwidth=width)" superClass="com.ti.ccstudio.buildDefinitions.MSP430_16.3.hex.MEMWIDTH" value="8" valueType="string"/>
+								<option id="com.ti.ccstudio.buildDefinitions.MSP430_16.3.hex.TOOL_ENABLE.1930582962" superClass="com.ti.ccstudio.buildDefinitions.MSP430_16.3.hex.TOOL_ENABLE" value="true" valueType="boolean"/>
+								<option id="com.ti.ccstudio.buildDefinitions.MSP430_16.3.hex.OUTPUT_FORMAT.2059848294" superClass="com.ti.ccstudio.buildDefinitions.MSP430_16.3.hex.OUTPUT_FORMAT" value="com.ti.ccstudio.buildDefinitions.MSP430_16.3.hex.OUTPUT_FORMAT.TI_TXT" valueType="enumerated"/>
 							</tool>
 						</toolChain>
 					</folderInfo>

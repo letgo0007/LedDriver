@@ -77,7 +77,6 @@ uint16 HwBuf_OutputDuty[128] =
 { 0 };
 uint16 HwBuf_TestDuty[128] =
 { 0 };
-
 //Spi Slave hardware buffer
 uint8 HwBuf_SpiSlaveRx[256] =
 { 0 };
@@ -134,7 +133,7 @@ uint8 HwBuf_I2cSlave[0x50] =
 { 0 };
 
 uint64 SysParam_Version =
-{ 0x1605240A };
+{ BOARD_VERSION };
 
 uint64 SysParam_IspPassword =
 { 0 };
@@ -202,22 +201,62 @@ uint64 SysParam_IspPassword =
 #pragma LOCATION(Isr_Uart,0x4D00)
 #pragma LOCATION(_system_pre_init,0x4480)
 
+/**********************************************************
+ * @Brief SetVcoreUp
+ * 		Set Mcu Vcore Up for higher cpu speed.Refer to TI sample code.
+ * 		Set Vcore level up 1 step up at a time another.
+ * 		Use volatile inline to force compiler to build this function in
+ * 		_system_pre_init()
+ * @Param
+ * 		level : available from 1~3 , refer to device specsheet for more info.
+ * @Return
+ * 		NONE
+ **********************************************************/
+volatile inline void SetVcoreUp(unsigned int level)
+{
+	// Open PMM registers for write
+	PMMCTL0_H = PMMPW_H;
+	// Set SVS/SVM high side new level
+	SVSMHCTL = SVSHE + SVSHRVL0 * level + SVMHE + SVSMHRRL0 * level;
+	// Set SVM low side to new level
+	SVSMLCTL = SVSLE + SVMLE + SVSMLRRL0 * level;
+	// Wait till SVM is settled
+	while ((PMMIFG & SVSMLDLYIFG) == 0)
+		;
+	// Clear already set flags
+	PMMIFG &= ~(SVMLVLRIFG + SVMLIFG);
+	// Set VCore to new level
+	PMMCTL0_L = PMMCOREV0 * level;
+	// Wait till new level reached
+	if ((PMMIFG & SVMLIFG))
+		while ((PMMIFG & SVMLVLRIFG) == 0)
+			;
+	// Set SVS/SVM low side to new level
+	SVSMLCTL = SVSLE + SVSLRVL0 * level + SVMLE + SVSMLRRL0 * level;
+	// Lock PMM registers for write access
+	PMMCTL0_H = 0x00;
+}
+
+/**********************************************************
+ * @Brief _system_pre_init
+ * 		System low level initial before RAM intialization & main().
+ * 		Use as isp mode boot loader.
+ * 		DO NOT call any togher functions . If have to ,build the fucntion
+ * 		with volatile inline . If this function is erased during ISP
+ * 		process , it will cause system failure. Note that *,/ operation are
+ * 		also external fuctions , do not use *,/ operation in
+ * @Param
+ * 		NONE
+ * @Return
+ * 		0	: omit RAM initialization.
+ * 		1	: do RAM initialization.
+ **********************************************************/
 int _system_pre_init(void)
 {
-	/**************************************************************
-	 * Insert low-level initializations here.
-	 * System will run _system_pre_init before RAM is initialized.
-	 * Return: 0 to omit initialization
-	 * Return: 1 to do RAM initialization.
-	 * Then jump to main()
-	 * Disable Watchdog timer to prevent reset during long variable
-	 * initialization sequences.
-	 **************************************************************/
-
-	//Watch dog source = ACLK , length = 32k ,reset time = 1s.
+	//Watch dog to 1sec .Clk source = ACLK , length = 32k.
 	WDTCTL = WDTPW + WDTCNTCL + WDTHOLD + WDTSSEL_1 + WDTIS_4;
 
-	//All ports set to Input with Pull Down.
+	//All gpio reset to Input with Pull Down.
 	PAOUT = 0;
 	PBOUT = 0;
 	PCOUT = 0;
@@ -226,21 +265,59 @@ int _system_pre_init(void)
 	PBDIR = 0;
 	PCDIR = 0;
 	PDDIR = 0;
-	PAREN = 0;
-	PBREN = 0;
-	PCREN = 0;
-	PDREN = 0;
+	PAREN = 1;
+	PBREN = 1;
+	PCREN = 1;
+	PDREN = 1;
 
+	//Disable ISR because Interrupt vetore @ 0xffd0~0xffff will also be erased in ISP mode.
 	__disable_interrupt();
 
-	//Check password .
+	//Check password on info flash to decide whether go to main().
 	if (ISP_INIT_EXIT_FLAG == ISP_EXIT_PASSWORD32) //Password correct , go to main()
 	{
-
 		return 1;
 	}
 	else //Password wrong , run ISP function.
 	{
+		//Initialize buffers .
+		//The flash segment size = 512 for MSP430 device ,so data buffer max size =512.
+		//Flash Address is 32bit , address byte buffer size = 4 bytes .
+		uint8 data_buff[512] =
+		{ 0 };
+		uint8 op_add_buff[4] =
+		{ 0 };
+		uint32 op_add = 0;
+		uint8 *op_ptr = 0;
+		uint16 txcount = 0;
+		uint16 rxcount = 0;
+
+		//Initialize CPU CLK to 25MHz
+		SetVcoreUp(0x01);
+		SetVcoreUp(0x02);
+		SetVcoreUp(0x03);
+
+		UCSCTL3 = SELREF_2;                       // Set DCO FLL reference = REFO
+		UCSCTL4 |= SELA_2;                        // Set ACLK = REFO
+
+		__bis_SR_register(SCG0);                  // Disable the FLL control loop
+		UCSCTL0 = 0x0000;                         // Set lowest possible DCOx, MODx
+		UCSCTL1 = DCORSEL_7;                      // Select DCO range 50MHz operation
+		UCSCTL2 = FLLD_1 + 762;                   // Set DCO Multiplier for 25MHz
+												  // (N + 1) * FLLRef = Fdco
+												  // (762 + 1) * 32768 = 25MHz
+												  // Set FLL Div = fDCOCLK/2
+		__bic_SR_register(SCG0);                  // Enable the FLL control loop
+		__delay_cycles(782000);
+
+		// Loop until XT1,XT2 & DCO stabilizes - In this case only DCO has to stabilize
+		do
+		{
+			UCSCTL7 &= ~(XT2OFFG + XT1LFOFFG + DCOFFG);
+			// Clear XT2,XT1,DCO fault flags
+			SFRIFG1 &= ~OFIFG;                      // Clear fault flags
+		} while (SFRIFG1 & OFIFG);                   // Test oscillator fault flag
+
 		//P4.6 = ERROR_OUT , P4.7 = LED_G , P3.0 = SDA ,P3.1 = SCL
 		P4OUT |= BIT7 + BIT6;
 		P4DIR |= BIT7 + BIT6;
@@ -252,30 +329,27 @@ int _system_pre_init(void)
 		UCB0I2COA = ISP_I2C_SLAVE_ADDRESS;
 		UCB0CTL1 &= ~UCSWRST;
 
-		uint8 op_buff[4] =
-		{ 0 };	//Operation address byte buffer
-		uint32 op_add = 0;			//Operation address
-		uint8 *op_ptr = 0;			//Operation pointer
-		uint16 txcount = 0;			//I2c tx count
-		uint16 rxcount = 0;			//I2c rx count
-		uint8 data_buff[512] =
-		{ 0 };	//Buffer for flash segment write, flash segment size = 512 for MSP430 normal.
-
 		while (1)
 		{
 			//Feed watch dog
 			uint8 newWDTStatus = (WDTCTL & 0x00FF) | WDTCNTCL;
 			WDTCTL = WDTPW + newWDTStatus;
 
-			//I2C Slave RX Event (Master Write)
-			if (UCB0IFG & UCRXIFG)
+			//YZF 2016/6/2 : Buffer UCB0IFG first to avoid UCB0IFG modified during processing .
+			//				 This make sure I2C events are handled in order.
+			//				 For some master device , RX/STOP , TX/START may come very close in time.
+			uint16 UCB0IFG_BUFF = UCB0IFG;
+
+			//I2C Slave RX Event (Master send bytes)
+			if (UCB0IFG_BUFF & UCRXIFG)
 			{
 				//Buffer I2C slave data
-				if (rxcount < 3)	// 0~2 bytes is address.
+				if (rxcount < 3)	// 0~2 bytes are operation address bytes.
 				{
-					op_buff[2 - rxcount] = UCB0RXBUF;
+					op_add_buff[2 - rxcount] = UCB0RXBUF;
+
 				}
-				else	// 3+ bytes is data.
+				else	// 3+ bytes are data bytes.
 				{
 					data_buff[rxcount - 3] = UCB0RXBUF;
 				}
@@ -284,19 +358,11 @@ int _system_pre_init(void)
 				UCB0IFG &= ~UCRXIFG;
 			}
 
-			//I2C Slave TX Event (Master Read)
-			if (UCB0IFG & UCTXIFG)
-			{
-				UCB0TXBUF = op_ptr[txcount];
-				txcount++;
-				UCB0IFG &= ~UCTXIFG;
-			}
-
 			//I2C Slave START Event (Master call slave address)
-			if (UCB0IFG & UCSTTIFG)
+			if (UCB0IFG_BUFF & UCSTTIFG)
 			{
 				//Calculate operation address & pointer , for "Restart" conditon.
-				op_add = (*((volatile uint32 *) &op_buff[0]));
+				op_add = (*((volatile uint32 *) &op_add_buff[0]));
 				op_ptr = (uint8 *) (op_add & 0x0FFFFF);
 
 				//Reset count
@@ -306,10 +372,10 @@ int _system_pre_init(void)
 			}
 
 			//I2C Slave STOP Event (Master send STOP)
-			if (UCB0IFG & UCSTPIFG)
+			if (UCB0IFG_BUFF & UCSTPIFG)
 			{
 				//Calculate operation address & pointer
-				op_add = (*((volatile uint32 *) &op_buff[0]));
+				op_add = (*((volatile uint32 *) &op_add_buff[0]));
 				op_ptr = (uint8 *) (op_add & 0x0FFFFF);
 
 				/* Flash operation according to opp_add
@@ -320,7 +386,6 @@ int _system_pre_init(void)
 				 * 0xFFFFFF				EXIT ISP
 				 *
 				 */
-
 				if ((op_add >= 0x104400) && (op_add <= 0x124400))	//ERASE
 				{
 					FCTL3 = FWKEY;
@@ -329,7 +394,7 @@ int _system_pre_init(void)
 					FCTL1 = FWKEY;
 					FCTL3 = FWKEY + LOCK;
 				}
-				else if ((rxcount > 2) && (op_add >= 0x004400) && (op_add <= 0x024400))	//WRITE
+				if ((rxcount > 2) && (op_add >= 0x004400) && (op_add <= 0x024400))	//WRITE
 				{
 					uint16 i;
 					uint8 * flash_ptr;
@@ -339,7 +404,7 @@ int _system_pre_init(void)
 					FCTL1 = FWKEY + WRT;
 					for (i = 0; i < rxcount - 3; i++)
 					{
-						*flash_ptr++ = data_buff[i];
+						*(flash_ptr + i) = data_buff[i];
 					}
 					FCTL1 = FWKEY;
 					FCTL3 = FWKEY + LOCK;
@@ -355,7 +420,7 @@ int _system_pre_init(void)
 					*flash_ptr = 0;
 					//Long-word(32bit) write
 					FCTL1 = FWKEY + BLKWRT;
-					*flash_ptr = 0x20140217;
+					*flash_ptr = ISP_EXIT_PASSWORD32;
 					//Lock Flash
 					FCTL1 = FWKEY;
 					FCTL3 = FWKEY + LOCK;
@@ -363,17 +428,27 @@ int _system_pre_init(void)
 					//Reboot
 					PMMCTL0 |= PMMSWBOR;
 				}
-
 				UCB0IFG &= ~UCSTPIFG;
 			}
 
+			//I2C Slave TX Event (Master Read)
+			if (UCB0IFG_BUFF & UCTXIFG)
+			{
+				UCB0TXBUF = op_ptr[txcount];
+				txcount++;
+			}
 		}	//End of while (1)
-
 	}
-
 }
 
-//P1 GPIO ISR
+/**********************************************************
+ * @Brief Isr_Gpio_P1
+ * 		GPIO_P1 interrupt service rotine.
+ * @Param
+ * 		NONE
+ * @Return
+ * 		NONE
+ **********************************************************/
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=PORT1_VECTOR
 __interrupt void Isr_Gpio_P1(void)
@@ -434,7 +509,15 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) Isr_Gpio_P1 (void)
 
 }
 
-//SPI Slave CS pin interrupt service
+/**********************************************************
+ * @Brief Isr_SpiSlave_Cs
+ * 		Timer_A0 ISR ,use as Spi Slave Cs pin .
+ * 		Both Edge Trigger.
+ * @Param
+ * 		NONE
+ * @Return
+ * 		NONE
+ **********************************************************/
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=TIMER0_A1_VECTOR
 __interrupt void Isr_SpiSlave_Cs(void)
@@ -482,6 +565,16 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) Isr_SpiSlave_Cs (void)
 	}
 }
 
+
+/**********************************************************
+ * @Brief Isr_I2cSlave
+ * 		USCI_B0 I2C mode interrupt service.
+ * 		Buffer I2C Slave data to certain RAM address.
+ * @Param
+ * 		NONE
+ * @Return
+ * 		NONE
+ **********************************************************/
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector = USCI_B0_VECTOR
 __interrupt void Isr_I2cSlave(void)
@@ -552,6 +645,15 @@ void __attribute__ ((interrupt(USCI_B0_VECTOR))) Isr_I2cSlave (void)
 
 }
 
+/**********************************************************
+ * @Brief Isr_Uart
+ * 		USCI_A1 UART mode interrupt service.
+ * 		Buffer RX bytes & run console program when get "ENTER".
+ * @Param
+ * 		NONE
+ * @Return
+ * 		NONE
+ **********************************************************/
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=USCI_A1_VECTOR
 __interrupt void Isr_Uart(void)
@@ -742,6 +844,9 @@ uint8 Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 void Mcu_reset(void)
 {
 	//Set watch dog timer to 512 cpu cycles.
+	//YZF 2016/5/16 : This delay is for I2C slave finish send ACK before reset.
+	//				  Otherwise , there will be no ack when receiving REBOOT cmd.
+	//				  512cycles = 20us @ 25Mhz , ACK @ I2C 100kHz = 10us.
 	WDT_A_initWatchdogTimer(WDT_A_BASE, WDT_A_CLOCKSOURCE_SMCLK, WDT_A_CLOCKDIVIDER_512);
 	WDT_A_start(WDT_A_BASE);
 	//Wait 612cyles for watch dog reboot.
