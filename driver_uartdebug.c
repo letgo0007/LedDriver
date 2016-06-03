@@ -83,7 +83,7 @@ void Uart_Console(uint8 *uartrxbuf)
 	}
 	else if (!memcmp(uartrxbuf, "iw", 2))
 	{
-		SysParam_Iw7027.iwRunErrorCheck = 1;
+		SysParam_Iw7027.fIwRunErrorCheck = 1;
 		Iw7027_updateWorkParams(&SysParam_Iw7027);
 		PrintString("IW7027 Error Status");
 		PrintArray((uint8 *) &SysParam_Iw7027, sizeof(SysParam_Iw7027));

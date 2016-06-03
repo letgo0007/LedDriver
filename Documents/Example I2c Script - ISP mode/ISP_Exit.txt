@@ -1,0 +1,3 @@
+//Reboot to Normal Mode
+write 38 FF FF FF 
+pause 30

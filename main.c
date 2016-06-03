@@ -18,19 +18,18 @@
 #include "driver_mcu.h"
 #include "driver_scheduler.h"
 #include "driver_uartdebug.h"
-#include "std.h"
+
 extern void Mcu_Boot(void);
 
 int main(void)
 {
 	//Initialize Driver
-	//Mcu_Boot();
 	Mcu_init();
 	Sch_init();
 	Iw7027_init();
 
 	//Main Loop
-	while (SysParam_Schedule.schSystemOn)
+	while (SysParam_Schedule.fSystemResetN)
 	{
 		/**********************************************************************
 		 * Reset Watchdog timer.
@@ -41,20 +40,20 @@ int main(void)
 		 * Task 1:
 		 * 		Check board status & set.
 		 *********************************************************************/
-		if (SysParam_Schedule.taskFlagBoardCheck)
+		if (SysParam_Schedule.fTaskFlagGpioCheck)
 		{
 			Mcu_checkBoardStatus(&SysParam_BoardInfo, &SysParam_Error);
-			SysParam_Schedule.taskFlagBoardCheck = 0;
+			SysParam_Schedule.fTaskFlagGpioCheck = 0;
 		}
 
 		/**********************************************************************
 		 * Task 2:
 		 * 		Handle I2C Slave special function.
 		 *********************************************************************/
-		if (SysParam_Schedule.taskFlagI2c)
+		if (SysParam_Schedule.fTaskFlagI2c)
 		{
 			I2cSlave_handleSpecialFunction(HwBuf_I2cSlave);
-			SysParam_Schedule.taskFlagI2c = 0;
+			SysParam_Schedule.fTaskFlagI2c = 0;
 		}
 
 		/**********************************************************************
@@ -69,48 +68,48 @@ int main(void)
 		 *  	Also it can be modified by I2C slave to display "Test Pattern".
 		 *********************************************************************/
 		//Task3-1 : [Local Dimming Mode]
-		if (SysParam_Schedule.schLocalDimmingOn)
+		if (SysParam_Schedule.fLocalDimmingOn)
 		{
 			Iw7027_updateWorkParams(&SysParam_Iw7027);
-			if (SysParam_Schedule.taskFlagSpiRx)
+			if (SysParam_Schedule.fTaskFlagSpiRx)
 			{
 				//Check Spi Rx data validation
-				SysParam_BoardInfo.bSpiRxValid = SpiSlave_handle(HwBuf_SpiSlaveRx, HwBuf_InputDuty, CITRUS_12BIT_78CH);
+				SysParam_BoardInfo.fSpiDataValid = SpiSlave_handle(HwBuf_SpiSlaveRx, HwBuf_InputDuty, CITRUS_12BIT_78CH);
 
 				//Do Spi Rx data process when format correct.
-				if (SysParam_BoardInfo.bSpiRxValid)
+				if (SysParam_BoardInfo.fSpiDataValid)
 				{
 					//Dynamic Power limit function
-					DPL_caliberateTemp(SysParam_BoardInfo.bTemprature, &SysParam_Dpl);
+					DPL_caliberateTemp(SysParam_BoardInfo.su8McuTemperature, &SysParam_Dpl);
 					DPL_Function(HwBuf_InputDuty, HwBuf_OutputDuty, &SysParam_Dpl);
 					//Enable Tx task .
-					SysParam_Schedule.taskFlagSpiTx = 1;
+					SysParam_Schedule.fTaskFlagSpiTx = 1;
 				}
 
-				SysParam_Schedule.taskFlagSpiRx = 0;
+				SysParam_Schedule.fTaskFlagSpiRx = 0;
 			}
 
 			//3.2 Tx data handle
-			if (SysParam_Schedule.taskFlagSpiTx)
+			if (SysParam_Schedule.fTaskFlagSpiTx)
 			{
 				// Update duty info to Iw7027 device.
 				Iw7027_updateDuty(HwBuf_OutputDuty);
-				SysParam_Schedule.taskFlagSpiTx = 0;
+				SysParam_Schedule.fTaskFlagSpiTx = 0;
 			}
 		}
-		//Task3-0 [Manual Pattern Mode]
+		//Task3-0 [Test Pattern Mode]
 		else
 		{
-			if (SysParam_Schedule.taskFlagManualMode)
+			if (SysParam_Schedule.fTaskFlagTestMode)
 			{
 				Iw7027_updateDuty(HwBuf_TestDuty);
-				SysParam_Schedule.taskFlagManualMode = 0;
+				SysParam_Schedule.fTaskFlagTestMode = 0;
 			}
 
 		}
 
 		//Task4 Test & report
-		if (SysParam_Schedule.testFlag1Hz)
+		if (SysParam_Schedule.fTestFlag1Hz)
 		{
 			PrintEnter();
 			PrintTime(&System_Time);
@@ -119,7 +118,7 @@ int main(void)
 			//Board Info Log
 			PrintEnter();
 			PrintString("CPU Locd = ");
-			PrintCharBCD(SysParam_Schedule.cpuLoad);
+			PrintCharBCD(SysParam_Schedule.u8CpuLoad);
 			PrintString(" % \r\n");
 #endif
 #if 1
@@ -137,7 +136,7 @@ int main(void)
 			PrintEnter();
 #endif
 			HW_TOGGLE_LED_G;
-			SysParam_Schedule.testFlag1Hz = 0;
+			SysParam_Schedule.fTestFlag1Hz = 0;
 		}
 
 		//Finish all task , turn off cpu.

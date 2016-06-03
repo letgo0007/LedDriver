@@ -15,7 +15,9 @@
 
 #include "driver_iw7027.h"
 
-#include "driver.h"
+#include "driverlib.h"
+
+#include "driver_mcu.h"
 
 /***2.1 Internal Marcos *******************************************************/
 
@@ -98,8 +100,9 @@ static const uint8 Iw7027_LedSortMap_70XU30A[80] =
 /*ROWC*/0x14, 0x13, 0x12, 0x27, 0x28, 0x29,
 /*NC  */0x2E, 0x2F, };
 
-static const Iw7027Param Iw7027_DefaultParam =
-{ .iwFrequency = 120, .iwCurrent = 0x42, .iwDelayTableSelet = d2D, .iwVsyncFrequency = 120, .iwVsyncDelay = 1, .iwRunErrorCheck = 1, .iwIsError = 0 };
+static const dStruct_Iw7027Param_t Iw7027_DefaultParam =
+{ .u16IwOutputFreq = 120, .u8IwCurrent = 0x42, .eIwDelayTableSelect = d2D, .u16IwInputFreq = 120, .u16IwOutputDelay = 1,
+		.fIwRunErrorCheck = 1, .fIwIsError = 0 };
 
 /***2.4 External Variables ***************************************************/
 
@@ -399,62 +402,62 @@ uint8 Iw7027_updateFrequency(uint8 freq)
 	}
 }
 
-uint8 Iw7027_updateDelayTable(enum Iw7027_Delay delay)
+uint8 Iw7027_updateDelayTable(enum Iw7027_Delay_e delay)
 {
 	return FLAG_SUCCESS;
 }
 
-uint8 Iw7027_updateWorkParams(Iw7027Param *param_in)
+uint8 Iw7027_updateWorkParams(dStruct_Iw7027Param_t *param_in)
 {
-	static Iw7027Param param_now;
+	static dStruct_Iw7027Param_t param_now;
 
 	//Update IW7027_PLL & Vsync_Out when changed.
-	if (param_now.iwFrequency != param_in->iwFrequency)
+	if (param_now.u16IwOutputFreq != param_in->u16IwOutputFreq)
 	{
-		param_now.iwFrequency = param_in->iwFrequency;
-		Iw7027_updateFrequency(param_now.iwFrequency);
+		param_now.u16IwOutputFreq = param_in->u16IwOutputFreq;
+		Iw7027_updateFrequency(param_now.u16IwOutputFreq);
 	}
 
-	if ((param_now.iwVsyncFrequency != param_in->iwVsyncFrequency) || (param_now.iwVsyncDelay != param_in->iwVsyncDelay))
+	if ((param_now.u16IwInputFreq != param_in->u16IwInputFreq) || (param_now.u16IwOutputDelay != param_in->u16IwOutputDelay))
 	{
-		param_now.iwVsyncFrequency = param_in->iwVsyncFrequency;
-		param_now.iwVsyncDelay = param_in->iwVsyncDelay;
-		PwmOut_init(param_now.iwVsyncFrequency, param_now.iwVsyncDelay);
+		param_now.u16IwInputFreq = param_in->u16IwInputFreq;
+		param_now.u16IwOutputDelay = param_in->u16IwOutputDelay;
+		PwmOut_init(param_now.u16IwInputFreq, param_now.u16IwOutputDelay);
 	}
 
 	//Update current when changed.
 	//YZF 20150526: set current change step
-	if (param_now.iwCurrent != param_in->iwCurrent)
+	if (param_now.u8IwCurrent != param_in->u8IwCurrent)
 	{
-		while (param_now.iwCurrent != param_in->iwCurrent)
+		while (param_now.u8IwCurrent != param_in->u8IwCurrent)
 		{
-			param_now.iwCurrent = min((uint16) param_in->iwCurrent, (uint16) param_now.iwCurrent + IW_CURRENT_CHANGE_STEP);
-			Iw7027_updateCurrent(param_now.iwCurrent);
+			param_now.u8IwCurrent = min((uint16) param_in->u8IwCurrent, (uint16) param_now.u8IwCurrent + IW_CURRENT_CHANGE_STEP);
+			Iw7027_updateCurrent(param_now.u8IwCurrent);
 		}
 
 	}
 
 	//Update delay table when changed.
-	if (param_now.iwDelayTableSelet != param_in->iwDelayTableSelet)
+	if (param_now.eIwDelayTableSelect != param_in->eIwDelayTableSelect)
 	{
-		param_now.iwDelayTableSelet = param_in->iwDelayTableSelet;
-		Iw7027_updateDelayTable(param_now.iwDelayTableSelet);
+		param_now.eIwDelayTableSelect = param_in->eIwDelayTableSelect;
+		Iw7027_updateDelayTable(param_now.eIwDelayTableSelect);
 	}
 
-	if (param_in->iwRunErrorCheck)
+	if (param_in->fIwRunErrorCheck)
 	{
 		Iw7027_checkOpenShorStatus(param_in);
-		param_in->iwRunErrorCheck = 0;
+		param_in->fIwRunErrorCheck = 0;
 	}
 
 	return FLAG_SUCCESS;
 
 }
 
-uint8 Iw7027_checkOpenShorStatus(Iw7027Param *iwparam)
+uint8 Iw7027_checkOpenShorStatus(dStruct_Iw7027Param_t *iwparam)
 {
 	//Reset Is error
-	iwparam->iwIsError = 0;
+	iwparam->fIwIsError = 0;
 	uint8 i;
 
 	//Enable Error Read
@@ -463,7 +466,7 @@ uint8 Iw7027_checkOpenShorStatus(Iw7027Param *iwparam)
 	//Read Open/Short/DSShort status from 0x85~0x8A
 	for (i = 0; i < IW_DEVICE_AMOUNT; i++)
 	{
-		Iw7027_readMultiByte(IW_0 << i, 0x85, 6, iwparam->iwOpenShortStatus + i * 6);
+		Iw7027_readMultiByte(IW_0 << i, 0x85, 6, iwparam->u8IwOpenShortStatus + i * 6);
 	}
 
 	//Disable Error¡¡Read
@@ -471,12 +474,12 @@ uint8 Iw7027_checkOpenShorStatus(Iw7027Param *iwparam)
 
 	for (i = 0; i < IW_DEVICE_AMOUNT * 6; i++)
 	{
-		if (iwparam->iwOpenShortStatus[i])
+		if (iwparam->u8IwOpenShortStatus[i])
 		{
-			iwparam->iwIsError |= 1;
+			iwparam->fIwIsError |= 1;
 		}
 	}
 
 	//Rrturn error status.
-	return iwparam->iwIsError;
+	return iwparam->fIwIsError;
 }

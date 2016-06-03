@@ -138,12 +138,14 @@ uint8 SpiSlave_handle(uint8 *spirx, uint16 *outputduty, enum SpiRxFormatModel mo
 				//row 1,3,5,7,9,11
 				if (row & 0x1)
 				{
-					outputduty[row * 6 + col] = (0x0010 * spirx[row / 2 * 39 + col * 3 + 21] + (spirx[row / 2 * 39 + col * 3 + 22] >> 4));
+					outputduty[row * 6 + col] = (0x0010 * spirx[row / 2 * 39 + col * 3 + 21]
+							+ (spirx[row / 2 * 39 + col * 3 + 22] >> 4));
 				}
 				//row 0,2,4,6,8,10,12
 				else
 				{
-					outputduty[row * 6 + col] = (spirx[row / 2 * 39 + col * 3 + 2] + 0x0100 * (spirx[row / 2 * 39 + col * 3 + 3] >> 4));
+					outputduty[row * 6 + col] = (spirx[row / 2 * 39 + col * 3 + 2]
+							+ 0x0100 * (spirx[row / 2 * 39 + col * 3 + 3] >> 4));
 
 				}
 			}

@@ -53,15 +53,14 @@
 //ISP exit password value ,must = 32bit.
 #define ISP_EXIT_PASSWORD32			(0x20140217)
 
-/***2.2 Internal Struct ******/
+/***2.2 Internal Struct ********************************************************/
 
-/***2.3 Internal Variables ***/
+/***2.3 Internal Variables *****************************************************/
 
-//ISP->NORMAL password in flash
 //Default error detection parameters.
-const ErrorParam Default_ErrorParam =
-{ .eDc13vMax = 16, .eDc13vMin = 10, .eDc60vMax = 70, .eDc60vMin = 50, .eSpiRxFreqMin = 20, .eSpiDataErrorIgnore = 1,
-		.eIw7027FaultIgnore = 0, .eErrorSaveEn = 0, };
+const dStruct_ErrorParam_t Default_ErrorParam =
+{ .u8Dc13vMax = 16, .u8Dc13vMin = 10, .u8Dc60vMax = 70, .u8Dc60vMin = 50, .u8SpiRxFreqMin = 20, .fSpiDataErrorIgnore = 1,
+		.fIw7027FaultIgnore = 0, .fErrorSaveEn = 0, };
 
 //Write ISP_INIT_EXIT_FLAG to flash to exit isp mode on 1st run.
 //Note that need open the project Properties - Debug - MSP43x Options - Erase Options = Enable Erase Flash & Info
@@ -114,16 +113,16 @@ uint8 HwBuf_UartRx[256] =
 #pragma LOCATION(SysParam_Version , BOARD_I2C_BUF_ADD_NORMAL + 0xF0)
 #pragma LOCATION(SysParam_IspPassword , BOARD_I2C_BUF_ADD_NORMAL + 0xF8)
 
-Scheduler SysParam_Schedule =
+dStruct_CpuScheduler_t SysParam_Schedule =
 { 0 };
 
-BoardInfo SysParam_BoardInfo =
+dStruct_BoardInfo_t SysParam_BoardInfo =
 { 0 };
 
-ErrorParam SysParam_Error =
+dStruct_ErrorParam_t SysParam_Error =
 { 0 };
 
-Iw7027Param SysParam_Iw7027 =
+dStruct_Iw7027Param_t SysParam_Iw7027 =
 { 0 };
 
 DPL_Prama SysParam_Dpl =
@@ -132,10 +131,10 @@ DPL_Prama SysParam_Dpl =
 uint8 HwBuf_I2cSlave[0x50] =
 { 0 };
 
-uint64 SysParam_Version =
+volatile uint64 SysParam_Version =
 { BOARD_VERSION };
 
-uint64 SysParam_IspPassword =
+volatile uint64 SysParam_IspPassword =
 { 0 };
 
 /***2.5 Internal Functions ***/
@@ -539,7 +538,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) Isr_SpiSlave_Cs (void)
 	case 4: // TA0.2 ,PWM1/SPI Slave CS
 		//Falling edge = START of frame
 		SpiSlave_stopRx();
-		SysParam_Schedule.taskFlagSpiRx = 1;
+		SysParam_Schedule.fTaskFlagSpiRx = 1;
 		SpiSlave_startRx();
 		//Sync PWM out
 		PwmOut_sync();
@@ -557,14 +556,13 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) Isr_SpiSlave_Cs (void)
 		break;
 	case 14: // overflow
 		//Calculate Spi Rx CS frequencey
-		SysParam_BoardInfo.bSpiRxFreq = (SpiSlave_CsEdgeCount - 1) / 2;
+		SysParam_BoardInfo.u8SpiRxFreq = (SpiSlave_CsEdgeCount - 1) / 2;
 		SpiSlave_CsEdgeCount = 0;
 		break;
 	default:
 		break;
 	}
 }
-
 
 /**********************************************************
  * @Brief Isr_I2cSlave
@@ -602,7 +600,7 @@ void __attribute__ ((interrupt(USCI_B0_VECTOR))) Isr_I2cSlave (void)
 		break;
 	case 8:	    	// Vector  8: STPIFG
 		//Set I2C task flag.
-		SysParam_Schedule.taskFlagI2c = 1;
+		SysParam_Schedule.fTaskFlagI2c = 1;
 		//ISP mode entrance ,check pass word.
 		if (SysParam_IspPassword == 0x20140217)
 		{
@@ -763,34 +761,34 @@ flag Mcu_init(void)
 	return FLAG_SUCCESS;
 }
 
-uint8 Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
+uint8 Mcu_checkBoardStatus(dStruct_BoardInfo_t *boardinfo, dStruct_ErrorParam_t *errorparam)
 {
 	static uint8 iserror;
 	uint8 retval = 0;
 
 	//Load Board Hardware Info
-	boardinfo->bIw7027Falut = HW_GET_IW7027_FAULT_IN;
-	boardinfo->bD60V = (uint32) Adc_getResult(HW_ADCPORT_DC60V) * 84 / 0x3FF;
-	boardinfo->bD13V = (uint32) Adc_getResult(HW_ADCPORT_DC13V) * 19 / 0x3FF;
-	boardinfo->bTemprature = Adc_getMcuTemperature();
+	boardinfo->fIw7027Fault = HW_GET_IW7027_FAULT_IN;
+	boardinfo->u8Dc60v = (uint32) Adc_getResult(HW_ADCPORT_DC60V) * 84 / 0x3FF;
+	boardinfo->u8Dc13v = (uint32) Adc_getResult(HW_ADCPORT_DC13V) * 19 / 0x3FF;
+	boardinfo->su8McuTemperature = Adc_getMcuTemperature();
 
 	//BIT0 : Power error flag
-	if ((boardinfo->bD60V > errorparam->eDc60vMax) || (boardinfo->bD60V < errorparam->eDc60vMin)
-			|| (boardinfo->bD13V > errorparam->eDc13vMax) || (boardinfo->bD13V < errorparam->eDc13vMin))
+	if ((boardinfo->u8Dc60v > errorparam->u8Dc60vMax) || (boardinfo->u8Dc60v < errorparam->u8Dc60vMin)
+			|| (boardinfo->u8Dc13v > errorparam->u8Dc13vMax) || (boardinfo->u8Dc13v < errorparam->u8Dc13vMin))
 	{
 		retval |= BIT0;
 	}
 
 	//BIT1 : IW7027 Error Flag
-	if (!boardinfo->bIw7027Falut && !errorparam->eIw7027FaultIgnore)
+	if (!boardinfo->fIw7027Fault && !errorparam->fIw7027FaultIgnore)
 	{
 		retval |= BIT1;
 	}
 
-	//BIT2 : Signal Error flag ,only set when eSpiDataErrorIgnore is off
-	if (!errorparam->eSpiDataErrorIgnore)
+	//BIT2 : Signal Error flag ,only set when fSpiDataErrorIgnore is off
+	if (!errorparam->fSpiDataErrorIgnore)
 	{
-		if ((boardinfo->bSpiRxFreq < errorparam->eSpiRxFreqMin) || (!boardinfo->bSpiRxValid))
+		if ((boardinfo->u8SpiRxFreq < errorparam->u8SpiRxFreqMin) || (!boardinfo->fSpiDataValid))
 		{
 			retval |= BIT2;
 		}
@@ -800,7 +798,7 @@ uint8 Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 	if (retval)
 	{
 		HW_SET_ERROR_OUT_LOW;
-		errorparam->eErrorType = retval;
+		errorparam->u8ErrorType = retval;
 //1st time error happen
 		if (!iserror)
 		{
@@ -811,10 +809,10 @@ uint8 Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 			PrintArray((uint8 *) &SysParam_BoardInfo, sizeof(SysParam_BoardInfo));
 			PrintEnter();
 #endif
-			if (errorparam->eErrorSaveEn)
+			if (errorparam->fErrorSaveEn)
 			{
-				errorparam->eCount = *BOARD_ERROR_INFO_FLASH_PTR;
-				errorparam->eCount++;
+				errorparam->u8ErrorCount = *BOARD_ERROR_INFO_FLASH_PTR;
+				errorparam->u8ErrorCount++;
 				FlashCtl_eraseSegment(BOARD_ERROR_INFO_FLASH_PTR);
 				FlashCtl_write8((uint8*) errorparam, BOARD_ERROR_INFO_FLASH_PTR, sizeof(SysParam_Error));
 				FlashCtl_write8((uint8*) boardinfo, BOARD_ERROR_INFO_FLASH_PTR + 0x20, sizeof(SysParam_BoardInfo));
@@ -835,7 +833,7 @@ uint8 Mcu_checkBoardStatus(BoardInfo *boardinfo, ErrorParam *errorparam)
 		}
 
 		HW_SET_ERROR_OUT_HIGH;
-		errorparam->eErrorType = retval;
+		errorparam->u8ErrorType = retval;
 		iserror = 0;
 	}
 	return retval;
@@ -855,7 +853,7 @@ void Mcu_reset(void)
 
 void Mcu_invokeBsl(void)
 {
-	//Disable ISR & jump to BSL section.
+	//Disable ISR & jump to BSL section. BSL verder is TI.
 	//Refer to 3.8.1 Starting the BSL From an External Application for BSL application note.
 	//delay for MCU modules to finish current work.
 	__disable_interrupt();
@@ -1169,13 +1167,12 @@ uint8 SpiMaster_sendMultiByte(uint8 *txdata, uint16 length)
 	//Send multiple bytes till count down
 	while (length--)
 	{
-//TX buffer ready?
+		//TX buffer ready?
 		while (!USCI_B_SPI_getInterruptStatus(USCI_B1_BASE, USCI_B_SPI_TRANSMIT_INTERRUPT))
 		{
 			;
 		}
-//Transmit Data to slave
-//PrintChar(*txdata);
+		//Transmit Data to slave
 		USCI_B_SPI_transmitData(USCI_B1_BASE, *(txdata++));
 	}
 
@@ -1184,7 +1181,6 @@ uint8 SpiMaster_sendMultiByte(uint8 *txdata, uint16 length)
 		;
 	}
 
-	//PrintEnter();
 	//Return last byte received.
 	return USCI_B_SPI_receiveData(USCI_B1_BASE);
 }
@@ -1278,7 +1274,8 @@ void SpiSlave_startRx(void)
 	DMA_disableTransfers(DMA_CHANNEL_0);
 	DMA_enableTransfers(DMA_CHANNEL_0);
 	//Enable SPI_RX
-	//NOTE 20150923 : SPI Slave turn on after check SPI_RX_CLK= 0£¬(SPI setting is SCLK = 0 when buss free)
+	//NOTE 20150923 : P2.7 is SPI_CLK pin.
+	//Only turn on SPI when SPI is free.
 	//Add this to avoid some MainBoard reset timming problem
 	if (!GPIO_getInputPinValue(GPIO_PORT_P2, GPIO_PIN7))
 	{
@@ -1344,10 +1341,12 @@ void I2cSlave_init(uint8 slaveaddress)
 
 flag Uart_init(uint32 baudrate)
 {
-	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P4, GPIO_PIN4);
+	//P4.4 = TX , P4.5 =RX
+	GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P4, GPIO_PIN4);
 	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P4, GPIO_PIN5);
 
 	//Baudrate = UART_BAUDRATE , clock freq = SMCLK_F
+	//Clock devider value refer to application note.
 	USCI_A_UART_initParam param =
 	{ 0 };
 	param.selectClockSource = USCI_A_UART_CLOCKSOURCE_SMCLK;

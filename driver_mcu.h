@@ -44,56 +44,56 @@
 /***2.2 External Structures **/
 
 //Board I/O information structure.
-typedef struct BoardInfo
+typedef struct Struct_BoardInfo_t
 {
 	//[0x00~0xFF] Board D60V voltage ,unit in V.
-	uint8 bD60V;
+	uint8 u8Dc60v;
 	//[0x00~0xFF] Board D13V voltage ,unit in V.
-	uint8 bD13V;
+	uint8 u8Dc13v;
 	//[-127 ~ 127] Board temperature ,unit in C. Note it is signed value ,has negtive value.
-	int8 bTemprature;
-	//IW7027_FAULT_IN Gpio value
-	flag bIw7027Falut;
+	int8 su8McuTemperature;
 	//Spi slave input frame rate.
-	uint8 bSpiRxFreq;
+	uint8 u8SpiRxFreq;
 	//Spi slave data format check result.
-	flag bSpiRxValid;
-	uint8 reserved[0x0A];
-} BoardInfo;
+	flag fSpiDataValid;
+	//IW7027_FAULT_IN Gpio value
+	flag fIw7027Fault;
+	uint8 RESERVED[0x0A];
+} dStruct_BoardInfo_t;
 
 //Parameters structure for Error handle
-typedef struct ErrorParam
+typedef struct Struct_ErrorParam_t
 {
 	//[0x00~0xFF] Error amount , stored in flash info section.
-	uint8 eCount;
+	uint8 u8ErrorCount;
 	//[0x00] = No error	[BIT0] = Power error [BIT1] = IW7027 open short error [BIT2] = Spi Rx Signal error
-	uint8 eErrorType;
+	uint8 u8ErrorType;
 	//[0x00~0xFF] Dc60V high limit , unit in V.
-	uint8 eDc60vMax;
+	uint8 u8Dc60vMax;
 	//[0x00~0xFF] Dc60V low limit , unit in V.
-	uint8 eDc60vMin;
+	uint8 u8Dc60vMin;
 	//[0x00~0xFF] Dc13V high limit,unit in V.
-	uint8 eDc13vMax;
+	uint8 u8Dc13vMax;
 	//[0x00~0xFF] Dc13V low limit,unit in V.
-	uint8 eDc13vMin;
+	uint8 u8Dc13vMin;
 	//[0x00~0xFF] Spi Frame rate low limit,unit in Hz.
-	uint8 eSpiRxFreqMin;
+	uint8 u8SpiRxFreqMin;
 	//[1] Ignore Spi data error ,both format & frequency error.
-	flag eSpiDataErrorIgnore;
+	flag fSpiDataErrorIgnore;
 	//[1] Ignore IW7027_FAULT_IN error.
-	flag eIw7027FaultIgnore;
+	flag fIw7027FaultIgnore;
 	//[0x00] = No error	[BIT0] = Open error [BIT1] = Short error [BIT2] = D-S Short error
-	uint8 eIw7027ErrorType;
+	uint8 u8Iw7027ErrorType;
 	//[1] Save Error Param & Board info to flash
-	flag eErrorSaveEn;
+	flag fErrorSaveEn;
 	//RESERVED
-	uint8 reserved[0x05];
-} ErrorParam;
+	uint8 RESERVED[0x05];
+} dStruct_ErrorParam_t;
 
 /***2.3 External Variables ***/
 //Interface Global Variables - Paramters
-extern BoardInfo SysParam_BoardInfo;
-extern ErrorParam SysParam_Error;
+extern dStruct_BoardInfo_t SysParam_BoardInfo;
+extern dStruct_ErrorParam_t SysParam_Error;
 
 //Interface Global Variables - Duty buffers
 extern uint16 HwBuf_InputDuty[128];
@@ -134,13 +134,13 @@ extern void Mcu_reset(void);
  * @Brief Board_reset
  * 		Check Hardware status
  * @Param
- * 		*outputinfo : Output BoardInfo struct for other function to use.
+ * 		*outputinfo : Output Struct_BoardInfo_t struct for other function to use.
  * 		*errorparam	: Error handle parameter struct
  * @Return
  * 		FLAG_SUCCESS: board function ok
  * 		FLAG_FAIL	: board in error status, ERROR_OUT is set
  **********************************************************/
-extern uint8 Mcu_checkBoardStatus(BoardInfo *outputinfo, ErrorParam *errorparam);
+extern uint8 Mcu_checkBoardStatus(dStruct_BoardInfo_t *outputinfo, dStruct_ErrorParam_t *errorparam);
 
 /**********************************************************
  * @Brief Clock_init

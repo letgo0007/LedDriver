@@ -35,37 +35,37 @@
 
 /***2.2 External Structures **************************************************/
 //IW7027 delay table select.
-enum Iw7027_Delay
+enum Iw7027_Delay_e
 {
 	d2D = 0, d3D = 1, d2Dscan = 2, d3Dscan = 3,
 };
 //IW7027 working paramters struct
-typedef struct Iw7027Param
+typedef struct Struct_Iw7027Param_t
 {
-	//IW7027 PLL frequency,unit in Hz.
-	uint8 iwFrequency;
 	//IW7027 current.
-	uint8 iwCurrent;
-	//IW7027 delaytable seletc.
-	enum Iw7027_Delay iwDelayTableSelet;
+	uint8 u8IwCurrent;
 	//IW7027 Vsync frequency, unit in Hz.
-	uint8 iwVsyncFrequency;
+	uint16 u16IwInputFreq;
+	//IW7027 PLL frequency,unit in Hz.
+	uint16 u16IwOutputFreq;
 	//IW7027 Vsync delay, unit in 30.5us(32786Hz).
-	uint8 iwVsyncDelay;
+	uint16 u16IwOutputDelay;
+	//IW7027 delaytable seletc.
+	enum Iw7027_Delay_e eIwDelayTableSelect;
 	//IW7027 Open/Short check enable. Set to 1 to run error check once.
-	uint8 iwRunErrorCheck;
+	flag fIwRunErrorCheck;
 	//IW7027 Error status , [1] = Error , [0] = Normal.
-	uint8 iwIsError;
+	flag fIwIsError;
 	//IW7027 Open/Short Status. Each IW7027 has 6bytes
 	// 6 bytes : 	[open 0~7][open 8~15][short 0~7][short 8~15]
 	// 				[D-S short 0~7][D-S short 8~15]
-	uint8 iwOpenShortStatus[IW_DEVICE_AMOUNT * 6];
+	uint8 u8IwOpenShortStatus[IW_DEVICE_AMOUNT * 6];
 	//RESERVED , fix the size of the struct to 0x30 bytes for I2C slave access.
-	uint8 reserved[0x08];
-} Iw7027Param;
+	uint8 RESERVED[0x05];
+} dStruct_Iw7027Param_t;
 
 /***2.3 External Variables ***/
-extern Iw7027Param SysParam_Iw7027;
+extern dStruct_Iw7027Param_t SysParam_Iw7027;
 
 /***2.4 External Functions ***/
 /**********************************************************
@@ -196,7 +196,7 @@ extern uint8 Iw7027_updateFrequency(uint8 freq);
  *
  * On working.
  * ********************************************************/
-extern uint8 Iw7027_updateDelayTable(enum Iw7027_Delay delay);
+extern uint8 Iw7027_updateDelayTable(enum Iw7027_Delay_e delay);
 
 /**********************************************************
  * @Brief Iw7027_getErrorStatus
@@ -207,7 +207,7 @@ extern uint8 Iw7027_updateDelayTable(enum Iw7027_Delay delay);
  * 		1 			: IW7027 has Open Short Error
  * 		0			: IW7027 ok , no error .
  **********************************************************/
-extern uint8 Iw7027_checkOpenShorStatus(Iw7027Param *iwparam);
+extern uint8 Iw7027_checkOpenShorStatus(dStruct_Iw7027Param_t *iwparam);
 
 /**********************************************************
  * @Brief Iw7027_getErrorStatus
@@ -222,7 +222,7 @@ extern uint8 Iw7027_checkOpenShorStatus(Iw7027Param *iwparam);
  * @Return
  * 		Iw7027Error 	: Error info struct of Iw7027Error
  **********************************************************/
-extern uint8 Iw7027_updateWorkParams(Iw7027Param *iwparam);
+extern uint8 Iw7027_updateWorkParams(dStruct_Iw7027Param_t *iwparam);
 
 /**********************************************************
  * @Brief DPL_GammaUpdate
