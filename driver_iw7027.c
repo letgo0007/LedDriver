@@ -15,9 +15,9 @@
 
 #include "driver_iw7027.h"
 
-#include "driverlib.h"
-
 #include "driver_mcu.h"
+#include "driver_scheduler.h"
+#include "driver_uartdebug.h"
 
 /***2.1 Internal Marcos *******************************************************/
 
@@ -248,9 +248,9 @@ uint8 Iw7027_init(void)
 	uint8 i = 0;
 
 #if UART_DEBUG_ON
-	PrintTime(&System_Time);
+	PrintTime(&SysParam_Time);
 	PrintString("[IW7027 INTIAL] Start...\r\n");
-	PrintTime(&System_Time);
+	PrintTime(&SysParam_Time);
 	PrintString("[IW7027 INTIAL] -1 : Power On & Delay.\r\n");
 #endif
 	//Step 1: Power ON .
@@ -264,7 +264,7 @@ uint8 Iw7027_init(void)
 	do
 	{
 #if UART_DEBUG_ON
-		PrintTime(&System_Time);
+		PrintTime(&SysParam_Time);
 		PrintString("[IW7027 INTIAL] -2 : Read Chip ID\r\n");
 #endif
 		status = Iw7027_checkReadWithTimeout(IW_ALL, 0x6B, 0x24, 0xFF);
@@ -275,7 +275,7 @@ uint8 Iw7027_init(void)
 	{
 		Iw7027_writeMultiByte(IW_0 << i, 0x00, 0x60, (uint8 *) &Iw7027_DefaultRegMap[0x60 * i]);
 #if UART_DEBUG_ON
-		PrintTime(&System_Time);
+		PrintTime(&SysParam_Time);
 		PrintString("[IW7027 INTIAL] -3 : Write Initial Reg Map\r\n");
 #endif
 	}
@@ -284,7 +284,7 @@ uint8 Iw7027_init(void)
 	do
 	{
 #if UART_DEBUG_ON
-		PrintTime(&System_Time);
+		PrintTime(&SysParam_Time);
 		PrintString("[IW7027 INTIAL] -4 : Wait STB ...\r\n");
 #endif
 		DELAY_MS(200);
@@ -295,7 +295,7 @@ uint8 Iw7027_init(void)
 	Iw7027_updateWorkParams(&SysParam_Iw7027);
 	DELAY_MS(200);		//wait 200ms for pwm stable.
 #if UART_DEBUG_ON
-			PrintTime(&System_Time);
+			PrintTime(&SysParam_Time);
 			PrintString("[IW7027 INTIAL] -5 : Get STB , Set work status ...\r\n");
 			PrintString("Initial IW7027 work status:\r\n");
 			PrintArray((uint8 *)&SysParam_Iw7027,sizeof(SysParam_Iw7027));
@@ -305,7 +305,7 @@ uint8 Iw7027_init(void)
 	//Step 6 : Initialize Done ,turn on BL
 	Iw7027_writeSingleByte(IW_ALL, 0x00, 0x07);
 #if UART_DEBUG_ON
-	PrintTime(&System_Time);
+	PrintTime(&SysParam_Time);
 	PrintString("[IW7027 INTIAL] -6 : Initialize finish , turn on BL..\r\n");
 	PrintString("\e[32mBL on ,enter main loop.\r\n\e[30m");
 #endif

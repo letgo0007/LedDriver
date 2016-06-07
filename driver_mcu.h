@@ -58,7 +58,7 @@ typedef struct Struct_BoardInfo_t
 	flag fSpiDataValid;
 	//IW7027_FAULT_IN Gpio value
 	flag fIw7027Fault;
-	uint8 RESERVED[0x0A];
+	uint8 RESERVED[0x02];
 } dStruct_BoardInfo_t;
 
 //Parameters structure for Error handle

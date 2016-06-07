@@ -1,0 +1,5 @@
+//Write 0xFF to IW_1, 0x70 register
+write 28 A0 81 01 00 07
+//Read data form IW_1 , 0x00 register
+write 28 A0 80 01 00
+wreads 1 28 A4 1

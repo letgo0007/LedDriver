@@ -39,7 +39,7 @@ uint16 DPL_InputGamma[0x100] =
 //Default params.
 static const DPL_Prama DPL_DefaultParam_70XU30A =
 { .dplOn = 1, .dplChannelAmount = 78, .dplInputGammaEnable = 1, .dplSampleFrames = 120, .dplUpdateFrames = 1200,
-		.dplLimitUpStep = 0x0080, .dplLimitDownStep = 0x0080, .dplGdDutyMax = 0x0800, .dplLdDutyMax = 0x0F00,
+		.dplLimitUpStep = 0x0080, .dplLimitDownStep = 0x0080, .dplGdDutyMax = 0x0800, .dplLdDutyMax = 0x1500,
 		.dplTemperatureCalibration = 0x0000, .dplLdDutySumLimitHighTemp = 0x0800, .dplLdDutySumLimitLowTemp = 0x0700,
 		.dplInputGammaGp0x000 = 0x0000, .dplInputGammaGp0x3F0 = 0x03F0, .dplInputGammaGp0x7F0 = 0x07F0, .dplInputGammaGp0xBF0 =
 				0x0BF0, .dplInputGammaGp0xFF0 = 0x0FF0, };

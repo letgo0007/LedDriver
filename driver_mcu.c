@@ -31,12 +31,8 @@
 #define BOARD_ACLK_F					(32768)
 //I2C Slave addess for [NORMAL] mode ,7bit mode
 #define BOARD_I2C_SLAVE_ADD_NORMAL		(0x14)
-//I2C Slave addess for [ISP] mode ,7bit mode
-#define ISP_I2C_SLAVE_ADDRESS			(0x1C)
 //I2C buffer start address for [NORMAL] mode .
-#define BOARD_I2C_BUF_ADD_NORMAL		(0x4000)
-//I2C buffer start address for [ISP] mode .
-#define BOARD_I2C_BUF_ADD_ISP			(0x3C00)
+#define BOARD_I2C_SLAVE_BUFF_OFFSET		(0x4000)
 //SPI master speed (unit in Hz)
 #define BOARD_SPI_MASTER_SPEED			(4000000)
 //Bound Rate of UART
@@ -45,13 +41,12 @@
 #define BOARD_ADCCAL_15V_30C  			*((uint16 *)0x1A1A)
 //Temperature Sensor Calibration value for 85C
 #define BOARD_ADCCAL_15V_85C  			*((uint16 *)0x1A1C)
-
 //ISP mode I2C slave address
-#define ISP_I2C_SLAVE_ADDRESS		(0x1C)
+#define ISP_I2C_SLAVE_ADDRESS			(0x1C)
 //ISP exit flag address on flash
-#define ISP_EXIT_FLAG_ADDRESS		(0x1900)
+#define ISP_EXIT_FLAG_ADDRESS			(0x1900)
 //ISP exit password value ,must = 32bit.
-#define ISP_EXIT_PASSWORD32			(0x20140217)
+#define ISP_EXIT_PASSWORD32				(0x20140217)
 
 /***2.2 Internal Struct ********************************************************/
 
@@ -86,7 +81,7 @@ uint8 HwBuf_UartRx[256] =
 /******************************************************************************
  * Set I2C Slave Map Struct
  * Put Variables those need I2C access to the RAM address of
- * BOARD_I2C_BUF_ADD_NORMAL ~ BOARD_I2C_BUF_ADD_NORMAL + 0xFF .
+ * BOARD_I2C_SLAVE_BUFF_OFFSET ~ BOARD_I2C_SLAVE_BUFF_OFFSET + 0xFF .
  * Using the #pragma location = ADDRESS compiler command to appoint address.
  * Refer to TI compiler #pragma cmd list file :
  * http://www.ti.com/lit/ug/slau132l/slau132l.pdf
@@ -104,19 +99,23 @@ uint8 HwBuf_UartRx[256] =
  * ----------------------  	--------  	---------
  * 							total		0x100
  ******************************************************************************/
-#pragma LOCATION(SysParam_Schedule , BOARD_I2C_BUF_ADD_NORMAL + 0x00)
-#pragma LOCATION(SysParam_BoardInfo , BOARD_I2C_BUF_ADD_NORMAL + 0x20)
-#pragma LOCATION(SysParam_Error , BOARD_I2C_BUF_ADD_NORMAL + 0x30)
-#pragma LOCATION(SysParam_Iw7027 , BOARD_I2C_BUF_ADD_NORMAL + 0x40)
-#pragma LOCATION(SysParam_Dpl , BOARD_I2C_BUF_ADD_NORMAL + 0x70)
-#pragma LOCATION(HwBuf_I2cSlave , BOARD_I2C_BUF_ADD_NORMAL + 0xA0)
-#pragma LOCATION(SysParam_Version , BOARD_I2C_BUF_ADD_NORMAL + 0xF0)
-#pragma LOCATION(SysParam_IspPassword , BOARD_I2C_BUF_ADD_NORMAL + 0xF8)
+#pragma LOCATION(SysParam_Schedule , BOARD_I2C_SLAVE_BUFF_OFFSET + 0x00)
+#pragma LOCATION(SysParam_BoardInfo , BOARD_I2C_SLAVE_BUFF_OFFSET + 0x20)
+#pragma LOCATION(SysParam_Time , BOARD_I2C_SLAVE_BUFF_OFFSET + 0x28)
+#pragma LOCATION(SysParam_Error , BOARD_I2C_SLAVE_BUFF_OFFSET + 0x30)
+#pragma LOCATION(SysParam_Iw7027 , BOARD_I2C_SLAVE_BUFF_OFFSET + 0x40)
+#pragma LOCATION(SysParam_Dpl , BOARD_I2C_SLAVE_BUFF_OFFSET + 0x70)
+#pragma LOCATION(HwBuf_I2cSlave , BOARD_I2C_SLAVE_BUFF_OFFSET + 0xA0)
+#pragma LOCATION(SysParam_Version , BOARD_I2C_SLAVE_BUFF_OFFSET + 0xF0)
+#pragma LOCATION(SysParam_IspPassword , BOARD_I2C_SLAVE_BUFF_OFFSET + 0xF8)
 
 dStruct_CpuScheduler_t SysParam_Schedule =
 { 0 };
 
 dStruct_BoardInfo_t SysParam_BoardInfo =
+{ 0 };
+
+Calendar SysParam_Time =
 { 0 };
 
 dStruct_ErrorParam_t SysParam_Error =
@@ -629,12 +628,12 @@ void __attribute__ ((interrupt(USCI_B0_VECTOR))) Isr_I2cSlave (void)
 		}
 		else
 		{
-			HWREG8(BOARD_I2C_BUF_ADD_NORMAL + op_add + rxcount - 1) = UCB0RXBUF;
+			HWREG8(BOARD_I2C_SLAVE_BUFF_OFFSET + op_add + rxcount - 1) = UCB0RXBUF;
 		}
 		rxcount++;
 		break;
 	case 12:	    	// Vector 12: TXIFG
-		UCB0TXBUF = HWREG8(BOARD_I2C_BUF_ADD_NORMAL + op_add + txcount);
+		UCB0TXBUF = HWREG8(BOARD_I2C_SLAVE_BUFF_OFFSET + op_add + txcount);
 		txcount++;
 		break;
 	default:

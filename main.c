@@ -112,7 +112,7 @@ int main(void)
 		if (SysParam_Schedule.fTestFlag1Hz)
 		{
 			PrintEnter();
-			PrintTime(&System_Time);
+			PrintTime(&SysParam_Time);
 
 #if 1
 			//Board Info Log

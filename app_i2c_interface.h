@@ -33,10 +33,17 @@
 
 // Address offset define for Special Function 2 [Manual pattern]
 #define I2C_MANUAL_WRMODE			(0x10)
-#define I2C_MANUAL_DUTY_H			(0x11)
-#define I2C_MANUAL_DUTY_L			(0x12)
+#define I2C_MANUAL_DUTY_L			(0x11)
+#define I2C_MANUAL_DUTY_H			(0x12)
 #define I2C_MANUAL_START_CH			(0x13)
 #define I2C_MANUAL_END_CH			(0x14)
+
+// Address offset define for Special Function 3 [Direct Meemory Access]
+#define I2C_DMA_WRMODE				(0x20)
+#define I2C_DMA_ADD_L				(0x21)
+#define I2C_DMA_ADD_H				(0x22)
+#define I2C_DMA_TXDATA				(0x23)
+#define I2C_DMA_RXDATA				(0x24)
 
 /***2.2 External Structures **************************************************/
 

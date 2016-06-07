@@ -26,8 +26,7 @@ uint16 Sch_CpuOnMark = 0;
 uint32 Sch_CpuWorkTime = 0;
 
 /***2.4 External Variables ***/
-Calendar System_Time =
-{ 0 };
+extern Calendar SysParam_Time ;
 
 /***2.5 Internal Functions ***/
 #pragma LOCATION(Isr_Scheduler_TimerB0,0x4E00)
@@ -94,7 +93,7 @@ void __attribute__ ((interrupt(RTC_VECTOR))) Isr_Scheduler_Rtc (void)
 	case 0: //No interrupts
 		break;
 	case 2: //1 sec , update system time & set test 1Hz flag.
-		System_Time = RTC_A_getCalendarTime( RTC_A_BASE);
+		SysParam_Time = RTC_A_getCalendarTime( RTC_A_BASE);
 		SysParam_Schedule.fTestFlag1Hz = 1;
 		break;
 	case 4: //1 min

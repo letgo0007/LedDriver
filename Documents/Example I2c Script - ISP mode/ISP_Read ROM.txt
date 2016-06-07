@@ -11,22 +11,6 @@ wreads 3 38 00 4C 00 200
 pause 30
 wreads 3 38 00 4E 00 200
 pause 30
-wreads 3 38 00 50 00 200
-pause 30
-wreads 3 38 00 52 00 200
-pause 30
-wreads 3 38 00 54 00 200
-pause 30
-wreads 3 38 00 56 00 200
-pause 30
-wreads 3 38 00 58 00 200
-pause 30
-wreads 3 38 00 5A 00 200
-pause 30
-wreads 3 38 00 5C 00 200
-pause 30
-wreads 3 38 00 5E 00 200
-pause 30
 wreads 3 38 00 60 00 200
 pause 30
 wreads 3 38 00 62 00 200

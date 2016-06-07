@@ -62,7 +62,7 @@ typedef struct Struct_CpuScheduler_t
 extern dStruct_CpuScheduler_t SysParam_Schedule;
 
 //System time ,indicates system work time (Read Time Clock)since start up
-extern Calendar System_Time;
+extern Calendar SysParam_Time;
 
 /***2.4 External Functions ***/
 
