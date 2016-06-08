@@ -15,11 +15,11 @@
  *
  *****************************************************************************/
 
-#include "app_i2c_interface.h"
+#include "drv_i2c_slave.h"
 
-#include "driver_iw7027.h"
-#include "driver_mcu.h"
-#include "driver_uartdebug.h"
+#include "drv_iw7027.h"
+#include "drv_uart.h"
+#include "hal.h"
 
 static const uint16 TestPattern_Logo[80] =
 {
@@ -79,16 +79,16 @@ uint8 I2cSlave_handleSpecialFunction(uint8 *sfbuff)
 		uint16 duty = 0x0100 * sfbuff[I2C_MANUAL_DUTY_H] + sfbuff[I2C_MANUAL_DUTY_L];
 		PrintString("Test Pattern");
 		PrintArray(&sfbuff[I2C_MANUAL_WRMODE],5);
-		Mem_set16((uint32) &HwBuf_TestDuty[sfbuff[I2C_MANUAL_START_CH]], duty, sfbuff[I2C_MANUAL_END_CH] - sfbuff[I2C_MANUAL_START_CH]);
+		Hal_Mem_set16((uint32) &u16Hal_Buf_TestDuty[sfbuff[I2C_MANUAL_START_CH]], duty, sfbuff[I2C_MANUAL_END_CH] - sfbuff[I2C_MANUAL_START_CH]);
 		break;
 	}
 	case 0x81: //Mute Pattern
 		PrintString("Test Pattern = Mute.\r\n");
-		Mem_set16((uint32) &HwBuf_TestDuty[0], 0x0000, sizeof(HwBuf_TestDuty) / 2);
+		Hal_Mem_set16((uint32) &u16Hal_Buf_TestDuty[0], 0x0000, sizeof(u16Hal_Buf_TestDuty) / 2);
 		break;
 	case 0x82: //Logo Pattern
 		PrintString("Test Pattern = Logo.\r\n");
-		Mem_copy((uint32) &HwBuf_TestDuty[0], (uint32) &TestPattern_Logo[0], sizeof(HwBuf_TestDuty));
+		Hal_Mem_copy((uint32) &u16Hal_Buf_TestDuty[0], (uint32) &TestPattern_Logo[0], sizeof(u16Hal_Buf_TestDuty));
 		break;
 	default: //No operation
 		break;
@@ -114,13 +114,13 @@ uint8 I2cSlave_handleSpecialFunction(uint8 *sfbuff)
 	case 0x80://Read
 	{
 		uint16 add = 0x0100 * sfbuff[I2C_DMA_ADD_H] + sfbuff[I2C_DMA_ADD_L];
-		sfbuff[I2C_DMA_RXDATA] = HREG8(add);
+		sfbuff[I2C_DMA_RXDATA] = HAL_REG8(add);
 		break;
 	}
 	case 0x81: //Write
 	{
 		uint16 add = 0x0100 * sfbuff[I2C_DMA_ADD_H] + sfbuff[I2C_DMA_ADD_L];
-		HREG8(add) = sfbuff[I2C_DMA_TXDATA];
+		HAL_REG8(add) = sfbuff[I2C_DMA_TXDATA];
 		break;
 	}
 	default: //No operation

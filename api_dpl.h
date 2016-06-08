@@ -11,8 +11,8 @@
  *
  *****************************************************************************/
 
-#ifndef APP_DPL_H_
-#define APP_DPL_H_
+#ifndef API_DPL_H_
+#define API_DPL_H_
 /***1 Includes ***************************************************************/
 
 #include "std.h"
@@ -27,7 +27,7 @@
 /***2.2 External Structures **************************************************/
 
 //Parameters Struct
-typedef struct DPL_Prama
+typedef struct Dpl_Prama_t
 {
 	//On/Off control of DPL
 	flag dplOn;
@@ -65,27 +65,27 @@ typedef struct DPL_Prama
 	uint16 dplInputGammaGp0xFF0;
 	//RESERVED...
 	uint8 reserved[0x11];
-} DPL_Prama;
+} Dpl_Prama_t;
 
 /***2.3 External Variables ***************************************************/
 
 //Temp buffers (External access for Debug use only).
-extern uint16 DPL_tempSampleCount;
-extern uint16 DPL_tempDutyMatrix[DPL_LED_CH_MAX];
-extern uint32 DPL_tempSumDutyMatrix[DPL_LED_CH_MAX];
-extern uint16 DPL_tempDutyLimitTable[DPL_LED_CH_MAX];
-extern uint16 DPL_InputGamma[0x100];
+extern uint16 u16Dpl_tempSampleCount;
+extern uint16 u16Dpl_tempDutyMatrix[DPL_LED_CH_MAX];
+extern uint32 u32Dpl_tempSumDutyMatrix[DPL_LED_CH_MAX];
+extern uint16 u16Dpl_tempDutyLimitTable[DPL_LED_CH_MAX];
+extern uint16 u16Dpl_InputGamma[0x100];
 //Dpl param
-extern DPL_Prama SysParam_Dpl;
+extern Dpl_Prama_t tDpl_Param;
 
 /***2.4 External Functions ***************************************************/
 //DMA accelerated memory copy.
-extern void Mem_copy();
+extern void Hal_Mem_copy();
 //DMA accelerated memory set.
-extern void Mem_set16();
+extern void Hal_Mem_set16();
 //DPL main struct
-extern uint8 DPL_Function(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam);
-extern void DPL_caliberateTemp(int8 temp, DPL_Prama *dplparam);
+extern uint8 DPL_Function(uint16 *inputduty, uint16 *outputduty, Dpl_Prama_t *dplparam);
+extern void DPL_caliberateTemp(int8 temp, Dpl_Prama_t *dplparam);
 
-#endif /* APP_DPL_H_ */
+#endif /* API_DPL_H_ */
 

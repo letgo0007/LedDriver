@@ -13,7 +13,7 @@
 
 /***1 Includes ***************************************************************/
 
-#include "app_dpl.h"
+#include "api_dpl.h"
 
 /***2.1 Internal Marcos ******************************************************/
 
@@ -25,19 +25,19 @@
 
 /***2.3 Internal Variables ***************************************************/
 //Buffers
-uint16 DPL_tempSampleCount =
+uint16 u16Dpl_tempSampleCount =
 { 0 };
-uint16 DPL_tempDutyMatrix[DPL_LED_CH_MAX] =
+uint16 u16Dpl_tempDutyMatrix[DPL_LED_CH_MAX] =
 { 0 };
-uint32 DPL_tempSumDutyMatrix[DPL_LED_CH_MAX] =
+uint32 u32Dpl_tempSumDutyMatrix[DPL_LED_CH_MAX] =
 { 0 };
-uint16 DPL_tempDutyLimitTable[DPL_LED_CH_MAX] =
+uint16 u16Dpl_tempDutyLimitTable[DPL_LED_CH_MAX] =
 { 0 };
-uint16 DPL_InputGamma[0x100] =
+uint16 u16Dpl_InputGamma[0x100] =
 { 0 };
 
 //Default params.
-static const DPL_Prama DPL_DefaultParam_70XU30A =
+static const Dpl_Prama_t DPL_DefaultParam_70XU30A =
 { .dplOn = 1, .dplChannelAmount = 78, .dplInputGammaEnable = 1, .dplSampleFrames = 120, .dplUpdateFrames = 1200,
 		.dplLimitUpStep = 0x0080, .dplLimitDownStep = 0x0080, .dplGdDutyMax = 0x0800, .dplLdDutyMax = 0x1500,
 		.dplTemperatureCalibration = 0x0000, .dplLdDutySumLimitHighTemp = 0x0800, .dplLdDutySumLimitLowTemp = 0x0700,
@@ -71,7 +71,7 @@ static const uint16 DPL_ZoneOffsetTable_70XU30A[DPL_LED_CH_MAX] =
 
 /***2.5 Internal Functions ***************************************************/
 
-void DPL_limitLocalDuty(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam)
+void DPL_limitLocalDuty(uint16 *inputduty, uint16 *outputduty, Dpl_Prama_t *dplparam)
 {
 	static uint16 ldmax_now;
 	uint16 i = 0;
@@ -80,17 +80,17 @@ void DPL_limitLocalDuty(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplpar
 	if (ldmax_now != dplparam->dplLdDutyMax)
 	{
 		ldmax_now = dplparam->dplLdDutyMax;
-		Mem_set16((uint32) &DPL_tempDutyLimitTable, dplparam->dplLdDutyMax, sizeof(DPL_tempDutyLimitTable) / 2);
+		Hal_Mem_set16((uint32) &u16Dpl_tempDutyLimitTable, dplparam->dplLdDutyMax, sizeof(u16Dpl_tempDutyLimitTable) / 2);
 	}
 
 	//Limit every local duty <= dplLdLimitTable
 	for (i = 0; i < dplparam->dplChannelAmount; i++)
 	{
-		outputduty[i] = min(inputduty[i], DPL_tempDutyLimitTable[i]);
+		outputduty[i] = min(inputduty[i], u16Dpl_tempDutyLimitTable[i]);
 	}
 }
 
-void DPL_limitGlobalDuty(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam)
+void DPL_limitGlobalDuty(uint16 *inputduty, uint16 *outputduty, Dpl_Prama_t *dplparam)
 {
 	uint16 i = 0;
 	uint32 sum = 0;
@@ -120,12 +120,12 @@ void DPL_limitGlobalDuty(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplpa
 	else
 	{
 		//Size = channel * 2 bytes (16bit)
-		Mem_copy((uint32) &*outputduty, (uint32) &*inputduty, (dplparam->dplChannelAmount) * 2);
+		Hal_Mem_copy((uint32) &*outputduty, (uint32) &*inputduty, (dplparam->dplChannelAmount) * 2);
 	}
 
 }
 
-void DPL_sumLocalDuty(uint16 *inputduty, uint32 *outputdutysum, DPL_Prama *dplparam)
+void DPL_sumLocalDuty(uint16 *inputduty, uint32 *outputdutysum, Dpl_Prama_t *dplparam)
 {
 	uint16 i = 0;
 	//Sum up duty of every local
@@ -136,7 +136,7 @@ void DPL_sumLocalDuty(uint16 *inputduty, uint32 *outputdutysum, DPL_Prama *dplpa
 
 }
 
-void DPL_updateParam(uint32 *inputdutysum, DPL_Prama *dplparam)
+void DPL_updateParam(uint32 *inputdutysum, Dpl_Prama_t *dplparam)
 {
 	/*Update local duty limit table arroding to Local Duty Sum in the last 1min
 	 * [A] DutySum > HighTemp 	, Limit = - step, no lower than High temp limit
@@ -158,12 +158,12 @@ void DPL_updateParam(uint32 *inputdutysum, DPL_Prama *dplparam)
 		//YZF 2016/5/20: + 0x0020 for noise reduction , avoid limit jump around high limit.
 		if (avgduty > highlimit + 0x0020)
 		{
-			DPL_tempDutyLimitTable[i] = max(DPL_tempDutyLimitTable[i] - dplparam->dplLimitDownStep, highlimit);
+			u16Dpl_tempDutyLimitTable[i] = max(u16Dpl_tempDutyLimitTable[i] - dplparam->dplLimitDownStep, highlimit);
 		}
 		//Duty sum high , Limit step down ,but no higher than dplLdDutyMax.
 		else if (avgduty < lowlimit - 0x0020)
 		{
-			DPL_tempDutyLimitTable[i] = min(DPL_tempDutyLimitTable[i] + dplparam->dplLimitUpStep, dplparam->dplLdDutyMax);
+			u16Dpl_tempDutyLimitTable[i] = min(u16Dpl_tempDutyLimitTable[i] + dplparam->dplLimitUpStep, dplparam->dplLdDutyMax);
 		}
 	}
 
@@ -175,7 +175,7 @@ void DPL_updateParam(uint32 *inputdutysum, DPL_Prama *dplparam)
 
 }
 
-void DPL_correctGamma(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam)
+void DPL_correctGamma(uint16 *inputduty, uint16 *outputduty, Dpl_Prama_t *dplparam)
 {
 	static uint16 gp_now[5];
 
@@ -201,21 +201,21 @@ void DPL_correctGamma(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam
 
 		for (i = 0; i < 63; i++)
 		{
-			DPL_InputGamma[i] = dplparam->dplInputGammaGp0x000 + step1 * (i);
+			u16Dpl_InputGamma[i] = dplparam->dplInputGammaGp0x000 + step1 * (i);
 		}
 		for (i = 63; i < 127; i++)
 		{
-			DPL_InputGamma[i] = dplparam->dplInputGammaGp0x3F0 + step2 * (i - 63);
+			u16Dpl_InputGamma[i] = dplparam->dplInputGammaGp0x3F0 + step2 * (i - 63);
 		}
 		for (i = 127; i < 191; i++)
 		{
-			DPL_InputGamma[i] = dplparam->dplInputGammaGp0x7F0 + step3 * (i - 127);
+			u16Dpl_InputGamma[i] = dplparam->dplInputGammaGp0x7F0 + step3 * (i - 127);
 		}
 		for (i = 191; i < 255; i++)
 		{
-			DPL_InputGamma[i] = dplparam->dplInputGammaGp0xBF0 + step4 * (i - 191);
+			u16Dpl_InputGamma[i] = dplparam->dplInputGammaGp0xBF0 + step4 * (i - 191);
 		}
-		DPL_InputGamma[255] = dplparam->dplInputGammaGp0xFF0;
+		u16Dpl_InputGamma[255] = dplparam->dplInputGammaGp0xFF0;
 	}
 
 	//Gamma correction
@@ -224,7 +224,7 @@ void DPL_correctGamma(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam
 		uint16 i;
 		for (i = 0; i < dplparam->dplChannelAmount; i++)
 		{
-			outputduty[i] = DPL_InputGamma[inputduty[i] >> 4];
+			outputduty[i] = u16Dpl_InputGamma[inputduty[i] >> 4];
 		}
 	}
 
@@ -243,12 +243,12 @@ void DPL_correctGamma(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam
  * @variables
  * 		*inputduty				: Duty matrix input
  * 		*outputduty				: Duty Matrix output (power limited)
- * 		dplparam				: DPL function parameters , DPL_Prama type .
+ * 		dplparam				: DPL function parameters , Dpl_Prama_t type .
  * @return
  * 		FLAG_SUCCESS			: DPL function finish
  *
  */
-uint8 DPL_Function(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam)
+uint8 DPL_Function(uint16 *inputduty, uint16 *outputduty, Dpl_Prama_t *dplparam)
 {
 	static uint8 firstrun;
 
@@ -256,7 +256,7 @@ uint8 DPL_Function(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam)
 	if (firstrun == 0)
 	{
 		//Load default param.
-		Mem_copy((uint32) *&dplparam, (uint32) &DPL_DefaultParam, sizeof(DPL_DefaultParam));
+		Hal_Mem_copy((uint32) *&dplparam, (uint32) &DPL_DefaultParam, sizeof(DPL_DefaultParam));
 		firstrun = 1;
 	}
 
@@ -266,30 +266,30 @@ uint8 DPL_Function(uint16 *inputduty, uint16 *outputduty, DPL_Prama *dplparam)
 		//STEP1: Gamma correction.
 		DPL_correctGamma(inputduty, inputduty, dplparam);
 		//STEP2: Input -> LD limit -> GD limit -> Output
-		DPL_limitLocalDuty(inputduty, DPL_tempDutyMatrix, dplparam);
-		DPL_limitGlobalDuty(DPL_tempDutyMatrix, outputduty, dplparam);
+		DPL_limitLocalDuty(inputduty, u16Dpl_tempDutyMatrix, dplparam);
+		DPL_limitGlobalDuty(u16Dpl_tempDutyMatrix, outputduty, dplparam);
 		//STEP3: Sample
-		if (DPL_tempSampleCount % dplparam->dplSampleFrames == 1)
+		if (u16Dpl_tempSampleCount % dplparam->dplSampleFrames == 1)
 		{
-			DPL_sumLocalDuty(outputduty, DPL_tempSumDutyMatrix, dplparam);
+			DPL_sumLocalDuty(outputduty, u32Dpl_tempSumDutyMatrix, dplparam);
 		}
 		//STEP4: Update Param
-		if (DPL_tempSampleCount == dplparam->dplUpdateFrames)
+		if (u16Dpl_tempSampleCount == dplparam->dplUpdateFrames)
 		{
-			DPL_updateParam(DPL_tempSumDutyMatrix, dplparam);
-			DPL_tempSampleCount = 0;
+			DPL_updateParam(u32Dpl_tempSumDutyMatrix, dplparam);
+			u16Dpl_tempSampleCount = 0;
 		}
-		DPL_tempSampleCount++;
+		u16Dpl_tempSampleCount++;
 	}
 	else    //when DPL is off , bypass input to output.
 	{
-		Mem_copy((uint32) &*outputduty, (uint32) &*inputduty, dplparam->dplChannelAmount * 2);
-		DPL_tempSampleCount = 0;
+		Hal_Mem_copy((uint32) &*outputduty, (uint32) &*inputduty, dplparam->dplChannelAmount * 2);
+		u16Dpl_tempSampleCount = 0;
 	}
 	return FLAG_SUCCESS;
 }
 
-void DPL_caliberateTemp(int8 temp, DPL_Prama *dplparam)
+void DPL_caliberateTemp(int8 temp, Dpl_Prama_t *dplparam)
 {
 	//Set high/low limt
 	temp = max(temp, 0);

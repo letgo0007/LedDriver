@@ -28,6 +28,7 @@ typedef _Bool flag;
 /*API standard return value for flag*/
 #define FLAG_SUCCESS			(1)
 #define FLAG_FAIL				(0)
+
 /*BIT Mask*/
 #define BIT0                   (0x0001)
 #define BIT1                   (0x0002)
@@ -55,15 +56,18 @@ inline int min(int a, int b)
 {
 	return a < b ? a : b;
 }
-
-/*Direct access to memory access*/
-
-#define HREG32(x)    (*((volatile uint32 *)((uint16)x)))
-
-#define HREG16(x)    (*((volatile uint16 *)((uint16)x)))
-
-#define HREG8(x)     (*((volatile uint8 *)((uint16)x)))
-
+//Direct access to memory
+#define HAL_REG32(x)    (*((volatile uint32 *)((uint32)x)))
+#define HAL_REG16(x)    (*((volatile uint16 *)((uint32)x)))
+#define HAL_REG8(x)     (*((volatile uint8 *)((uint32)x)))
+//ISP exit flag address on flash
+#define ISP_EXIT_FLAG_ADDRESS			(0x1900)
+//ISP exit password value ,must = 32bit.
+#define ISP_EXIT_PASSWORD32				(0x20140217)
+//ISP boot program flash address.
+#define ISP_BOOT_ADDRESS				(0x4480)
+//ISP main program flash address.
+#define ISP_MAIN_ADDRESS				(0x10000)
 
 /*.h file common structure*/
 /***1 Includes ***************************************************************/

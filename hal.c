@@ -1,7 +1,7 @@
 /******************************************************************************
- * @file 	[driver_scheduler.c]
+ * @file 	[hal.c]
  *
- * MCU hardware driver.
+ * Hardware Abstract Layer for LED Driver Board.
  *
  * Copyright (c) 2016 SHARP CORPORATION
  *
@@ -13,127 +13,119 @@
 
 /***1 Includes ***************************************************************/
 
-#include "driver_mcu.h"
+#include "hal.h"
 
-#include "app_dpl.h"
-#include "driver_iw7027.h"
-#include "driver_scheduler.h"
-#include "driver_uartdebug.h"
+#include "api_dpl.h"
+#include "drv_iw7027.h"
+#include "drv_uart.h"
 
 /***2.1 Internal Marcos ******************************************************/
 //XT1 frequency, if no external XT1,set to 0
-#define BOARD_XT1_F						(0)
+#define HAL_XT1_F						(0)
 //XT2 frequency, if no external XT2,set to 0
-#define BOARD_XT2_F						(0)
+#define HAL_XT2_F						(0)
 //High speed Sub_System_Clock
-#define BOARD_SMCLK_F					(BOARD_CPU_F)
+#define HAL_SMCLK_F					(HAL_CPU_F)
 //Low speed Assist_Clock
-#define BOARD_ACLK_F					(32768)
+#define HAL_ACLK_F					(32768)
 //I2C Slave addess for [NORMAL] mode ,7bit mode
-#define BOARD_I2C_SLAVE_ADD_NORMAL		(0x14)
+#define HAL_I2C_SLAVE_ADD_NORMAL		(0x14)
 //I2C buffer start address for [NORMAL] mode .
-#define BOARD_I2C_SLAVE_BUFF_OFFSET		(0x4000)
+#define HAL_I2C_SLAVE_BUFF_OFFSET		(0x4000)
 //SPI master speed (unit in Hz)
-#define BOARD_SPI_MASTER_SPEED			(4000000)
+#define HAL_SPI_MASTER_SPEED			(4000000)
 //Bound Rate of UART
-#define BOARD_UART_BAUDRATE				(115200)
+#define HAL_UART_BAUDRATE				(115200)
 //Temperature Sensor Calibration value for 30C
-#define BOARD_ADCCAL_15V_30C  			*((uint16 *)0x1A1A)
+#define HAL_ADCCAL_15V_30C  			*((uint16 *)0x1A1A)
 //Temperature Sensor Calibration value for 85C
-#define BOARD_ADCCAL_15V_85C  			*((uint16 *)0x1A1C)
-//ISP mode I2C slave address
-#define ISP_I2C_SLAVE_ADDRESS			(0x1C)
-//ISP exit flag address on flash
-#define ISP_EXIT_FLAG_ADDRESS			(0x1900)
-//ISP exit password value ,must = 32bit.
-#define ISP_EXIT_PASSWORD32				(0x20140217)
+#define HAL_ADCCAL_15V_85C  			*((uint16 *)0x1A1C)
 
 /***2.2 Internal Struct ********************************************************/
 
 /***2.3 Internal Variables *****************************************************/
 
 //Default error detection parameters.
-const dStruct_ErrorParam_t Default_ErrorParam =
+const Hal_BoardErrorParam_t Default_ErrorParam =
 { .u8Dc13vMax = 16, .u8Dc13vMin = 10, .u8Dc60vMax = 70, .u8Dc60vMin = 50, .u8SpiRxFreqMin = 20, .fSpiDataErrorIgnore = 1,
 		.fIw7027FaultIgnore = 0, .fErrorSaveEn = 0, };
 
-//Write ISP_INIT_EXIT_FLAG to flash to exit isp mode on 1st run.
-//Note that need open the project Properties - Debug - MSP43x Options - Erase Options = Enable Erase Flash & Info
-#pragma LOCATION(ISP_INIT_EXIT_FLAG,ISP_EXIT_FLAG_ADDRESS)
-volatile static const uint32 ISP_INIT_EXIT_FLAG = 0x20140217;
+uint16 u16Hal_SchCpuOnMark = 0;
+uint32 u32Hal_SchCpuWorkTime = 0;
 
 /***2.4 External Variables ***/
 
 //Local Dimming duty information buffer
-uint16 HwBuf_InputDuty[128] =
+uint16 u16Hal_Buf_InputDuty[128] =
 { 0 };
-uint16 HwBuf_OutputDuty[128] =
+uint16 u16Hal_Buf_OutputDuty[128] =
 { 0 };
-uint16 HwBuf_TestDuty[128] =
+uint16 u16Hal_Buf_TestDuty[128] =
 { 0 };
 //Spi Slave hardware buffer
-uint8 HwBuf_SpiSlaveRx[256] =
+uint8 u8Hal_Buf_SpiSlaveRx[256] =
 { 0 };
 //Uart rx hardware buffer.
-uint8 HwBuf_UartRx[256] =
+uint8 u8Hal_Buf_UartRx[256] =
 { 0 };
 
 /******************************************************************************
  * Set I2C Slave Map Struct
  * Put Variables those need I2C access to the RAM address of
- * BOARD_I2C_SLAVE_BUFF_OFFSET ~ BOARD_I2C_SLAVE_BUFF_OFFSET + 0xFF .
+ * HAL_I2C_SLAVE_BUFF_OFFSET ~ HAL_I2C_SLAVE_BUFF_OFFSET + 0xFF .
  * Using the #pragma location = ADDRESS compiler command to appoint address.
  * Refer to TI compiler #pragma cmd list file :
  * http://www.ti.com/lit/ug/slau132l/slau132l.pdf
  *
  * Name            			origin    	length
  * ----------------------  	--------  	---------
- * SysParam_Schedule		0x00		0x20
- * SysParam_BoardInfo		0x20		0x10
- * SysParam_Error			0x30		0x10
- * SysParam_Iw7027			0x40		0x30
- * SysParam_Dpl				0x70		0x30
- * HwBuf_I2cSlave			0xA0		0x50
- * SysParam_Version			0xF0		0x08
- * SysParam_IspPassword		0xF8		0x08
+ * tHal_CpuScheduler		0x00		0x20
+ * tHal_BoardInfo			0x20		0x08
+ * tHal_Time				0x28		0x08
+ * tHal_BoardErrorParam		0x30		0x10
+ * tDrv_Iw7027Param			0x40		0x30
+ * tDpl_Param				0x70		0x30
+ * u8Hal_Buf_I2cSlave		0xA0		0x50
+ * u32Hal_Buf_SoftVersion	0xF0		0x08
+ * u32Hal_Buf_IspPw			0xF8		0x08
  * ----------------------  	--------  	---------
  * 							total		0x100
  ******************************************************************************/
-#pragma LOCATION(SysParam_Schedule , BOARD_I2C_SLAVE_BUFF_OFFSET + 0x00)
-#pragma LOCATION(SysParam_BoardInfo , BOARD_I2C_SLAVE_BUFF_OFFSET + 0x20)
-#pragma LOCATION(SysParam_Time , BOARD_I2C_SLAVE_BUFF_OFFSET + 0x28)
-#pragma LOCATION(SysParam_Error , BOARD_I2C_SLAVE_BUFF_OFFSET + 0x30)
-#pragma LOCATION(SysParam_Iw7027 , BOARD_I2C_SLAVE_BUFF_OFFSET + 0x40)
-#pragma LOCATION(SysParam_Dpl , BOARD_I2C_SLAVE_BUFF_OFFSET + 0x70)
-#pragma LOCATION(HwBuf_I2cSlave , BOARD_I2C_SLAVE_BUFF_OFFSET + 0xA0)
-#pragma LOCATION(SysParam_Version , BOARD_I2C_SLAVE_BUFF_OFFSET + 0xF0)
-#pragma LOCATION(SysParam_IspPassword , BOARD_I2C_SLAVE_BUFF_OFFSET + 0xF8)
+#pragma LOCATION(tHal_CpuScheduler , HAL_I2C_SLAVE_BUFF_OFFSET + 0x00)
+#pragma LOCATION(tHal_BoardInfo , HAL_I2C_SLAVE_BUFF_OFFSET + 0x20)
+#pragma LOCATION(tHal_Time , HAL_I2C_SLAVE_BUFF_OFFSET + 0x28)
+#pragma LOCATION(tHal_BoardErrorParam , HAL_I2C_SLAVE_BUFF_OFFSET + 0x30)
+#pragma LOCATION(tDrv_Iw7027Param , HAL_I2C_SLAVE_BUFF_OFFSET + 0x40)
+#pragma LOCATION(tDpl_Param , HAL_I2C_SLAVE_BUFF_OFFSET + 0x70)
+#pragma LOCATION(u8Hal_Buf_I2cSlave , HAL_I2C_SLAVE_BUFF_OFFSET + 0xA0)
+#pragma LOCATION(u32Hal_Buf_SoftVersion , HAL_I2C_SLAVE_BUFF_OFFSET + 0xF0)
+#pragma LOCATION(u32Hal_Buf_IspPw , HAL_I2C_SLAVE_BUFF_OFFSET + 0xF8)
 
-dStruct_CpuScheduler_t SysParam_Schedule =
+Hal_CpuScheduler_t tHal_CpuScheduler =
 { 0 };
 
-dStruct_BoardInfo_t SysParam_BoardInfo =
+Hal_BoardInfo_t tHal_BoardInfo =
 { 0 };
 
-Calendar SysParam_Time =
+Hal_Time tHal_Time =
 { 0 };
 
-dStruct_ErrorParam_t SysParam_Error =
+Hal_BoardErrorParam_t tHal_BoardErrorParam =
 { 0 };
 
-dStruct_Iw7027Param_t SysParam_Iw7027 =
+Drv_Iw7027Param_t tDrv_Iw7027Param =
 { 0 };
 
-DPL_Prama SysParam_Dpl =
+Dpl_Prama_t tDpl_Param =
 { 0 };
 
-uint8 HwBuf_I2cSlave[0x50] =
+uint8 u8Hal_Buf_I2cSlave[0x50] =
 { 0 };
 
-volatile uint64 SysParam_Version =
-{ BOARD_VERSION };
+volatile uint64 u32Hal_Buf_SoftVersion =
+{ HAL_VERSION };
 
-volatile uint64 SysParam_IspPassword =
+volatile uint64 u32Hal_Buf_IspPw =
 { 0 };
 
 /***2.5 Internal Functions ***/
@@ -164,12 +156,12 @@ volatile uint64 SysParam_IspPassword =
  *
  * [App-ISR]		    	origin    	length		Remark
  * ----------------------  	--------  	---------	----------
- * Isr_Gpio_P1				0x4800
- * Isr_SpiSlave_Cs			0x4900
- * Isr_I2cSlave				0x4A00
- * Isr_Uart					0x4D00
- * Isr_Scheduler_TimerB0	0x4E00					@driver_scheduler.c
- * Isr_Scheduler_Rtc		0x4F00					@driver_scheduler.c
+ * Hal_Isr_Gpio_P1			0x4800
+ * Hal_Isr_SpiSlave_Cs		0x4900
+ * Hal_Isr_I2cSlave			0x4A00
+ * Hal_Isr_Uart				0x4D00
+ * Hal_Isr_SchTimerB0		0x4E00					@driver_scheduler.c
+ * Hal_Isr_SchRtc			0x4F00					@driver_scheduler.c
  * ----------------------  	--------  	---------	----------
  * 							total		0x800
  *
@@ -193,254 +185,91 @@ volatile uint64 SysParam_IspPassword =
  *
  ******************************************************************************/
 //Place ISR & Boot
-#pragma LOCATION(Isr_Gpio_P1,0x4800)
-#pragma LOCATION(Isr_SpiSlave_Cs,0x4900)
-#pragma LOCATION(Isr_I2cSlave,0x4A00)
-#pragma LOCATION(Isr_Uart,0x4D00)
-#pragma LOCATION(_system_pre_init,0x4480)
+#pragma LOCATION(Hal_Isr_Gpio_P1,0x4800)
+#pragma LOCATION(Hal_Isr_SpiSlave_Cs,0x4900)
+#pragma LOCATION(Hal_Isr_I2cSlave,0x4A00)
+#pragma LOCATION(Hal_Isr_Uart,0x4D00)
 
-/**********************************************************
- * @Brief SetVcoreUp
- * 		Set Mcu Vcore Up for higher cpu speed.Refer to TI sample code.
- * 		Set Vcore level up 1 step up at a time another.
- * 		Use volatile inline to force compiler to build this function in
- * 		_system_pre_init()
- * @Param
- * 		level : available from 1~3 , refer to device specsheet for more info.
- * @Return
- * 		NONE
- **********************************************************/
-volatile inline void SetVcoreUp(unsigned int level)
+#pragma LOCATION(Hal_Isr_SchTimerB0,0x4E00)
+#pragma LOCATION(Hal_Isr_SchRtc,0x4F00)
+
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector=TIMER0_B1_VECTOR
+__interrupt void Hal_Isr_SchTimerB0(void)
+#elif defined(__GNUC__)
+void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
+#else
+#error Compiler not supported!
+#endif
 {
-	// Open PMM registers for write
-	PMMCTL0_H = PMMPW_H;
-	// Set SVS/SVM high side new level
-	SVSMHCTL = SVSHE + SVSHRVL0 * level + SVMHE + SVSMHRRL0 * level;
-	// Set SVM low side to new level
-	SVSMLCTL = SVSLE + SVMLE + SVSMLRRL0 * level;
-	// Wait till SVM is settled
-	while ((PMMIFG & SVSMLDLYIFG) == 0)
-		;
-	// Clear already set flags
-	PMMIFG &= ~(SVMLVLRIFG + SVMLIFG);
-	// Set VCore to new level
-	PMMCTL0_L = PMMCOREV0 * level;
-	// Wait till new level reached
-	if ((PMMIFG & SVMLIFG))
-		while ((PMMIFG & SVMLVLRIFG) == 0)
-			;
-	// Set SVS/SVM low side to new level
-	SVSMLCTL = SVSLE + SVSLRVL0 * level + SVMLE + SVSMLRRL0 * level;
-	// Lock PMM registers for write access
-	PMMCTL0_H = 0x00;
+	switch (__even_in_range(TB0IV, 14))
+	{
+	case 0: //No interrupt
+		break;
+	case 2: //CC1, set CPU wake up period.
+		TB0CCR1 += tHal_CpuScheduler.u16CpuTickPeriod;
+		tHal_CpuScheduler.u16CpuTickCount++;
+		if (u16Hal_SchCpuOnMark == 0)
+		{
+			u16Hal_SchCpuOnMark = TB0R;
+		}
+		//Turn on CPU
+		__bic_SR_register_on_exit(LPM0_bits);
+		break;
+	case 4: //CC2, set board check period.
+		TB0CCR2 += tHal_CpuScheduler.u16GpioCheckPeriod;
+		tHal_CpuScheduler.fTaskFlagGpioCheck = 1;
+		break;
+	case 6: //CC3, set Manual Mode period.
+		TB0CCR3 += tHal_CpuScheduler.u16TestModePeriod;
+		tHal_CpuScheduler.fTaskFlagTestMode = 1;
+		break;
+	case 8: //CC4
+		break;
+	case 10: //CC5
+		break;
+	case 12: //CC6
+		break;
+	case 14: //Overflow , calculate CPU load, uint in %.
+		tHal_CpuScheduler.u8CpuLoad = u32Hal_SchCpuWorkTime * 100 / 0x10000;
+		u32Hal_SchCpuWorkTime = 0;
+		break;
+	default:
+		break;
+	}
+
 }
 
-/**********************************************************
- * @Brief _system_pre_init
- * 		System low level initial before RAM intialization & main().
- * 		Use as isp mode boot loader.
- * 		DO NOT call any togher functions . If have to ,build the fucntion
- * 		with volatile inline . If this function is erased during ISP
- * 		process , it will cause system failure. Note that *,/ operation are
- * 		also external fuctions , do not use *,/ operation in
- * @Param
- * 		NONE
- * @Return
- * 		0	: omit RAM initialization.
- * 		1	: do RAM initialization.
- **********************************************************/
-int _system_pre_init(void)
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector=RTC_VECTOR
+__interrupt void Hal_Isr_SchRtc(void)
+#elif defined(__GNUC__)
+void __attribute__ ((interrupt(RTC_VECTOR))) Hal_Isr_SchRtc (void)
+#else
+#error Compiler not supported!
+#endif
 {
-	//Watch dog to 1sec .Clk source = ACLK , length = 32k.
-	WDTCTL = WDTPW + WDTCNTCL + WDTHOLD + WDTSSEL_1 + WDTIS_4;
-
-	//All gpio reset to Input with Pull Down.
-	PAOUT = 0;
-	PBOUT = 0;
-	PCOUT = 0;
-	PDOUT = 0;
-	PADIR = 0;
-	PBDIR = 0;
-	PCDIR = 0;
-	PDDIR = 0;
-	PAREN = 1;
-	PBREN = 1;
-	PCREN = 1;
-	PDREN = 1;
-
-	//Disable ISR because Interrupt vetore @ 0xffd0~0xffff will also be erased in ISP mode.
-	__disable_interrupt();
-
-	//Check password on info flash to decide whether go to main().
-	if (ISP_INIT_EXIT_FLAG == ISP_EXIT_PASSWORD32) //Password correct , go to main()
+	switch (__even_in_range(RTCIV, 16))
 	{
-		return 1;
-	}
-	else //Password wrong , run ISP function.
-	{
-		//Initialize buffers .
-		//The flash segment size = 512 for MSP430 device ,so data buffer max size =512.
-		//Flash Address is 32bit , address byte buffer size = 4 bytes .
-		uint8 data_buff[512] =
-		{ 0 };
-		uint8 op_add_buff[4] =
-		{ 0 };
-		uint32 op_add = 0;
-		uint8 *op_ptr = 0;
-		uint16 txcount = 0;
-		uint16 rxcount = 0;
-
-		//Initialize CPU CLK to 25MHz
-		SetVcoreUp(0x01);
-		SetVcoreUp(0x02);
-		SetVcoreUp(0x03);
-
-		UCSCTL3 = SELREF_2;                       // Set DCO FLL reference = REFO
-		UCSCTL4 |= SELA_2;                        // Set ACLK = REFO
-
-		__bis_SR_register(SCG0);                  // Disable the FLL control loop
-		UCSCTL0 = 0x0000;                         // Set lowest possible DCOx, MODx
-		UCSCTL1 = DCORSEL_7;                      // Select DCO range 50MHz operation
-		UCSCTL2 = FLLD_1 + 762;                   // Set DCO Multiplier for 25MHz
-												  // (N + 1) * FLLRef = Fdco
-												  // (762 + 1) * 32768 = 25MHz
-												  // Set FLL Div = fDCOCLK/2
-		__bic_SR_register(SCG0);                  // Enable the FLL control loop
-		__delay_cycles(782000);
-
-		// Loop until XT1,XT2 & DCO stabilizes - In this case only DCO has to stabilize
-		do
-		{
-			UCSCTL7 &= ~(XT2OFFG + XT1LFOFFG + DCOFFG);
-			// Clear XT2,XT1,DCO fault flags
-			SFRIFG1 &= ~OFIFG;                      // Clear fault flags
-		} while (SFRIFG1 & OFIFG);                   // Test oscillator fault flag
-
-		//P4.6 = ERROR_OUT , P4.7 = LED_G , P3.0 = SDA ,P3.1 = SCL
-		P4OUT |= BIT7 + BIT6;
-		P4DIR |= BIT7 + BIT6;
-		P3SEL |= BIT0 + BIT1;
-
-		//Initialize I2C slave in ISP mode address ,without ISR function.
-		UCB0CTL1 |= UCSWRST;
-		UCB0CTL0 = UCMODE_3 + UCSYNC;
-		UCB0I2COA = ISP_I2C_SLAVE_ADDRESS;
-		UCB0CTL1 &= ~UCSWRST;
-
-		while (1)
-		{
-			//Feed watch dog
-			uint8 newWDTStatus = (WDTCTL & 0x00FF) | WDTCNTCL;
-			WDTCTL = WDTPW + newWDTStatus;
-
-			//YZF 2016/6/2 : Buffer UCB0IFG first to avoid UCB0IFG modified during processing .
-			//				 This make sure I2C events are handled in order.
-			//				 For some master device , RX/STOP , TX/START may come very close in time.
-			uint16 UCB0IFG_BUFF = UCB0IFG;
-
-			//I2C Slave RX Event (Master send bytes)
-			if (UCB0IFG_BUFF & UCRXIFG)
-			{
-				//Buffer I2C slave data
-				if (rxcount < 3)	// 0~2 bytes are operation address bytes.
-				{
-					op_add_buff[2 - rxcount] = UCB0RXBUF;
-
-				}
-				else	// 3+ bytes are data bytes.
-				{
-					data_buff[rxcount - 3] = UCB0RXBUF;
-				}
-
-				rxcount++;
-				UCB0IFG &= ~UCRXIFG;
-			}
-
-			//I2C Slave START Event (Master call slave address)
-			if (UCB0IFG_BUFF & UCSTTIFG)
-			{
-				//Calculate operation address & pointer , for "Restart" conditon.
-				op_add = (*((volatile uint32 *) &op_add_buff[0]));
-				op_ptr = (uint8 *) (op_add & 0x0FFFFF);
-
-				//Reset count
-				txcount = 0;
-				rxcount = 0;
-				UCB0IFG &= ~UCSTTIFG;
-			}
-
-			//I2C Slave STOP Event (Master send STOP)
-			if (UCB0IFG_BUFF & UCSTPIFG)
-			{
-				//Calculate operation address & pointer
-				op_add = (*((volatile uint32 *) &op_add_buff[0]));
-				op_ptr = (uint8 *) (op_add & 0x0FFFFF);
-
-				/* Flash operation according to opp_add
-				 * Address				Operation
-				 * -----------------	----------
-				 * 0x104400~0x124400 	ERASE
-				 * 0x004400~0x024400	WRITE
-				 * 0xFFFFFF				EXIT ISP
-				 *
-				 */
-				if ((op_add >= 0x104400) && (op_add <= 0x124400))	//ERASE
-				{
-					FCTL3 = FWKEY;
-					FCTL1 = FWKEY + ERASE;
-					*op_ptr = 0xFF;
-					FCTL1 = FWKEY;
-					FCTL3 = FWKEY + LOCK;
-				}
-				if ((rxcount > 2) && (op_add >= 0x004400) && (op_add <= 0x024400))	//WRITE
-				{
-					uint16 i;
-					uint8 * flash_ptr;
-					flash_ptr = (uint8 *) op_add;
-
-					FCTL3 = FWKEY;
-					FCTL1 = FWKEY + WRT;
-					for (i = 0; i < rxcount - 3; i++)
-					{
-						*(flash_ptr + i) = data_buff[i];
-					}
-					FCTL1 = FWKEY;
-					FCTL3 = FWKEY + LOCK;
-				}
-				if (op_add == 0xFFFFFF)	//EXIT ISP
-				{
-					//Write ISP EXIT Password.
-					unsigned long * flash_ptr;
-					flash_ptr = (unsigned long *) ISP_EXIT_FLAG_ADDRESS;
-					//Erase segment first
-					FCTL3 = FWKEY;
-					FCTL1 = FWKEY + ERASE;
-					*flash_ptr = 0;
-					//Long-word(32bit) write
-					FCTL1 = FWKEY + BLKWRT;
-					*flash_ptr = ISP_EXIT_PASSWORD32;
-					//Lock Flash
-					FCTL1 = FWKEY;
-					FCTL3 = FWKEY + LOCK;
-
-					//Reboot
-					PMMCTL0 |= PMMSWBOR;
-				}
-				UCB0IFG &= ~UCSTPIFG;
-			}
-
-			//I2C Slave TX Event (Master Read)
-			if (UCB0IFG_BUFF & UCTXIFG)
-			{
-				UCB0TXBUF = op_ptr[txcount];
-				txcount++;
-			}
-		}	//End of while (1)
+	case 0: //No interrupts
+		break;
+	case 2: //1 sec , update system time & set test 1Hz flag.
+		tHal_Time = RTC_A_getCalendarTime( RTC_A_BASE);
+		tHal_CpuScheduler.fTestFlag1Hz = 1;
+		break;
+	case 4: //1 min
+		break;
+	case 6: //RTCAIFG
+		break;
+	case 8: //RT0PSIFG
+		break;
+	default:
+		break;
 	}
 }
 
 /**********************************************************
- * @Brief Isr_Gpio_P1
+ * @Brief Hal_Isr_Gpio_P1
  * 		GPIO_P1 interrupt service rotine.
  * @Param
  * 		NONE
@@ -449,9 +278,9 @@ int _system_pre_init(void)
  **********************************************************/
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=PORT1_VECTOR
-__interrupt void Isr_Gpio_P1(void)
+__interrupt void Hal_Isr_Gpio_P1(void)
 #elif defined(__GNUC__)
-void __attribute__ ((interrupt(PORT1_VECTOR))) Isr_Gpio_P1 (void)
+void __attribute__ ((interrupt(PORT1_VECTOR))) Hal_Isr_Gpio_P1 (void)
 #else
 #error Compiler not supported!
 #endif
@@ -467,21 +296,21 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) Isr_Gpio_P1 (void)
 		PrintString("\e[31m***STB falling edge detect***\r\n\e[30m");
 #endif
 		DELAY_US(500);
-		if (!HW_GET_STB_IN)
+		if (!HAL_GET_STB_IN)
 		{
 			//Mute Backlight
-			Mem_set8((uint32) &HwBuf_TestDuty, 0x00, sizeof(HwBuf_TestDuty));
-			Iw7027_updateDuty((uint16*) HwBuf_TestDuty);
+			Hal_Mem_set8((uint32) &u16Hal_Buf_TestDuty, 0x00, sizeof(u16Hal_Buf_TestDuty));
+			Iw7027_updateDuty((uint16*) u16Hal_Buf_TestDuty);
 
 			//Hold CPU till STB get High , if STB = L for 1s, reset Mcu.
 			uint16 timeout = 0;
-			while (!HW_GET_STB_IN)
+			while (!HAL_GET_STB_IN)
 			{
 				DELAY_MS(10);
 				timeout++;
 				if (timeout > 100)
 				{
-					Mcu_reset();
+					Hal_Mcu_reset();
 				}
 			}
 		}
@@ -508,7 +337,7 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) Isr_Gpio_P1 (void)
 }
 
 /**********************************************************
- * @Brief Isr_SpiSlave_Cs
+ * @Brief Hal_Isr_SpiSlave_Cs
  * 		Timer_A0 ISR ,use as Spi Slave Cs pin .
  * 		Both Edge Trigger.
  * @Param
@@ -518,9 +347,9 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) Isr_Gpio_P1 (void)
  **********************************************************/
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=TIMER0_A1_VECTOR
-__interrupt void Isr_SpiSlave_Cs(void)
+__interrupt void Hal_Isr_SpiSlave_Cs(void)
 #elif defined(__GNUC__)
-void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) Isr_SpiSlave_Cs (void)
+void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) Hal_Isr_SpiSlave_Cs (void)
 #else
 #error Compiler not supported!
 #endif
@@ -536,11 +365,11 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) Isr_SpiSlave_Cs (void)
 		break;
 	case 4: // TA0.2 ,PWM1/SPI Slave CS
 		//Falling edge = START of frame
-		SpiSlave_stopRx();
-		SysParam_Schedule.fTaskFlagSpiRx = 1;
-		SpiSlave_startRx();
+		Hal_SpiSlave_stopRx();
+		tHal_CpuScheduler.fTaskFlagSpiRx = 1;
+		Hal_SpiSlave_startRx();
 		//Sync PWM out
-		PwmOut_sync();
+		Hal_PwmOut_sync();
 		//Calulate freq
 		SpiSlave_CsEdgeCount++;
 		Timer_A_clearCaptureCompareInterrupt(TIMER_A0_BASE, TIMER_A_CAPTURECOMPARE_REGISTER_2);
@@ -555,7 +384,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) Isr_SpiSlave_Cs (void)
 		break;
 	case 14: // overflow
 		//Calculate Spi Rx CS frequencey
-		SysParam_BoardInfo.u8SpiRxFreq = (SpiSlave_CsEdgeCount - 1) / 2;
+		tHal_BoardInfo.u8SpiRxFreq = (SpiSlave_CsEdgeCount - 1) / 2;
 		SpiSlave_CsEdgeCount = 0;
 		break;
 	default:
@@ -564,7 +393,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) Isr_SpiSlave_Cs (void)
 }
 
 /**********************************************************
- * @Brief Isr_I2cSlave
+ * @Brief Hal_Isr_I2cSlave
  * 		USCI_B0 I2C mode interrupt service.
  * 		Buffer I2C Slave data to certain RAM address.
  * @Param
@@ -574,9 +403,9 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) Isr_SpiSlave_Cs (void)
  **********************************************************/
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector = USCI_B0_VECTOR
-__interrupt void Isr_I2cSlave(void)
+__interrupt void Hal_Isr_I2cSlave(void)
 #elif defined(__GNUC__)
-void __attribute__ ((interrupt(USCI_B0_VECTOR))) Isr_I2cSlave (void)
+void __attribute__ ((interrupt(USCI_B0_VECTOR))) Hal_Isr_I2cSlave (void)
 #else
 #error Compiler not supported!
 #endif
@@ -599,9 +428,9 @@ void __attribute__ ((interrupt(USCI_B0_VECTOR))) Isr_I2cSlave (void)
 		break;
 	case 8:	    	// Vector  8: STPIFG
 		//Set I2C task flag.
-		SysParam_Schedule.fTaskFlagI2c = 1;
+		tHal_CpuScheduler.fTaskFlagI2c = 1;
 		//ISP mode entrance ,check pass word.
-		if (SysParam_IspPassword == 0x20140217)
+		if (u32Hal_Buf_IspPw == 0x20140217)
 		{
 			//Stop internal Timer
 			TB0CTL &= ~MC_3;
@@ -618,7 +447,7 @@ void __attribute__ ((interrupt(USCI_B0_VECTOR))) Isr_I2cSlave (void)
 			FCTL3 = FWKEY + LOCK;
 
 			//Reboot to ISP
-			Mcu_reset();
+			Hal_Mcu_reset();
 		}
 		break;
 	case 10:	    	// Vector 10: RXIFG
@@ -628,12 +457,12 @@ void __attribute__ ((interrupt(USCI_B0_VECTOR))) Isr_I2cSlave (void)
 		}
 		else
 		{
-			HWREG8(BOARD_I2C_SLAVE_BUFF_OFFSET + op_add + rxcount - 1) = UCB0RXBUF;
+			HAL_REG8(HAL_I2C_SLAVE_BUFF_OFFSET + op_add + rxcount - 1) = UCB0RXBUF;
 		}
 		rxcount++;
 		break;
 	case 12:	    	// Vector 12: TXIFG
-		UCB0TXBUF = HWREG8(BOARD_I2C_SLAVE_BUFF_OFFSET + op_add + txcount);
+		UCB0TXBUF = HAL_REG8(HAL_I2C_SLAVE_BUFF_OFFSET + op_add + txcount);
 		txcount++;
 		break;
 	default:
@@ -643,7 +472,7 @@ void __attribute__ ((interrupt(USCI_B0_VECTOR))) Isr_I2cSlave (void)
 }
 
 /**********************************************************
- * @Brief Isr_Uart
+ * @Brief Hal_Isr_Uart
  * 		USCI_A1 UART mode interrupt service.
  * 		Buffer RX bytes & run console program when get "ENTER".
  * @Param
@@ -653,9 +482,9 @@ void __attribute__ ((interrupt(USCI_B0_VECTOR))) Isr_I2cSlave (void)
  **********************************************************/
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=USCI_A1_VECTOR
-__interrupt void Isr_Uart(void)
+__interrupt void Hal_Isr_Uart(void)
 #elif defined(__GNUC__)
-void __attribute__ ((interrupt(USCI_A1_VECTOR))) Isr_Uart (void)
+void __attribute__ ((interrupt(USCI_A1_VECTOR))) Hal_Isr_Uart (void)
 #else
 #error Compiler not supported!
 #endif
@@ -685,11 +514,11 @@ void __attribute__ ((interrupt(USCI_A1_VECTOR))) Isr_Uart (void)
 			_EINT();
 			//Disable Uart until
 			USCI_A_UART_disableInterrupt(USCI_A1_BASE, USCI_A_UART_RECEIVE_INTERRUPT);
-			Uart_Console(HwBuf_UartRx);
+			Uart_Console(u8Hal_Buf_UartRx);
 			USCI_A_UART_enableInterrupt(USCI_A1_BASE, USCI_A_UART_RECEIVE_INTERRUPT);
 #endif
 			Uart_RxCount = 0;
-			Mem_set8((uint32) HwBuf_UartRx, 0x00, sizeof(HwBuf_UartRx));
+			Hal_Mem_set8((uint32) u8Hal_Buf_UartRx, 0x00, sizeof(u8Hal_Buf_UartRx));
 			break;
 		case '\b': // "backspace"
 			if (Uart_RxCount)
@@ -698,7 +527,7 @@ void __attribute__ ((interrupt(USCI_A1_VECTOR))) Isr_Uart (void)
 			}
 			break;
 		default:
-			HwBuf_UartRx[Uart_RxCount] = rxdata;
+			u8Hal_Buf_UartRx[Uart_RxCount] = rxdata;
 			Uart_RxCount++;
 			break;
 		}
@@ -713,44 +542,44 @@ void __attribute__ ((interrupt(USCI_A1_VECTOR))) Isr_Uart (void)
 }
 
 /***2.6 External Functions ***/
-flag Mcu_init(void)
+flag Hal_Mcu_init(void)
 {
 	//16s watch dog timer ,512k / 32k = 16s
 	WDT_A_initWatchdogTimer(WDT_A_BASE, WDT_A_CLOCKSOURCE_ACLK, WDT_A_CLOCKDIVIDER_512K);
 	WDT_A_start(WDT_A_BASE);
 
 	//Ports initial
-	Gpio_init();
-	Clock_init(BOARD_CPU_F);
-	Adc_init();
+	Hal_Gpio_init();
+	Hal_Clock_init(HAL_CPU_F);
+	Hal_Adc_init();
 
 	//Bus initial
-	SpiMaster_init(BOARD_SPI_MASTER_SPEED);
-	SpiSlave_init();
-	I2cSlave_init(BOARD_I2C_SLAVE_ADD_NORMAL);
-	Uart_init(BOARD_UART_BAUDRATE);
+	Hal_SpiMaster_init(HAL_SPI_MASTER_SPEED);
+	Hal_SpiSlave_init();
+	Hal_I2cSlave_init(HAL_I2C_SLAVE_ADD_NORMAL);
+	Hal_Uart_init(HAL_UART_BAUDRATE);
 #if UART_DEBUG_ON
 	PrintString("\e[32m\r\nMCU init start, checking power... ");
 #endif
 
 	//Check Power & turn on iw7027 power.
-	while (Adc_getResult(HW_ADCPORT_DC60V) < 0x0200)
+	while (Hal_Adc_getResult(HAL_ADCPORT_DC60V) < 0x0200)
 	{
 		DELAY_MS(50);
 	}
-	while (Adc_getResult(HW_ADCPORT_DC13V) < 0x0200)
+	while (Hal_Adc_getResult(HAL_ADCPORT_DC13V) < 0x0200)
 	{
 		DELAY_MS(50);
 	}
 
 	//Set default param.
-	SysParam_Error = Default_ErrorParam;
+	tHal_BoardErrorParam = Default_ErrorParam;
 
 #if UART_DEBUG_ON
 	PrintString("\r\nDC60VADC = ");
-	PrintInt(Adc_getResult(HW_ADCPORT_DC60V));
+	PrintInt(Hal_Adc_getResult(HAL_ADCPORT_DC60V));
 	PrintString("  DC13VADC = ");
-	PrintInt(Adc_getResult(HW_ADCPORT_DC13V));
+	PrintInt(Hal_Adc_getResult(HAL_ADCPORT_DC13V));
 	PrintString("\r\nLast Reset Source: ");
 	PrintChar(SYSRSTIV);
 	PrintString("\r\nMcu_init finish.\r\n\e[30m");
@@ -760,16 +589,16 @@ flag Mcu_init(void)
 	return FLAG_SUCCESS;
 }
 
-uint8 Mcu_checkBoardStatus(dStruct_BoardInfo_t *boardinfo, dStruct_ErrorParam_t *errorparam)
+uint8 Hal_Mcu_checkBoardStatus(Hal_BoardInfo_t *boardinfo, Hal_BoardErrorParam_t *errorparam)
 {
 	static uint8 iserror;
 	uint8 retval = 0;
 
 	//Load Board Hardware Info
-	boardinfo->fIw7027Fault = HW_GET_IW7027_FAULT_IN;
-	boardinfo->u8Dc60v = (uint32) Adc_getResult(HW_ADCPORT_DC60V) * 84 / 0x3FF;
-	boardinfo->u8Dc13v = (uint32) Adc_getResult(HW_ADCPORT_DC13V) * 19 / 0x3FF;
-	boardinfo->su8McuTemperature = Adc_getMcuTemperature();
+	boardinfo->fIw7027Fault = HAL_GET_IW7027_FAULT_IN;
+	boardinfo->u8Dc60v = (uint32) Hal_Adc_getResult(HAL_ADCPORT_DC60V) * 84 / 0x3FF;
+	boardinfo->u8Dc13v = (uint32) Hal_Adc_getResult(HAL_ADCPORT_DC13V) * 19 / 0x3FF;
+	boardinfo->su8McuTemperature = Hal_Adc_getMcuTemperature();
 
 	//BIT0 : Power error flag
 	if ((boardinfo->u8Dc60v > errorparam->u8Dc60vMax) || (boardinfo->u8Dc60v < errorparam->u8Dc60vMin)
@@ -796,7 +625,7 @@ uint8 Mcu_checkBoardStatus(dStruct_BoardInfo_t *boardinfo, dStruct_ErrorParam_t 
 	//Set Error Out
 	if (retval)
 	{
-		HW_SET_ERROR_OUT_LOW;
+		HAL_SET_ERROR_OUT_LOW;
 		errorparam->u8ErrorType = retval;
 //1st time error happen
 		if (!iserror)
@@ -805,16 +634,16 @@ uint8 Mcu_checkBoardStatus(dStruct_BoardInfo_t *boardinfo, dStruct_ErrorParam_t 
 			PrintString("\e[31m\r\nERROR ! TYPE : \e[30m");
 			PrintChar(retval);
 			PrintEnter();
-			PrintArray((uint8 *) &SysParam_BoardInfo, sizeof(SysParam_BoardInfo));
+			PrintArray((uint8 *) &tHal_BoardInfo, sizeof(tHal_BoardInfo));
 			PrintEnter();
 #endif
 			if (errorparam->fErrorSaveEn)
 			{
-				errorparam->u8ErrorCount = *BOARD_ERROR_INFO_FLASH_PTR;
+				errorparam->u8ErrorCount = *HAL_ERROR_INFO_FLASH_PTR;
 				errorparam->u8ErrorCount++;
-				FlashCtl_eraseSegment(BOARD_ERROR_INFO_FLASH_PTR);
-				FlashCtl_write8((uint8*) errorparam, BOARD_ERROR_INFO_FLASH_PTR, sizeof(SysParam_Error));
-				FlashCtl_write8((uint8*) boardinfo, BOARD_ERROR_INFO_FLASH_PTR + 0x20, sizeof(SysParam_BoardInfo));
+				FlashCtl_eraseSegment(HAL_ERROR_INFO_FLASH_PTR);
+				FlashCtl_write8((uint8*) errorparam, HAL_ERROR_INFO_FLASH_PTR, sizeof(tHal_BoardErrorParam));
+				FlashCtl_write8((uint8*) boardinfo, HAL_ERROR_INFO_FLASH_PTR + 0x20, sizeof(tHal_BoardInfo));
 			}
 
 		}
@@ -831,14 +660,14 @@ uint8 Mcu_checkBoardStatus(dStruct_BoardInfo_t *boardinfo, dStruct_ErrorParam_t 
 #endif
 		}
 
-		HW_SET_ERROR_OUT_HIGH;
+		HAL_SET_ERROR_OUT_HIGH;
 		errorparam->u8ErrorType = retval;
 		iserror = 0;
 	}
 	return retval;
 }
 
-void Mcu_reset(void)
+void Hal_Mcu_reset(void)
 {
 	//Set watch dog timer to 512 cpu cycles.
 	//YZF 2016/5/16 : This delay is for I2C slave finish send ACK before reset.
@@ -850,7 +679,7 @@ void Mcu_reset(void)
 	__delay_cycles(512 + 100);
 }
 
-void Mcu_invokeBsl(void)
+void Hal_Mcu_invokeBsl(void)
 {
 	//Disable ISR & jump to BSL section. BSL verder is TI.
 	//Refer to 3.8.1 Starting the BSL From an External Application for BSL application note.
@@ -860,7 +689,7 @@ void Mcu_invokeBsl(void)
 	((void (*)()) 0x1000)();
 }
 
-void Gpio_init(void)
+void Hal_Gpio_init(void)
 {
 	//STEP1 : Set default value for all ports = input with pull down resistor
 	GPIO_setAsInputPinWithPullDownResistor(GPIO_PORT_PA, GPIO_PIN_ALL16);
@@ -966,7 +795,7 @@ void Gpio_init(void)
 
 }
 
-flag Adc_init(void)
+flag Hal_Adc_init(void)
 {
 	//Set P6.4 P6.5 as ADC input
 	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P6, GPIO_PIN4);
@@ -1007,7 +836,7 @@ flag Adc_init(void)
 	return FLAG_SUCCESS;
 }
 
-uint16 Adc_getResult(uint8 port)
+uint16 Hal_Adc_getResult(uint8 port)
 {
 	//Configure Memory Buffer
 	/*
@@ -1032,7 +861,7 @@ uint16 Adc_getResult(uint8 port)
 	return ADC10_A_getResults(ADC10_A_BASE);
 }
 
-int8 Adc_getMcuTemperature(void)
+int8 Hal_Adc_getMcuTemperature(void)
 {
 	uint16 adcval;
 	int32_t temperature;
@@ -1053,13 +882,13 @@ int8 Adc_getMcuTemperature(void)
 
 	//Calculate temperature according to internal caliberation infor.
 	adcval = ADC10_A_getResults(ADC10_A_BASE);
-	temperature = (((int32_t) adcval - BOARD_ADCCAL_15V_30C) * (85 - 30)) / (BOARD_ADCCAL_15V_85C - BOARD_ADCCAL_15V_30C) + 30;
+	temperature = (((int32_t) adcval - HAL_ADCCAL_15V_30C) * (85 - 30)) / (HAL_ADCCAL_15V_85C - HAL_ADCCAL_15V_30C) + 30;
 
 	//return temperature
 	return ((int8) temperature);
 }
 
-flag Clock_init(uint32 cpu_speed)
+flag Hal_Clock_init(uint32 cpu_speed)
 {
 	//Set VCore = 3 for 24MHz clock
 	PMM_setVCore(PMM_CORE_LEVEL_3);
@@ -1075,7 +904,7 @@ flag Clock_init(uint32 cpu_speed)
 	return FLAG_SUCCESS;
 }
 
-flag SpiMaster_init(uint32 spi_speed)
+flag Hal_SpiMaster_init(uint32 spi_speed)
 {
 	//P4.1 = MOSI , P4.2 = MISO , P4.3 = CLK
 	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P4, GPIO_PIN1);
@@ -1112,7 +941,7 @@ flag SpiMaster_init(uint32 spi_speed)
 	return FLAG_SUCCESS;
 }
 
-void SpiMaster_setCsPin(uint8 chipsel)
+void Hal_SpiMaster_setCsPin(uint8 chipsel)
 {
 	// Chip No.0 , GPIO = P7.0
 	if (chipsel & BIT0)
@@ -1161,7 +990,7 @@ void SpiMaster_setCsPin(uint8 chipsel)
 	}
 }
 
-uint8 SpiMaster_sendMultiByte(uint8 *txdata, uint16 length)
+uint8 Hal_SpiMaster_sendMultiByte(uint8 *txdata, uint16 length)
 {
 	//Send multiple bytes till count down
 	while (length--)
@@ -1184,7 +1013,7 @@ uint8 SpiMaster_sendMultiByte(uint8 *txdata, uint16 length)
 	return USCI_B_SPI_receiveData(USCI_B1_BASE);
 }
 
-uint8 SpiMaster_sendSingleByte(uint8 txdata)
+uint8 Hal_SpiMaster_sendSingleByte(uint8 txdata)
 {
 	//TX buffer ready?
 	while (!USCI_B_SPI_getInterruptStatus(USCI_B1_BASE, USCI_B_SPI_TRANSMIT_INTERRUPT))
@@ -1203,7 +1032,7 @@ uint8 SpiMaster_sendSingleByte(uint8 txdata)
 
 }
 
-flag SpiSlave_init(void)
+flag Hal_SpiSlave_init(void)
 {
 	//P2.7 = CLK , P3.3 = MOSI , P3.4 = MISO
 	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P2, GPIO_PIN7);
@@ -1248,7 +1077,7 @@ flag SpiSlave_init(void)
 
 	//Source = UCA0RXBUF , Destination = &rxbuff
 	DMA_setSrcAddress(DMA_CHANNEL_0, USCI_A_SPI_getReceiveBufferAddressForDMA(USCI_A0_BASE), DMA_DIRECTION_UNCHANGED);
-	DMA_setDstAddress(DMA_CHANNEL_0, (uint32) HwBuf_SpiSlaveRx, DMA_DIRECTION_INCREMENT);
+	DMA_setDstAddress(DMA_CHANNEL_0, (uint32) u8Hal_Buf_SpiSlaveRx, DMA_DIRECTION_INCREMENT);
 
 	//Init Spi slave
 	uint8 uca0_returnValue = FLAG_FAIL;
@@ -1267,7 +1096,7 @@ flag SpiSlave_init(void)
 	return FLAG_SUCCESS;
 }
 
-void SpiSlave_startRx(void)
+void Hal_SpiSlave_startRx(void)
 {
 	//Reset DMA
 	DMA_disableTransfers(DMA_CHANNEL_0);
@@ -1282,7 +1111,7 @@ void SpiSlave_startRx(void)
 	}
 }
 
-void SpiSlave_stopRx(void)
+void Hal_SpiSlave_stopRx(void)
 {
 	//Disable SPI_RX
 	USCI_A_SPI_disable(USCI_A0_BASE);
@@ -1290,7 +1119,7 @@ void SpiSlave_stopRx(void)
 	DMA_disableTransfers(DMA_CHANNEL_0);
 }
 
-void SpiSlave_disable(void)
+void Hal_SpiSlave_disable(void)
 {
 	//Disable Cs isr
 	Timer_A_disableCaptureCompareInterrupt(TIMER_A0_BASE, TIMER_A_CAPTURECOMPARE_REGISTER_2);
@@ -1298,7 +1127,7 @@ void SpiSlave_disable(void)
 	USCI_A_SPI_disable(USCI_A0_BASE);
 }
 
-void SpiSlave_enable(void)
+void Hal_SpiSlave_enable(void)
 {
 	//Enable Cs isr
 	Timer_A_enableCaptureCompareInterrupt(TIMER_A0_BASE, TIMER_A_CAPTURECOMPARE_REGISTER_2);
@@ -1306,7 +1135,7 @@ void SpiSlave_enable(void)
 	USCI_A_SPI_enable(USCI_A0_BASE);
 }
 
-void I2cSlave_init(uint8 slaveaddress)
+void Hal_I2cSlave_init(uint8 slaveaddress)
 {
 	//P3.0 = SDA , P3.1 = SCL
 	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P3, GPIO_PIN0);
@@ -1334,11 +1163,11 @@ void I2cSlave_init(uint8 slaveaddress)
 	USCI_B_I2C_TRANSMIT_INTERRUPT);
 
 	//Clear Buffer
-	Mem_set8((uint32) &HwBuf_I2cSlave, 0x00, sizeof(HwBuf_I2cSlave));
+	Hal_Mem_set8((uint32) &u8Hal_Buf_I2cSlave, 0x00, sizeof(u8Hal_Buf_I2cSlave));
 
 }
 
-flag Uart_init(uint32 baudrate)
+flag Hal_Uart_init(uint32 baudrate)
 {
 	//P4.4 = TX , P4.5 =RX
 	GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P4, GPIO_PIN4);
@@ -1349,7 +1178,7 @@ flag Uart_init(uint32 baudrate)
 	USCI_A_UART_initParam param =
 	{ 0 };
 	param.selectClockSource = USCI_A_UART_CLOCKSOURCE_SMCLK;
-	param.clockPrescalar = UCS_getSMCLK() / BOARD_UART_BAUDRATE;
+	param.clockPrescalar = UCS_getSMCLK() / HAL_UART_BAUDRATE;
 	param.firstModReg = 0;
 	param.secondModReg = 5;
 	param.parity = USCI_A_UART_NO_PARITY;
@@ -1375,7 +1204,12 @@ flag Uart_init(uint32 baudrate)
 	return FLAG_SUCCESS;
 }
 
-void PwmOut_init(uint8 initfreq, uint16 delay)
+void Hal_Uart_sendSingleByte(uint8 data)
+{
+	USCI_A_UART_transmitData(USCI_A1_BASE, data);
+}
+
+void Hal_PwmOut_init(uint8 initfreq, uint16 delay)
 {
 	//P2.0 as TA1.1 output
 	GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P2, GPIO_PIN0);
@@ -1416,12 +1250,12 @@ void PwmOut_init(uint8 initfreq, uint16 delay)
 	Timer_A_startCounter(TIMER_A1_BASE, TIMER_A_UPDOWN_MODE);
 }
 
-void PwmOut_sync(void)
+void Hal_PwmOut_sync(void)
 {
 	Timer_A_clear(TIMER_A1_BASE);
 }
 
-void Mem_set8(uint32 memadd, uint8 value, uint16 size)
+void Hal_Mem_set8(uint32 memadd, uint8 value, uint16 size)
 {
 	uint8 buf = value;
 
@@ -1444,7 +1278,7 @@ void Mem_set8(uint32 memadd, uint8 value, uint16 size)
 	DMA_startTransfer(DMA_CHANNEL_2);
 }
 
-void Mem_set16(uint32 memadd, uint16 value, uint16 size)
+void Hal_Mem_set16(uint32 memadd, uint16 value, uint16 size)
 {
 	uint16 buf = value;
 
@@ -1467,7 +1301,7 @@ void Mem_set16(uint32 memadd, uint16 value, uint16 size)
 	DMA_startTransfer(DMA_CHANNEL_2);
 }
 
-void Mem_copy(uint32 target_add, uint32 source_add, uint16 size)
+void Hal_Mem_copy(uint32 target_add, uint32 source_add, uint16 size)
 {
 	DMA_initParam dma2param =
 	{ 0 };
@@ -1486,4 +1320,98 @@ void Mem_copy(uint32 target_add, uint32 source_add, uint16 size)
 	//Start Transfer
 	DMA_enableTransfers(DMA_CHANNEL_2);
 	DMA_startTransfer(DMA_CHANNEL_2);
+}
+
+void Hal_Sch_init(void)
+{
+	/* For Non-OS system, use a internal TIMER for task schedule management.
+	 * The scheduler control the main() loop by setting different task flags in different peroid.
+	 * main()	 :  wait CPU wake -> main(task1,task2,task3...) -> CPU sleep , loop forever.
+	 * TIMERB0	 :  CC0 = 1000Hz-> wake up CPU
+	 * 				CC1 = 100Hz-> set task1 flag
+	 * 				CC2 = 1Hz-> set task2 flag
+	 * 				...
+	 * TimerB0 peroid setting range is 30.5us(32786Hz) ~ 2s(0.5Hz) .
+	 * For long peroid setting (e.g. 1min or 1hour) ,please use RTC module.
+	 */
+
+	//Start TimerB0 clock
+	Timer_B_initContinuousModeParam b0param =
+	{ 0 };
+	b0param.clockSource = TIMER_B_CLOCKSOURCE_ACLK;
+	b0param.clockSourceDivider = TIMER_B_CLOCKSOURCE_DIVIDER_1;
+	b0param.startTimer = true;
+	b0param.timerClear = TIMER_B_DO_CLEAR;
+	b0param.timerInterruptEnable_TBIE = TIMER_B_TBIE_INTERRUPT_ENABLE;
+	Timer_B_initContinuousMode(TIMER_B0_BASE, &b0param);
+
+	//Set Compare mode for CC1~CC6
+	Timer_B_initCompareModeParam ccparam =
+	{ 0 };
+	ccparam.compareInterruptEnable = TIMER_B_CAPTURECOMPARE_INTERRUPT_ENABLE;
+	ccparam.compareOutputMode = TIMER_B_OUTPUTMODE_OUTBITVALUE;
+	ccparam.compareValue = 0;
+
+	ccparam.compareRegister = TIMER_B_CAPTURECOMPARE_REGISTER_1;
+	Timer_B_initCompareMode(TIMER_B0_BASE, &ccparam);
+
+	ccparam.compareRegister = TIMER_B_CAPTURECOMPARE_REGISTER_2;
+	Timer_B_initCompareMode(TIMER_B0_BASE, &ccparam);
+
+	ccparam.compareRegister = TIMER_B_CAPTURECOMPARE_REGISTER_3;
+	Timer_B_initCompareMode(TIMER_B0_BASE, &ccparam);
+
+	ccparam.compareRegister = TIMER_B_CAPTURECOMPARE_REGISTER_4;
+	Timer_B_initCompareMode(TIMER_B0_BASE, &ccparam);
+
+	ccparam.compareRegister = TIMER_B_CAPTURECOMPARE_REGISTER_5;
+	Timer_B_initCompareMode(TIMER_B0_BASE, &ccparam);
+
+	ccparam.compareRegister = TIMER_B_CAPTURECOMPARE_REGISTER_6;
+	Timer_B_initCompareMode(TIMER_B0_BASE, &ccparam);
+
+	//Init RTC time 2016/1/1 Fri 00:00:00
+	Calendar initTime =
+	{ 0, 0, 0, 4, 1, 0, 0x2016 };
+	RTC_A_initCalendar(RTC_A_BASE, &initTime, RTC_A_FORMAT_BCD);
+
+	//Start RTC Clock
+	RTC_A_startClock(RTC_A_BASE);
+
+	//Enable Sec / Min Interrupt
+	RTC_A_clearInterrupt(RTC_A_BASE, RTCRDYIFG + RTCTEVIFG);
+	RTC_A_enableInterrupt(RTC_A_BASE, RTCRDYIE + RTCTEVIE);
+
+	//Set default scheduler timer
+	tHal_CpuScheduler.u16CpuTickPeriod = 32;	//1ms	1kHz
+	tHal_CpuScheduler.u16GpioCheckPeriod = 327;	//10ms	100Hz
+	tHal_CpuScheduler.u16TestModePeriod = 547;	//16.7ms 60Hz
+	tHal_CpuScheduler.fSystemResetN = 1;	//System On
+	tHal_CpuScheduler.fLocalDimmingOn = 1;	//Local Dimming On
+
+}
+
+void Hal_Sch_CpuOff(void)
+{
+	//Sum up CPU on time .
+	if (TB0R > u16Hal_SchCpuOnMark)
+	{
+		u32Hal_SchCpuWorkTime += TB0R - u16Hal_SchCpuOnMark;
+	}
+	u16Hal_SchCpuOnMark = 0;
+	//Turn off CPU .
+	__bis_SR_register(LPM0_bits);
+}
+
+inline void Hal_Flash_eraseSegment(uint8_t *flash_ptr)
+{
+	do
+	{
+		FlashCtl_eraseSegment(flash_ptr);
+	} while (!FlashCtl_performEraseCheck(flash_ptr, 128));
+}
+
+inline void Hal_Flash_write(uint8 *data_ptr, uint8 *flash_ptr, uint16 count)
+{
+	FlashCtl_write8(data_ptr, flash_ptr, count);
 }

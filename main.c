@@ -11,49 +11,47 @@
  *
  *****************************************************************************/
 
-#include "app_dpl.h"
-#include "app_i2c_interface.h"
-#include "app_spi_interface.h"
-#include "driver_iw7027.h"
-#include "driver_mcu.h"
-#include "driver_scheduler.h"
-#include "driver_uartdebug.h"
+#include "api_dpl.h"
+#include "drv_i2c_slave.h"
+#include "drv_iw7027.h"
+#include "drv_spi_slave.h"
+#include "drv_uart.h"
+#include "hal.h"
 
-extern void Mcu_Boot(void);
-
+#pragma LOCATION(main,ISP_MAIN_ADDRESS)
 int main(void)
 {
 	//Initialize Driver
-	Mcu_init();
-	Sch_init();
+	Hal_Mcu_init();
+	Hal_Sch_init();
 	Iw7027_init();
 
 	//Main Loop
-	while (SysParam_Schedule.fSystemResetN)
+	while (tHal_CpuScheduler.fSystemResetN)
 	{
 		/**********************************************************************
 		 * Reset Watchdog timer.
 		 *********************************************************************/
-		HW_WATCHDOG_RESET;
+		HAL_WATCHDOG_RESET;
 
 		/**********************************************************************
 		 * Task 1:
 		 * 		Check board status & set.
 		 *********************************************************************/
-		if (SysParam_Schedule.fTaskFlagGpioCheck)
+		if (tHal_CpuScheduler.fTaskFlagGpioCheck)
 		{
-			Mcu_checkBoardStatus(&SysParam_BoardInfo, &SysParam_Error);
-			SysParam_Schedule.fTaskFlagGpioCheck = 0;
+			Hal_Mcu_checkBoardStatus(&tHal_BoardInfo, &tHal_BoardErrorParam);
+			tHal_CpuScheduler.fTaskFlagGpioCheck = 0;
 		}
 
 		/**********************************************************************
 		 * Task 2:
 		 * 		Handle I2C Slave special function.
 		 *********************************************************************/
-		if (SysParam_Schedule.fTaskFlagI2c)
+		if (tHal_CpuScheduler.fTaskFlagI2c)
 		{
-			I2cSlave_handleSpecialFunction(HwBuf_I2cSlave);
-			SysParam_Schedule.fTaskFlagI2c = 0;
+			I2cSlave_handleSpecialFunction(u8Hal_Buf_I2cSlave);
+			tHal_CpuScheduler.fTaskFlagI2c = 0;
 		}
 
 		/**********************************************************************
@@ -68,83 +66,83 @@ int main(void)
 		 *  	Also it can be modified by I2C slave to display "Test Pattern".
 		 *********************************************************************/
 		//Task3-1 : [Local Dimming Mode]
-		if (SysParam_Schedule.fLocalDimmingOn)
+		if (tHal_CpuScheduler.fLocalDimmingOn)
 		{
-			Iw7027_updateWorkParams(&SysParam_Iw7027);
-			if (SysParam_Schedule.fTaskFlagSpiRx)
+			Iw7027_updateWorkParams(&tDrv_Iw7027Param);
+			if (tHal_CpuScheduler.fTaskFlagSpiRx)
 			{
 				//Check Spi Rx data validation
-				SysParam_BoardInfo.fSpiDataValid = SpiSlave_handle(HwBuf_SpiSlaveRx, HwBuf_InputDuty, CITRUS_12BIT_78CH);
+				tHal_BoardInfo.fSpiDataValid = SpiSlave_getDuty(u8Hal_Buf_SpiSlaveRx, u16Hal_Buf_InputDuty, CITRUS_12BIT_78CH);
 
 				//Do Spi Rx data process when format correct.
-				if (SysParam_BoardInfo.fSpiDataValid)
+				if (tHal_BoardInfo.fSpiDataValid)
 				{
 					//Dynamic Power limit function
-					DPL_caliberateTemp(SysParam_BoardInfo.su8McuTemperature, &SysParam_Dpl);
-					DPL_Function(HwBuf_InputDuty, HwBuf_OutputDuty, &SysParam_Dpl);
+					DPL_caliberateTemp(tHal_BoardInfo.su8McuTemperature, &tDpl_Param);
+					DPL_Function(u16Hal_Buf_InputDuty, u16Hal_Buf_OutputDuty, &tDpl_Param);
 					//Enable Tx task .
-					SysParam_Schedule.fTaskFlagSpiTx = 1;
+					tHal_CpuScheduler.fTaskFlagSpiTx = 1;
 				}
 
-				SysParam_Schedule.fTaskFlagSpiRx = 0;
+				tHal_CpuScheduler.fTaskFlagSpiRx = 0;
 			}
 
 			//3.2 Tx data handle
-			if (SysParam_Schedule.fTaskFlagSpiTx)
+			if (tHal_CpuScheduler.fTaskFlagSpiTx)
 			{
 				// Update duty info to Iw7027 device.
-				Iw7027_updateDuty(HwBuf_OutputDuty);
-				SysParam_Schedule.fTaskFlagSpiTx = 0;
+				Iw7027_updateDuty(u16Hal_Buf_OutputDuty);
+				tHal_CpuScheduler.fTaskFlagSpiTx = 0;
 			}
 		}
 		//Task3-0 [Test Pattern Mode]
 		else
 		{
-			if (SysParam_Schedule.fTaskFlagTestMode)
+			if (tHal_CpuScheduler.fTaskFlagTestMode)
 			{
-				Iw7027_updateDuty(HwBuf_TestDuty);
-				SysParam_Schedule.fTaskFlagTestMode = 0;
+				Iw7027_updateDuty(u16Hal_Buf_TestDuty);
+				tHal_CpuScheduler.fTaskFlagTestMode = 0;
 			}
 
 		}
 
 		//Task4 Test & report
-		if (SysParam_Schedule.fTestFlag1Hz)
+		if (tHal_CpuScheduler.fTestFlag1Hz)
 		{
 			PrintEnter();
-			PrintTime(&SysParam_Time);
+			PrintTime(&tHal_Time);
 
 #if 1
 			//Board Info Log
 			PrintEnter();
 			PrintString("CPU Locd = ");
-			PrintCharBCD(SysParam_Schedule.u8CpuLoad);
+			PrintCharBCD(tHal_CpuScheduler.u8CpuLoad);
 			PrintString(" % \r\n");
 #endif
 #if 1
 			//DPL log
 			PrintString("Input: ");
-			PrintInt(HwBuf_InputDuty[0]);
+			PrintInt(u16Hal_Buf_InputDuty[0]);
 			PrintString(" Onput: ");
-			PrintInt(HwBuf_OutputDuty[0]);
+			PrintInt(u16Hal_Buf_OutputDuty[0]);
 			PrintString(" Sum: ");
-			PrintInt(DPL_tempSumDutyMatrix[0] >> 16);
-			PrintInt(DPL_tempSumDutyMatrix[0] & 0xFFFF);
+			PrintInt(u32Dpl_tempSumDutyMatrix[0] >> 16);
+			PrintInt(u32Dpl_tempSumDutyMatrix[0] & 0xFFFF);
 			PrintString(" Limit: ");
-			PrintInt(DPL_tempDutyLimitTable[0]);
+			PrintInt(u16Dpl_tempDutyLimitTable[0]);
 
 			PrintEnter();
 #endif
-			HW_TOGGLE_LED_G;
-			SysParam_Schedule.fTestFlag1Hz = 0;
+			HAL_TOGGLE_LED_G;
+			tHal_CpuScheduler.fTestFlag1Hz = 0;
 		}
 
 		//Finish all task , turn off cpu.
-		Sch_CpuOff();
-	} //End of while(SysParam_Schedule.schSystemOn)
+		Hal_Sch_CpuOff();
+	} //End of while(tHal_CpuScheduler.schSystemOn)
 
 	//Reboot
-	Mcu_reset();
+	Hal_Mcu_reset();
 
 }
 

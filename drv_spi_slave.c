@@ -11,10 +11,10 @@
  *
  *****************************************************************************/
 
-#include "app_spi_interface.h"
+#include "drv_spi_slave.h"
 
 /******************************************************************************
- * SpiSlave_handle
+ * SpiSlave_getDuty
  * @Brief
  * 		Convert SPI data into duty matrix.
  * @Variables
@@ -26,7 +26,7 @@
  * 		FLAG_FAIL			: SPI data format NG, no output data.
  *
  *****************************************************************************/
-uint8 SpiSlave_handle(uint8 *spirx, uint16 *outputduty, enum SpiRxFormatModel model)
+uint8 SpiSlave_getDuty(uint8 *spirx, uint16 *outputduty, enum SpiRxFormatModel model)
 {
 	switch (model)
 	{

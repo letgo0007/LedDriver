@@ -15,8 +15,8 @@
  *
  *****************************************************************************/
 
-#ifndef APP_I2C_INTERFACE_H_
-#define APP_I2C_INTERFACE_H_
+#ifndef DRV_I2C_SLAVE_H_
+#define DRV_I2C_SLAVE_H_
 
 /***1 Includes ****************************************************************/
 
@@ -53,4 +53,4 @@
 
 uint8 I2cSlave_handleSpecialFunction(uint8 *i2cmap);
 
-#endif /* APP_I2C_INTERFACE_H_ */
+#endif /* DRV_I2C_SLAVE_H_ */

@@ -11,8 +11,8 @@
  * 1		20160530 Yang Zhifang	ALL		Init	Initial Version
  *
  ******************************************************************************/
-#ifndef APP_SPI_INTERFACE_H_
-#define APP_SPI_INTERFACE_H_
+#ifndef DRV_SPI_SLAVE_H_
+#define DRV_SPI_SLAVE_H_
 
 /***1 Includes ****************************************************************/
 #include "std.h"
@@ -28,6 +28,6 @@ enum SpiRxFormatModel
 /***2.3 External Variables ****************************************************/
 
 /***2.4 External Functions ****************************************************/
-extern uint8 SpiSlave_handle(uint8 *spirx, uint16 *outputduty, enum SpiRxFormatModel model);
+extern uint8 SpiSlave_getDuty(uint8 *spirx, uint16 *outputduty, enum SpiRxFormatModel model);
 
-#endif /* APP_SPI_INTERFACE_H_ */
+#endif /* DRV_SPI_SLAVE_H_ */
