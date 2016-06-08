@@ -225,7 +225,7 @@ extern uint8 Iw7027_checkOpenShorStatus(Drv_Iw7027Param_t *iwparam);
 extern uint8 Iw7027_updateWorkParams(Drv_Iw7027Param_t *iwparam);
 
 /**********************************************************
- * @Brief DPL_GammaUpdate
+ * @Brief Dpl_GammaUpdate
  * 		Update Input Gamma curve accroding to 5 Gamma point input.
  * @Param
  * 		gp0				: Gamma point @ 0

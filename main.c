@@ -78,8 +78,8 @@ int main(void)
 				if (tHal_BoardInfo.fSpiDataValid)
 				{
 					//Dynamic Power limit function
-					DPL_caliberateTemp(tHal_BoardInfo.su8McuTemperature, &tDpl_Param);
-					DPL_Function(u16Hal_Buf_InputDuty, u16Hal_Buf_OutputDuty, &tDpl_Param);
+					Dpl_caliberateTemp(tHal_BoardInfo.su8McuTemperature, &tDpl_Param);
+					Dpl_process(u16Hal_Buf_InputDuty, u16Hal_Buf_OutputDuty, &tDpl_Param);
 					//Enable Tx task .
 					tHal_CpuScheduler.fTaskFlagSpiTx = 1;
 				}
@@ -120,7 +120,7 @@ int main(void)
 			PrintString(" % \r\n");
 #endif
 #if 1
-			//DPL log
+			//Dpl log
 			PrintString("Input: ");
 			PrintInt(u16Hal_Buf_InputDuty[0]);
 			PrintString(" Onput: ");

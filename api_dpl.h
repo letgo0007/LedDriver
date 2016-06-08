@@ -29,7 +29,7 @@
 //Parameters Struct
 typedef struct Dpl_Prama_t
 {
-	//On/Off control of DPL
+	//On/Off control of Dpl
 	flag dplOn;
 	//Duty channel amount
 	uint8 dplChannelAmount;
@@ -83,9 +83,35 @@ extern Dpl_Prama_t tDpl_Param;
 extern void Hal_Mem_copy();
 //DMA accelerated memory set.
 extern void Hal_Mem_set16();
-//DPL main struct
-extern uint8 DPL_Function(uint16 *inputduty, uint16 *outputduty, Dpl_Prama_t *dplparam);
-extern void DPL_caliberateTemp(int8 temp, Dpl_Prama_t *dplparam);
 
-#endif /* API_DPL_H_ */
+/**********************************************************
+ *  @Brief Dpl_process
+ * 		Dynamic Power Limit function , limit local / global duty to protect LED bars.
+ * 		This function has 4 sub functions:
+ * 		Dpl_limitLocalDuty		: Single CH LED duty limit.
+ * 		Dpl_limitGlobalDuty		: All CH LED limit.
+ * 		Dpl_sumLocalDuty		: Sample & Sum up every single CH duty every certain time(typ 1sec)
+ * 		Dpl_updateParam			: Update the limit tabel for Dpl_limitLocalDuty accroding to certain amount samples (typ 60 samples)
+ * @variables
+ * 		*inputduty				: Duty matrix input
+ * 		*outputduty				: Duty Matrix output (power limited)
+ * 		dplparam				: Dpl function parameters , Dpl_Prama_t type .
+ * @return
+ * 		FLAG_SUCCESS			: Dpl function finish
+ *
+ **********************************************************/
+
+extern uint8 Dpl_process(uint16 *inputduty, uint16 *outputduty, Dpl_Prama_t *dplparam);
+/**********************************************************
+ * @Brief Dpl_caliberateTemp
+ * 		Caliberate environment temperature for
+ * @Param
+ * 		temp 		: temperatuere ,unit in C.
+ * 		dplparam	: Target dplparam to be caliberated.
+ * @Return
+ * 		NONE
+ **********************************************************/
+extern void Dpl_caliberateTemp(int8 temp, Dpl_Prama_t *dplparam);
+
+#endif /* API_Dpl_H_ */
 

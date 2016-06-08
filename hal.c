@@ -25,9 +25,9 @@
 //XT2 frequency, if no external XT2,set to 0
 #define HAL_XT2_F						(0)
 //High speed Sub_System_Clock
-#define HAL_SMCLK_F					(HAL_CPU_F)
+#define HAL_SMCLK_F						(HAL_CPU_F)
 //Low speed Assist_Clock
-#define HAL_ACLK_F					(32768)
+#define HAL_ACLK_F						(32768)
 //I2C Slave addess for [NORMAL] mode ,7bit mode
 #define HAL_I2C_SLAVE_ADD_NORMAL		(0x14)
 //I2C buffer start address for [NORMAL] mode .

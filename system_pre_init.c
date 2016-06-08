@@ -72,6 +72,7 @@ volatile inline void SetVcoreUp(unsigned int level)
 //Note that need open the project Properties - Debug - MSP43x Options - Erase Options = Enable Erase Flash & Info
 #pragma LOCATION(ISP_INIT_EXIT_FLAG,ISP_EXIT_FLAG_ADDRESS)
 volatile static const uint32 ISP_INIT_EXIT_FLAG = 0x20140217;
+
 /**********************************************************
  * @Brief _system_pre_init
  * 		System low level initial before RAM intialization & main().

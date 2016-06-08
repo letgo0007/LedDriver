@@ -227,7 +227,7 @@ extern uint16 Hal_Adc_getResult(uint8 port);
 
 /**********************************************************
  * @Brief Hal_Adc_init
- * 		Get MCU temperature from internal temp sensor
+ * 		Get MCU temperature from internal temp sensor.
  * @Param
  * 		NONE
  * @Return
