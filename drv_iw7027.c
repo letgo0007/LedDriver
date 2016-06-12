@@ -446,7 +446,7 @@ uint8 Iw7027_updateWorkParams(Drv_Iw7027Param_t *param_in)
 
 	if (param_in->fIwRunErrorCheck)
 	{
-		Iw7027_checkOpenShorStatus(param_in);
+		Iw7027_checkOpenShortStatus(param_in);
 		param_in->fIwRunErrorCheck = 0;
 	}
 
@@ -454,7 +454,7 @@ uint8 Iw7027_updateWorkParams(Drv_Iw7027Param_t *param_in)
 
 }
 
-uint8 Iw7027_checkOpenShorStatus(Drv_Iw7027Param_t *iwparam)
+uint8 Iw7027_checkOpenShortStatus(Drv_Iw7027Param_t *iwparam)
 {
 	//Reset Is error
 	iwparam->fIwIsError = 0;

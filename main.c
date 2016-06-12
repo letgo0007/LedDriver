@@ -106,19 +106,18 @@ int main(void)
 
 		}
 
-		//Task4 Test & report
+		//Task4 Test command & report
 		if (tHal_CpuScheduler.fTestFlag1Hz)
 		{
-			PrintEnter();
-			PrintTime(&tHal_Time);
-
+			//Toggle LED as Mcu active marker.
+			HAL_TOGGLE_LED_G;
 #if 1
-			//Board Info Log
-			PrintEnter();
+			PrintTime(&tHal_Time);
 			PrintString("CPU Locd = ");
 			PrintCharBCD(tHal_CpuScheduler.u8CpuLoad);
 			PrintString(" % \r\n");
 #endif
+
 #if 1
 			//Dpl log
 			PrintString("Input: ");
@@ -133,7 +132,7 @@ int main(void)
 
 			PrintEnter();
 #endif
-			HAL_TOGGLE_LED_G;
+
 			tHal_CpuScheduler.fTestFlag1Hz = 0;
 		}
 

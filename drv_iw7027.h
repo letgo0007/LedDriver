@@ -207,7 +207,7 @@ extern uint8 Iw7027_updateDelayTable(enum Iw7027_Delay_e delay);
  * 		1 			: IW7027 has Open Short Error
  * 		0			: IW7027 ok , no error .
  **********************************************************/
-extern uint8 Iw7027_checkOpenShorStatus(Drv_Iw7027Param_t *iwparam);
+extern uint8 Iw7027_checkOpenShortStatus(Drv_Iw7027Param_t *iwparam);
 
 /**********************************************************
  * @Brief Iw7027_getErrorStatus

@@ -45,11 +45,7 @@
 
 /***2.3 Internal Variables *****************************************************/
 
-//Default error detection parameters.
-const Hal_BoardErrorParam_t Default_ErrorParam =
-{ .u8Dc13vMax = 16, .u8Dc13vMin = 10, .u8Dc60vMax = 70, .u8Dc60vMin = 50, .u8SpiRxFreqMin = 20, .fSpiDataErrorIgnore = 1,
-		.fIw7027FaultIgnore = 0, .fErrorSaveEn = 0, };
-
+//Cpu work time buffer to calculate cpu load.
 uint16 u16Hal_SchCpuOnMark = 0;
 uint32 u32Hal_SchCpuWorkTime = 0;
 
@@ -160,8 +156,8 @@ volatile uint64 u32Hal_Buf_IspPw =
  * Hal_Isr_SpiSlave_Cs		0x4900
  * Hal_Isr_I2cSlave			0x4A00
  * Hal_Isr_Uart				0x4D00
- * Hal_Isr_SchTimerB0		0x4E00					@driver_scheduler.c
- * Hal_Isr_SchRtc			0x4F00					@driver_scheduler.c
+ * Hal_Isr_SchTimerB0		0x4E00
+ * Hal_Isr_SchRtc			0x4F00
  * ----------------------  	--------  	---------	----------
  * 							total		0x800
  *
@@ -184,15 +180,22 @@ volatile uint64 u32Hal_Buf_IspPw =
  * 							total		TBD
  *
  ******************************************************************************/
-//Place ISR & Boot
 #pragma LOCATION(Hal_Isr_Gpio_P1,0x4800)
 #pragma LOCATION(Hal_Isr_SpiSlave_Cs,0x4900)
 #pragma LOCATION(Hal_Isr_I2cSlave,0x4A00)
 #pragma LOCATION(Hal_Isr_Uart,0x4D00)
-
 #pragma LOCATION(Hal_Isr_SchTimerB0,0x4E00)
 #pragma LOCATION(Hal_Isr_SchRtc,0x4F00)
 
+/**********************************************************
+ * @Brief Hal_Isr_SchTimerB0
+ * 		TimerB0 interrupt service.
+ * 		Use as Cpu scheduler.
+ * @Param
+ * 		NONE
+ * @Return
+ * 		NONE
+ **********************************************************/
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=TIMER0_B1_VECTOR
 __interrupt void Hal_Isr_SchTimerB0(void)
@@ -239,7 +242,14 @@ void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
 	}
 
 }
-
+/**********************************************************
+ * @Brief Hal_Isr_SchRtc
+ * 		RTC (Real time clock) interrupt service.
+ * @Param
+ * 		NONE
+ * @Return
+ * 		NONE
+ **********************************************************/
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=RTC_VECTOR
 __interrupt void Hal_Isr_SchRtc(void)
@@ -271,6 +281,7 @@ void __attribute__ ((interrupt(RTC_VECTOR))) Hal_Isr_SchRtc (void)
 /**********************************************************
  * @Brief Hal_Isr_Gpio_P1
  * 		GPIO_P1 interrupt service rotine.
+ * 		Active for STB_HW falling edge interrupt , quick mute & reset function.
  * @Param
  * 		NONE
  * @Return
@@ -338,8 +349,9 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) Hal_Isr_Gpio_P1 (void)
 
 /**********************************************************
  * @Brief Hal_Isr_SpiSlave_Cs
- * 		Timer_A0 ISR ,use as Spi Slave Cs pin .
- * 		Both Edge Trigger.
+ * 		Timer_A0 Interrupt service.
+ * 		Use TA0.2 as Spi Slave Cs pin Both Edge Trigger.
+ *
  * @Param
  * 		NONE
  * @Return
@@ -544,25 +556,27 @@ void __attribute__ ((interrupt(USCI_A1_VECTOR))) Hal_Isr_Uart (void)
 /***2.6 External Functions ***/
 flag Hal_Mcu_init(void)
 {
+	flag status = FLAG_SUCCESS;
+
 	//16s watch dog timer ,512k / 32k = 16s
 	WDT_A_initWatchdogTimer(WDT_A_BASE, WDT_A_CLOCKSOURCE_ACLK, WDT_A_CLOCKDIVIDER_512K);
 	WDT_A_start(WDT_A_BASE);
 
 	//Ports initial
 	Hal_Gpio_init();
-	Hal_Clock_init(HAL_CPU_F);
-	Hal_Adc_init();
+	status &= Hal_Clock_init(HAL_CPU_F);
+	status &= Hal_Adc_init();
 
 	//Bus initial
-	Hal_SpiMaster_init(HAL_SPI_MASTER_SPEED);
-	Hal_SpiSlave_init();
+	status &= Hal_SpiMaster_init(HAL_SPI_MASTER_SPEED);
+	status &= Hal_SpiSlave_init();
 	Hal_I2cSlave_init(HAL_I2C_SLAVE_ADD_NORMAL);
-	Hal_Uart_init(HAL_UART_BAUDRATE);
+	status &= Hal_Uart_init(HAL_UART_BAUDRATE);
+
+	//Check Power & turn on iw7027 power.
 #if UART_DEBUG_ON
 	PrintString("\e[32m\r\nMCU init start, checking power... ");
 #endif
-
-	//Check Power & turn on iw7027 power.
 	while (Hal_Adc_getResult(HAL_ADCPORT_DC60V) < 0x0200)
 	{
 		DELAY_MS(50);
@@ -572,8 +586,14 @@ flag Hal_Mcu_init(void)
 		DELAY_MS(50);
 	}
 
-	//Set default param.
-	tHal_BoardErrorParam = Default_ErrorParam;
+	//Set Default error handle param
+	tHal_BoardErrorParam.u8Dc13vMax = 16;
+	tHal_BoardErrorParam.u8Dc13vMin = 10;
+	tHal_BoardErrorParam.u8Dc60vMax = 70;
+	tHal_BoardErrorParam.u8Dc60vMin = 50;
+	tHal_BoardErrorParam.fSpiDataErrorIgnore = 1;
+	tHal_BoardErrorParam.fIw7027FaultIgnore = 0;
+	tHal_BoardErrorParam.fErrorSaveEn = 0;
 
 #if UART_DEBUG_ON
 	PrintString("\r\nDC60VADC = ");
@@ -585,8 +605,9 @@ flag Hal_Mcu_init(void)
 	PrintString("\r\nMcu_init finish.\r\n\e[30m");
 #endif
 
+	//Enable Interrupt & return.
 	__enable_interrupt();
-	return FLAG_SUCCESS;
+	return status;
 }
 
 uint8 Hal_Mcu_checkBoardStatus(Hal_BoardInfo_t *boardinfo, Hal_BoardErrorParam_t *errorparam)

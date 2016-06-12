@@ -15,11 +15,19 @@
  *
  *****************************************************************************/
 
+/***1 Includes ***************************************************************/
+
 #include "drv_i2c_slave.h"
 
 #include "drv_iw7027.h"
 #include "drv_uart.h"
 #include "hal.h"
+
+/***2.1 Internal Marcos ******************************************************/
+
+/***2.2 Internal Struct ******************************************************/
+
+/***2.3 Internal Variables ***************************************************/
 
 static const uint16 TestPattern_Logo[80] =
 {
@@ -38,6 +46,11 @@ static const uint16 TestPattern_Logo[80] =
 /*ROWC*/0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
 /*NC  */0x0000, 0x0000, };
 
+/***2.4 External Variables ***************************************************/
+
+/***2.5 Internal Functions ***************************************************/
+
+/***2.6 External Functions ***************************************************/
 uint8 I2cSlave_handleSpecialFunction(uint8 *sfbuff)
 {
 	/*Special Function 1 [SPI direct access function]
@@ -62,7 +75,7 @@ uint8 I2cSlave_handleSpecialFunction(uint8 *sfbuff)
 	default: //No operation
 		break;
 	}
-	sfbuff[I2C_SPIACCESS_WRMODE] = 0;
+	sfbuff[I2C_SPIACCESS_WRMODE] = 0x00;
 
 	/*Special Function 2 [Manual pattern]
 	 * Examples:
@@ -78,8 +91,9 @@ uint8 I2cSlave_handleSpecialFunction(uint8 *sfbuff)
 	{
 		uint16 duty = 0x0100 * sfbuff[I2C_MANUAL_DUTY_H] + sfbuff[I2C_MANUAL_DUTY_L];
 		PrintString("Test Pattern");
-		PrintArray(&sfbuff[I2C_MANUAL_WRMODE],5);
-		Hal_Mem_set16((uint32) &u16Hal_Buf_TestDuty[sfbuff[I2C_MANUAL_START_CH]], duty, sfbuff[I2C_MANUAL_END_CH] - sfbuff[I2C_MANUAL_START_CH]);
+		PrintArray(&sfbuff[I2C_MANUAL_WRMODE], 5);
+		Hal_Mem_set16((uint32) &u16Hal_Buf_TestDuty[sfbuff[I2C_MANUAL_START_CH]], duty,
+				sfbuff[I2C_MANUAL_END_CH] - sfbuff[I2C_MANUAL_START_CH]);
 		break;
 	}
 	case 0x81: //Mute Pattern
@@ -95,23 +109,19 @@ uint8 I2cSlave_handleSpecialFunction(uint8 *sfbuff)
 	}
 	sfbuff[I2C_MANUAL_WRMODE] = 0x00;
 
-
 	/*Special Function 3 [Direct Memory Access]
-	 * #define I2C_DMA_WRMODE				(0x20)
-#define I2C_DMA_ADD_L				(0x21)
-#define I2C_DMA_ADD_H				(0x22)
-#define I2C_DMA_TXDATA				(0x23)
-#define I2C_DMA_RXDATA				(0x24)
 	 * Examples:
-	 * Set area 5~8 duty 0x0ABC
-	 * 					[I2C_DMA_WRMODE]	[I2C_DMA_ADD_L] 	[I2C_DMA_ADD_H] 	[I2C_DMA_TXDATA] 	[I2C_DMA_RXDATA]
-	 * I2C Write:		0x80				0x00				0x44				0x05
-	 * 					0x81		//Mute
-	 * 					0x82		//Logo
+	 * Write 0x05 to RAM address 0x2400
+	 * 					[I2C_DMA_WRMODE]	[I2C_DMA_ADD_H] 	[I2C_DMA_ADD_L] 	[I2C_DMA_TXDATA] 	[I2C_DMA_RXDATA]
+	 * I2C Write:		0x80				0x24				0x00				0x05
+	 * Read Byte from RAM address 0x2400
+	 * 					[I2C_DMA_WRMODE]	[I2C_DMA_ADD_H] 	[I2C_DMA_ADD_L] 	[I2C_DMA_TXDATA] 	[I2C_DMA_RXDATA]
+	 * I2C Write:		0x80				0x24				0x00
+	 * I2C Read:		0x81				0x24				0x00									XX
 	 */
 	switch (sfbuff[I2C_DMA_WRMODE])
 	{
-	case 0x80://Read
+	case 0x80: //Read
 	{
 		uint16 add = 0x0100 * sfbuff[I2C_DMA_ADD_H] + sfbuff[I2C_DMA_ADD_L];
 		sfbuff[I2C_DMA_RXDATA] = HAL_REG8(add);
@@ -127,6 +137,7 @@ uint8 I2cSlave_handleSpecialFunction(uint8 *sfbuff)
 		break;
 	}
 	sfbuff[I2C_DMA_WRMODE] = 0x00;
+
 	return FLAG_SUCCESS;
 
 }
