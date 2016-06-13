@@ -1,3 +1,2 @@
-//Reboot to Normal Mode
-write 38 FF FF FF 
-pause 30
+//Exit ISP by access 0xFFFFFF
+write 38 FF FF FF

@@ -2,6 +2,8 @@
  * @file 	[system_pre_init.c]
  *
  * Boot with ISP(In-System Programming) function .
+ * DO NOT call any extern function in boot program , in case they are erased
+ * during ISP progress.
  *
  * Copyright (c) 2016 SHARP CORPORATION
  *
@@ -39,7 +41,8 @@
  * @Return
  * 		NONE
  **********************************************************/
-volatile inline void SetVcoreUp(unsigned int level)
+#pragma FUNC_ALWAYS_INLINE(SetVcoreUp)
+static inline void SetVcoreUp(unsigned int level)
 {
 	// Open PMM registers for write
 	PMMCTL0_H = PMMPW_H;
@@ -91,6 +94,8 @@ volatile static const uint32 ISP_INIT_EXIT_FLAG = 0x20140217;
 int _system_pre_init(void)
 {
 	//Watch dog to 1sec .Clk source = ACLK , length = 32k.
+	//Disable ISR because Interrupt vetore @ 0xffd0~0xffff will also be erased in ISP mode.
+	__disable_interrupt();
 	WDTCTL = WDTPW + WDTCNTCL + WDTHOLD + WDTSSEL_1 + WDTIS_4;
 
 	//All gpio reset to Input with Pull Down.
@@ -107,13 +112,10 @@ int _system_pre_init(void)
 	PCREN = 1;
 	PDREN = 1;
 
-	//Disable ISR because Interrupt vetore @ 0xffd0~0xffff will also be erased in ISP mode.
-	__disable_interrupt();
-
 	//Check password on info flash to decide whether go to main().
 	if (ISP_INIT_EXIT_FLAG == ISP_EXIT_PASSWORD32) //Password correct , go to main()
 	{
-		return 1;
+		return 0;
 	}
 	else //Password wrong , run ISP function.
 	{
@@ -134,38 +136,39 @@ int _system_pre_init(void)
 		SetVcoreUp(0x02);
 		SetVcoreUp(0x03);
 
-		UCSCTL3 = SELREF_2;                       // Set DCO FLL reference = REFO
-		UCSCTL4 |= SELA_2;                        // Set ACLK = REFO
+		//MCLK & ACLK source = REFO
+		UCSCTL3 = SELREF_2;
+		UCSCTL4 |= SELA_2;
 
-		__bis_SR_register(SCG0);                  // Disable the FLL control loop
-		UCSCTL0 = 0x0000;                         // Set lowest possible DCOx, MODx
-		UCSCTL1 = DCORSEL_7;                      // Select DCO range 50MHz operation
-		UCSCTL2 = FLLD_1 + 762;                   // Set DCO Multiplier for 25MHz
-												  // (N + 1) * FLLRef = Fdco
-												  // (762 + 1) * 32768 = 25MHz
-												  // Set FLL Div = fDCOCLK/2
-		__bic_SR_register(SCG0);                  // Enable the FLL control loop
+		//Set Cpu clock to 25MHZ
+		__bis_SR_register(SCG0);
+		UCSCTL0 = 0x0000;
+		UCSCTL1 = DCORSEL_7;
+		UCSCTL2 = FLLD_1 + 762;
+		__bic_SR_register(SCG0);
 		__delay_cycles(782000);
 
-		// Loop until XT1,XT2 & DCO stabilizes - In this case only DCO has to stabilize
+		//Loop until XT1,XT2 & DCO stabilizes - In this case only DCO has to stabilize
 		do
 		{
-			UCSCTL7 &= ~(XT2OFFG + XT1LFOFFG + DCOFFG);
 			// Clear XT2,XT1,DCO fault flags
-			SFRIFG1 &= ~OFIFG;                      // Clear fault flags
-		} while (SFRIFG1 & OFIFG);                   // Test oscillator fault flag
+			UCSCTL7 &= ~(XT2OFFG + XT1LFOFFG + DCOFFG);
+			// Clear fault flags
+			SFRIFG1 &= ~OFIFG;
+		} while (SFRIFG1 & OFIFG);		// Test oscillator fault flag
 
+		//Initialize I2C slave in ISP mode address ,without ISR function.
 		//P4.6 = ERROR_OUT , P4.7 = LED_G , P3.0 = SDA ,P3.1 = SCL
 		P4OUT |= BIT7 + BIT6;
 		P4DIR |= BIT7 + BIT6;
 		P3SEL |= BIT0 + BIT1;
 
-		//Initialize I2C slave in ISP mode address ,without ISR function.
 		UCB0CTL1 |= UCSWRST;
 		UCB0CTL0 = UCMODE_3 + UCSYNC;
 		UCB0I2COA = ISP_I2C_SLAVE_ADDRESS;
 		UCB0CTL1 &= ~UCSWRST;
 
+		//ISP main loop.
 		while (1)
 		{
 			//Feed watch dog
@@ -199,7 +202,7 @@ int _system_pre_init(void)
 			if (UCB0IFG_BUFF & UCSTTIFG)
 			{
 				//Calculate operation address & pointer , for "Restart" conditon.
-				op_add = (*((volatile uint32 *) &op_add_buff[0]));
+				op_add = (*((volatile uint32 *) &op_add_buff[0])) & 0x00FFFFFF;
 				op_ptr = (uint8 *) (op_add & 0x0FFFFF);
 
 				//Reset count
@@ -208,30 +211,24 @@ int _system_pre_init(void)
 				UCB0IFG &= ~UCSTTIFG;
 			}
 
-			//I2C Slave STOP Event (Master send STOP)
+			/* I2C Slave STOP Event (Master send STOP)
+			 * Flash operation according to opp_add
+			 * Address				Operation
+			 * -----------------	----------
+			 * 0x001800~0x024400	WRITE
+			 * 0x101800~0x124400 	ERASE
+			 * 0x1FFFFF				MASS ERASE
+			 * 0xFFFFFF				ISP EXIT
+			 */
 			if (UCB0IFG_BUFF & UCSTPIFG)
 			{
+				//Set LED_G as flash operation marker
+				P4OUT &= ~BIT7;
 				//Calculate operation address & pointer
 				op_add = (*((volatile uint32 *) &op_add_buff[0]));
 				op_ptr = (uint8 *) (op_add & 0x0FFFFF);
 
-				/* Flash operation according to opp_add
-				 * Address				Operation
-				 * -----------------	----------
-				 * 0x104400~0x124400 	ERASE
-				 * 0x004400~0x024400	WRITE
-				 * 0xFFFFFF				EXIT ISP
-				 *
-				 */
-				if ((op_add >= 0x104400) && (op_add <= 0x124400))	//ERASE
-				{
-					FCTL3 = FWKEY;
-					FCTL1 = FWKEY + ERASE;
-					*op_ptr = 0xFF;
-					FCTL1 = FWKEY;
-					FCTL3 = FWKEY + LOCK;
-				}
-				if ((rxcount > 2) && (op_add >= 0x004400) && (op_add <= 0x024400))	//WRITE
+				if ((rxcount > 2) && (op_add >= 0x001800) && (op_add <= 0x024400))	//WRITE
 				{
 					uint16 i;
 					uint8 * flash_ptr;
@@ -241,16 +238,46 @@ int _system_pre_init(void)
 					FCTL1 = FWKEY + WRT;
 					for (i = 0; i < rxcount - 3; i++)
 					{
-						*(flash_ptr + i) = data_buff[i];
+						*(flash_ptr + i) = *(data_buff + i);
 					}
 					FCTL1 = FWKEY;
 					FCTL3 = FWKEY + LOCK;
 				}
+				if ((op_add >= 0x101800) && (op_add <= 0x124400))	//ERASE
+				{
+					FCTL3 = FWKEY;
+					FCTL1 = FWKEY + ERASE;
+					*op_ptr = 0x00;
+					FCTL1 = FWKEY;
+					FCTL3 = FWKEY + LOCK;
+				}
+				if (op_add == 0x1FFFFF)	//MASS ERASE except ISP
+				{
+					uint32 flash_add;
+					uint8 * flash_ptr;
+					//Erase 0x5000~0x243FF , except 0xFE00 (Interrupt Vector)
+					for (flash_add = 0x5000; flash_add < 0x24400; flash_add += 0x200)
+					{
+						//Protect Interrupt Vector @ 0xFFE0~0xFFFF
+						if ((flash_add < 0xFE00) || (flash_add > 0xFFFF))
+						{
+							//Erase segment from 0x5000~0x24400
+							FCTL3 = FWKEY;
+							FCTL1 = FWKEY + ERASE;
+							flash_ptr = (uint8 *) flash_add;
+							*flash_ptr = 0;
+							//Lock Flash
+							FCTL1 = FWKEY;
+							FCTL3 = FWKEY + LOCK;
+						}
+
+					}
+				}
 				if (op_add == 0xFFFFFF)	//EXIT ISP
 				{
 					//Write ISP EXIT Password.
-					unsigned long * flash_ptr;
-					flash_ptr = (unsigned long *) ISP_EXIT_FLAG_ADDRESS;
+					uint32 * flash_ptr;
+					flash_ptr = (uint32 *) ISP_EXIT_FLAG_ADDRESS;
 					//Erase segment first
 					FCTL3 = FWKEY;
 					FCTL1 = FWKEY + ERASE;
@@ -261,10 +288,11 @@ int _system_pre_init(void)
 					//Lock Flash
 					FCTL1 = FWKEY;
 					FCTL3 = FWKEY + LOCK;
-
 					//Reboot
 					PMMCTL0 |= PMMSWBOR;
 				}
+
+				P4OUT |= BIT7;
 				UCB0IFG &= ~UCSTPIFG;
 			}
 

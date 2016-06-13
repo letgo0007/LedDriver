@@ -180,12 +180,12 @@ volatile uint64 u32Hal_Buf_IspPw =
  * 							total		TBD
  *
  ******************************************************************************/
-#pragma LOCATION(Hal_Isr_Gpio_P1,0x4800)
-#pragma LOCATION(Hal_Isr_SpiSlave_Cs,0x4900)
-#pragma LOCATION(Hal_Isr_I2cSlave,0x4A00)
-#pragma LOCATION(Hal_Isr_Uart,0x4D00)
-#pragma LOCATION(Hal_Isr_SchTimerB0,0x4E00)
-#pragma LOCATION(Hal_Isr_SchRtc,0x4F00)
+#pragma LOCATION(Hal_Isr_Gpio_P1,0x5000)
+#pragma LOCATION(Hal_Isr_SpiSlave_Cs,0x5200)
+#pragma LOCATION(Hal_Isr_I2cSlave,0x5400)
+#pragma LOCATION(Hal_Isr_Uart,0x5600)
+#pragma LOCATION(Hal_Isr_SchTimerB0,0x5800)
+#pragma LOCATION(Hal_Isr_SchRtc,0x5A00)
 
 /**********************************************************
  * @Brief Hal_Isr_SchTimerB0

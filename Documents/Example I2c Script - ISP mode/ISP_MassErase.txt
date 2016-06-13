@@ -1,0 +1,4 @@
+//Mass Erase opration by access address 0x1FFFFF 
+write 38 1F FF FF
+//Pause for 8s for flash mass erase operation
+pause 8000
