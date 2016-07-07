@@ -5,9 +5,10 @@
  *
  * Copyright (c) 2016 SHARP CORPORATION
  *
- * @change 	[DATE]	 [EDITOR] 		[MODEL] [TYPE] 	[COMMENT]
+ * @change 	[DATE]	 [EDITOR] 		[MODEL] 	[TYPE] 	[COMMENT]
  * ----------------------------------------------------------------------------
- * 1		20160527 Yang Zhifang	ALL		Init	Initial Version
+ * 1		20160527 Yang Zhifang	ALL			Init	Initial Version
+ * 2		20150707 Yang Zhifang	65SX970A	New		Add new branch
  *
  *****************************************************************************/
 
@@ -577,11 +578,11 @@ flag Hal_Mcu_init(void)
 #if UART_DEBUG_ON
 	PrintString("\e[32m\r\nMCU init start, checking power... ");
 #endif
-	while (Hal_Adc_getResult(HAL_ADCPORT_DC60V) < 0x0200)
+	while (Hal_Adc_getResult(ADC_DC60V) < 0x0200)
 	{
 		DELAY_MS(50);
 	}
-	while (Hal_Adc_getResult(HAL_ADCPORT_DC13V) < 0x0200)
+	while (Hal_Adc_getResult(ADC_DC13V) < 0x0200)
 	{
 		DELAY_MS(50);
 	}
@@ -597,9 +598,9 @@ flag Hal_Mcu_init(void)
 
 #if UART_DEBUG_ON
 	PrintString("\r\nDC60VADC = ");
-	PrintInt(Hal_Adc_getResult(HAL_ADCPORT_DC60V));
+	PrintInt(Hal_Adc_getResult(ADC_DC60V));
 	PrintString("  DC13VADC = ");
-	PrintInt(Hal_Adc_getResult(HAL_ADCPORT_DC13V));
+	PrintInt(Hal_Adc_getResult(ADC_DC13V));
 	PrintString("\r\nLast Reset Source: ");
 	PrintChar(SYSRSTIV);
 	PrintString("\r\nMcu_init finish.\r\n\e[30m");
@@ -617,8 +618,8 @@ uint8 Hal_Mcu_checkBoardStatus(Hal_BoardInfo_t *boardinfo, Hal_BoardErrorParam_t
 
 	//Load Board Hardware Info
 	boardinfo->fIw7027Fault = HAL_GET_IW7027_FAULT_IN;
-	boardinfo->u8Dc60v = (uint32) Hal_Adc_getResult(HAL_ADCPORT_DC60V) * 84 / 0x3FF;
-	boardinfo->u8Dc13v = (uint32) Hal_Adc_getResult(HAL_ADCPORT_DC13V) * 19 / 0x3FF;
+	boardinfo->u8Dc60v = (uint32) Hal_Adc_getResult(ADC_DC60V) * 84 / 0x3FF;
+	boardinfo->u8Dc13v = (uint32) Hal_Adc_getResult(ADC_DC13V) * 19 / 0x3FF;
 	boardinfo->su8McuTemperature = Hal_Adc_getMcuTemperature();
 
 	//BIT0 : Power error flag
@@ -718,106 +719,66 @@ void Hal_Gpio_init(void)
 	GPIO_setAsInputPinWithPullDownResistor(GPIO_PORT_PC, GPIO_PIN_ALL16);
 	GPIO_setAsInputPinWithPullDownResistor(GPIO_PORT_PD, GPIO_PIN_ALL16);
 
-	//STEP2 : Set initial GPIO statis
-	//P1.0 ACLK_OUT , ACLK test point
-	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1, GPIO_PIN0);
-	//P1.1 STB_IN, GPIO input with pull up , falling edge interrupt
-	//	[0] = Backlight off
-	//	[1] = Backlight on
-	//	[Falling Edge] = Immediate shut down
-	GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P1, GPIO_PIN1);
-	GPIO_clearInterrupt(GPIO_PORT_P1, GPIO_PIN1);
-	GPIO_selectInterruptEdge(GPIO_PORT_P1, GPIO_PIN1, GPIO_HIGH_TO_LOW_TRANSITION);
-	GPIO_enableInterrupt(GPIO_PORT_P1, GPIO_PIN1);
-	//P1.2 NC
-	//P1.3 SPISLAVE_CS ,
-	//P1.4 PWM2
-	//P1.5 NC
-	//P1.6 IW7027_POWER_ON , GPIO_OUT
-	//	[0] = IW7027 13V off (default)
-	//	[1] = IW7027 13V on
-	// Note 2016/3/2	: 	Default set IW7027 power off to avoid some dip problem.
-	// 						IW7027 is forced to Power on reset together with MCU
-	GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN6);
-	GPIO_setAsOutputPin(GPIO_PORT_P1, GPIO_PIN6);
-	//P1.7 NC
+	/* STEP2 : Set GPIO ( BUS I/Os are set by each init functions )
+	 * Pin No. is defined in hal.h , function & default value is set as follow.
+	 *
+	 * Name			Default		PU/PD	Interrupt	Remark
+	 * STB_IN		Input		PU		Falling
+	 * IW_POWER_EN	Output H	x		x
+	 * FAC_TEST		Input		PU		x
+	 * ERROR_OUT	Output L	x		x
+	 * LED_G		Output L	x		x			Full strength
+	 * IW_FAULT_IN	Input		x		x
+	 * IW_CS_0~7	Output H	x		x
+	 */
 
-	//P2.0 Vsync_Out
-	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P2, GPIO_PIN0);
-	//P2.1 NC
-	//P2.2 SMCLK_OUT , SMCLK test point
-	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P2, GPIO_PIN2);
-	//P2.3 NC
-	//P2.4 NC
-	//P2.5 NC
-	//P2.6 TEST_MODE_IN , input pin with external pull up
-	//	[0] = run factory test mode
-	//	[1] = normal mode
-	GPIO_setAsInputPin(GPIO_PORT_P2, GPIO_PIN6);
-	//P2.7 SPISLAVE_CLK
+	//STB_IN ; H = BL on / L = BL off
+	GPIO_setAsInputPinWithPullUpResistor(GPIO_STB_IN);
+	GPIO_clearInterrupt(GPIO_STB_IN);
+	GPIO_selectInterruptEdge(GPIO_STB_IN, GPIO_HIGH_TO_LOW_TRANSITION);
+	GPIO_enableInterrupt(GPIO_STB_IN);
 
-	//P3.0 I2CSLAVE_SDA
-	//P3.1 I2CSLAVE_SCL
-	//P3.2 NC
-	//P3.3 SPISLAVE_MOSI
-	//P3.4 SPISLAVE_MISO
-	//P3.5 NC , not available for MSP430F5247
-	//P3.6 NC , not available for MSP430F5247
-	//P3.7 NC , not available for MSP430F5247
+	//IW_POWER_EN ; H = IW power on / L = IW power off
+	GPIO_setOutputLowOnPin(GPIO_IW_POWER_EN);
+	GPIO_setAsOutputPin(GPIO_IW_POWER_EN);
 
-	//P4.0 NC
-	//P4.1 SPIMASTER_MOSI
-	//P4.2 SPIMASTER_MISO
-	//P4.3 SPIMASTER_CLK
-	//P4.4 UART_TX
-	//P4.5 UART_RX
-	//P4.6 ERROR_OUT ,Error status output
-	//	[0] = Error (default)
-	//	[1] = Normal working
-	GPIO_setOutputLowOnPin(GPIO_PORT_P4, GPIO_PIN6);
-	GPIO_setAsOutputPin(GPIO_PORT_P4, GPIO_PIN6);
-	//P4.7 LED_G , Green led output for test.
-	//	[0] = not possiable
-	//	[1] = Board Initializing (default)
-	//	[Flash] = normal working
-	GPIO_setOutputHighOnPin(GPIO_PORT_P4, GPIO_PIN7);
-	GPIO_setAsOutputPin(GPIO_PORT_P4, GPIO_PIN7);
-	GPIO_setDriveStrength(GPIO_PORT_P4, GPIO_PIN7, GPIO_FULL_OUTPUT_DRIVE_STRENGTH);
+	//FAC_TEST ; H = Normal / L = Factory test
+	GPIO_setAsInputPin(GPIO_FAC_TEST);
 
-	//P5.0 NC
-	//P5.1 NC
-	//P5.2 X2IN
-	//P5.3 X2OUT
-	//P5.4 X1IN
-	//P5.5 X2OUT
-	//P5.6 NC , not available for MSP430F5247
-	//P5.7 NC , not available for MSP430F5247
+	//ERROR_OUT : H = Normal / L = Error
+	GPIO_setOutputLowOnPin(GPIO_ERROR_OUT);
+	GPIO_setAsOutputPin(GPIO_ERROR_OUT);
 
-	//P6.0 IW7027_FAULT_IN
-	// 	[0] IW7027 fault
-	//	[1] IW7027 normal
-	GPIO_setAsInputPin(GPIO_PORT_P6, GPIO_PIN0);
-	//P6.1 NC
-	//P6.2 NC
-	//P6.3 NC
-	//P6.4 DC60V_DET , ADC4
-	//P6.5 DC13V_DET , ADC5
-	//P6.6 NC
-	//P6.7 NC
+	//LED G : H = LED Green on / L = LED Green off
+	GPIO_setOutputHighOnPin(GPIO_LED_G);
+	GPIO_setAsOutputPin(GPIO_LED_G);
+	GPIO_setDriveStrength(GPIO_LED_G, GPIO_FULL_OUTPUT_DRIVE_STRENGTH);
 
-	//P7.0 ~ P7.4 SPIMASTER_CS_0 ,output pin
-	//	[0] chip select ,spi transfer enable
-	//	[1]	chip unselect ,spi transfer disable
-	GPIO_setOutputHighOnPin(GPIO_PORT_P7, GPIO_PIN0 + GPIO_PIN1 + GPIO_PIN2 + GPIO_PIN3 + GPIO_PIN4);
-	GPIO_setAsOutputPin(GPIO_PORT_P7, GPIO_PIN0 + GPIO_PIN1 + GPIO_PIN2 + GPIO_PIN3 + GPIO_PIN4);
-	//P7.6  NC
-	//P7.6  NC , not available for MSP430F5247
-	//P7.7  NC , not available for MSP430F5247
+	//IW_FAULT_IN : H = Normal / L = Error
+	GPIO_setAsInputPin(GPIO_IW_FAULT_IN);
 
+	//IW_CS_0 ~ IW_CS_7 : H = Not selected / L = Chip selected
+	GPIO_setOutputHighOnPin(GPIO_IW_CS_0);
+	GPIO_setAsOutputPin(GPIO_IW_CS_0);
+	GPIO_setOutputHighOnPin(GPIO_IW_CS_1);
+	GPIO_setAsOutputPin(GPIO_IW_CS_1);
+	GPIO_setOutputHighOnPin(GPIO_IW_CS_2);
+	GPIO_setAsOutputPin(GPIO_IW_CS_2);
+	GPIO_setOutputHighOnPin(GPIO_IW_CS_3);
+	GPIO_setAsOutputPin(GPIO_IW_CS_3);
+	GPIO_setOutputHighOnPin(GPIO_IW_CS_4);
+	GPIO_setAsOutputPin(GPIO_IW_CS_4);
+	GPIO_setOutputHighOnPin(GPIO_IW_CS_5);
+	GPIO_setAsOutputPin(GPIO_IW_CS_5);
+	GPIO_setOutputHighOnPin(GPIO_IW_CS_6);
+	GPIO_setAsOutputPin(GPIO_IW_CS_6);
+	GPIO_setOutputHighOnPin(GPIO_IW_CS_7);
+	GPIO_setAsOutputPin(GPIO_IW_CS_7);
 }
 
 flag Hal_Adc_init(void)
 {
+#ifdef __MSP430_HAS_ADC10_A__
 	//Set P6.4 P6.5 as ADC input
 	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P6, GPIO_PIN4);
 	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P6, GPIO_PIN5);
@@ -855,10 +816,17 @@ flag Hal_Adc_init(void)
 	Ref_enableReferenceVoltage(REF_BASE);
 
 	return FLAG_SUCCESS;
+#endif
+
+#ifdef __MSP430_HAS_ADC12_PLUS__
+	return FLAG_SUCCESS;
+#endif
+
 }
 
 uint16 Hal_Adc_getResult(uint8 port)
 {
+#ifdef __MSP430_HAS_ADC10_A__
 	//Configure Memory Buffer
 	/*
 	 * Base Address for the ADC10_A Module
@@ -880,10 +848,16 @@ uint16 Hal_Adc_getResult(uint8 port)
 	ADC10_A_disableConversions(ADC10_A_BASE, ADC10_A_COMPLETECONVERSION);
 
 	return ADC10_A_getResults(ADC10_A_BASE);
+#endif
+
+#ifdef __MSP430_HAS_ADC12_PLUS__
+	return 0x201;
+#endif
 }
 
 int8 Hal_Adc_getMcuTemperature(void)
 {
+#ifdef __MSP430_HAS_ADC10_A__
 	uint16 adcval;
 	int32_t temperature;
 
@@ -907,6 +881,11 @@ int8 Hal_Adc_getMcuTemperature(void)
 
 	//return temperature
 	return ((int8) temperature);
+#endif
+
+#ifdef __MSP430_HAS_ADC12_PLUS__
+	return 30;
+#endif
 }
 
 flag Hal_Clock_init(uint32 cpu_speed)
@@ -932,9 +911,23 @@ flag Hal_SpiMaster_init(uint32 spi_speed)
 	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P4, GPIO_PIN2);
 	GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P4, GPIO_PIN3);
 
-	//CS = P7.0 ~ P7.4 , set default high on pin.
-	GPIO_setOutputHighOnPin(GPIO_PORT_P7, GPIO_PIN0 | GPIO_PIN1 | GPIO_PIN2 | GPIO_PIN3 | GPIO_PIN4);
-	GPIO_setAsOutputPin(GPIO_PORT_P7, GPIO_PIN0 | GPIO_PIN1 | GPIO_PIN2 | GPIO_PIN3 | GPIO_PIN4);
+	//Set CS pins to H.
+	GPIO_setOutputHighOnPin(GPIO_IW_CS_0);
+	GPIO_setAsOutputPin(GPIO_IW_CS_0);
+	GPIO_setOutputHighOnPin(GPIO_IW_CS_1);
+	GPIO_setAsOutputPin(GPIO_IW_CS_1);
+	GPIO_setOutputHighOnPin(GPIO_IW_CS_2);
+	GPIO_setAsOutputPin(GPIO_IW_CS_2);
+	GPIO_setOutputHighOnPin(GPIO_IW_CS_3);
+	GPIO_setAsOutputPin(GPIO_IW_CS_3);
+	GPIO_setOutputHighOnPin(GPIO_IW_CS_4);
+	GPIO_setAsOutputPin(GPIO_IW_CS_4);
+	GPIO_setOutputHighOnPin(GPIO_IW_CS_5);
+	GPIO_setAsOutputPin(GPIO_IW_CS_5);
+	GPIO_setOutputHighOnPin(GPIO_IW_CS_6);
+	GPIO_setAsOutputPin(GPIO_IW_CS_6);
+	GPIO_setOutputHighOnPin(GPIO_IW_CS_7);
+	GPIO_setAsOutputPin(GPIO_IW_CS_7);
 
 	//Initialize Master
 	uint8 ucb1returnValue = 0x00;
@@ -964,51 +957,78 @@ flag Hal_SpiMaster_init(uint32 spi_speed)
 
 void Hal_SpiMaster_setCsPin(uint8 chipsel)
 {
-	// Chip No.0 , GPIO = P7.0
 	if (chipsel & BIT0)
 	{
-		GPIO_setOutputLowOnPin(GPIO_PORT_P7, GPIO_PIN0);
+		GPIO_setOutputLowOnPin(GPIO_IW_CS_0);
 	}
 	else
 	{
-		GPIO_setOutputHighOnPin(GPIO_PORT_P7, GPIO_PIN0);
+		GPIO_setOutputHighOnPin(GPIO_IW_CS_0);
 	}
-	// Chip No.1, GPIO = P7.1
+
 	if (chipsel & BIT1)
 	{
-		GPIO_setOutputLowOnPin(GPIO_PORT_P7, GPIO_PIN1);
+		GPIO_setOutputLowOnPin(GPIO_IW_CS_1);
 	}
 	else
 	{
-		GPIO_setOutputHighOnPin(GPIO_PORT_P7, GPIO_PIN1);
+		GPIO_setOutputHighOnPin(GPIO_IW_CS_1);
 	}
-	// Chip No.2, GPIO = P7.2
+
 	if (chipsel & BIT2)
 	{
-		GPIO_setOutputLowOnPin(GPIO_PORT_P7, GPIO_PIN2);
+		GPIO_setOutputLowOnPin(GPIO_IW_CS_2);
 	}
 	else
 	{
-		GPIO_setOutputHighOnPin(GPIO_PORT_P7, GPIO_PIN2);
+		GPIO_setOutputHighOnPin(GPIO_IW_CS_2);
 	}
-	// Chip No.3, GPIO = P7.3
+
 	if (chipsel & BIT3)
 	{
-		GPIO_setOutputLowOnPin(GPIO_PORT_P7, GPIO_PIN3);
+		GPIO_setOutputLowOnPin(GPIO_IW_CS_3);
 	}
 	else
 	{
-		GPIO_setOutputHighOnPin(GPIO_PORT_P7, GPIO_PIN3);
+		GPIO_setOutputHighOnPin(GPIO_IW_CS_3);
 	}
-	// Chip No.4, GPIO = P7.4
+
 	if (chipsel & BIT4)
 	{
-		GPIO_setOutputLowOnPin(GPIO_PORT_P7, GPIO_PIN4);
+		GPIO_setOutputLowOnPin(GPIO_IW_CS_4);
 	}
 	else
 	{
-		GPIO_setOutputHighOnPin(GPIO_PORT_P7, GPIO_PIN4);
+		GPIO_setOutputHighOnPin(GPIO_IW_CS_4);
 	}
+
+	if (chipsel & BIT5)
+	{
+		GPIO_setOutputLowOnPin(GPIO_IW_CS_5);
+	}
+	else
+	{
+		GPIO_setOutputHighOnPin(GPIO_IW_CS_5);
+	}
+
+	if (chipsel & BIT6)
+	{
+		GPIO_setOutputLowOnPin(GPIO_IW_CS_6);
+	}
+	else
+	{
+		GPIO_setOutputHighOnPin(GPIO_IW_CS_6);
+	}
+
+	if (chipsel & BIT7)
+	{
+		GPIO_setOutputLowOnPin(GPIO_IW_CS_7);
+	}
+	else
+	{
+		GPIO_setOutputHighOnPin(GPIO_IW_CS_7);
+	}
+
 }
 
 uint8 Hal_SpiMaster_sendMultiByte(uint8 *txdata, uint16 length)

@@ -27,20 +27,63 @@
 //Software delay Marcos
 #define DELAY_US(x) 					__delay_cycles((uint64)(HAL_CPU_F*(uint64)x/1000000))
 #define DELAY_MS(x) 					__delay_cycles((uint64)(HAL_CPU_F*(uint64)x/1000))
-//GPIO & ADC access marcros
-#define HAL_ADCPORT_DC60V				(4)
-#define HAL_ADCPORT_DC13V				(5)
-#define HAL_GET_STB_IN					(GPIO_getInputPinValue(GPIO_PORT_P1 , GPIO_PIN1))
-#define HAL_GET_IW7027_FAULT_IN			(GPIO_getInputPinValue(GPIO_PORT_P6 , GPIO_PIN0))
-#define HAL_SET_IW7027_POWER_ON			(GPIO_setOutputHighOnPin(GPIO_PORT_P1 , GPIO_PIN6))
-#define HAL_SET_IW7027_POWER_OFF		(GPIO_setOutputLowOnPin(GPIO_PORT_P1 , GPIO_PIN6))
-#define HAL_SET_LED_G_ON				(GPIO_setOutputHighOnPin(GPIO_PORT_P4 , GPIO_PIN7))
-#define HAL_SET_LED_G_OFF				(GPIO_setOutputLowOnPin(GPIO_PORT_P4 , GPIO_PIN7))
-#define HAL_TOGGLE_LED_G				(GPIO_toggleOutputOnPin(GPIO_PORT_P4 , GPIO_PIN7))
-#define HAL_SET_ERROR_OUT_HIGH			(GPIO_setOutputHighOnPin(GPIO_PORT_P4 , GPIO_PIN6))
-#define HAL_SET_ERROR_OUT_LOW			(GPIO_setOutputLowOnPin(GPIO_PORT_P4 , GPIO_PIN6))
+//ADC define
+#define ADC_DC60V						4
+#define ADC_DC13V						5
+
+#ifdef __MSP430F5529__
+//GPIO NO. define for MSP430F5247
+#define GPIO_STB_IN						GPIO_PORT_P1,GPIO_PIN1
+#define GPIO_IW_POWER_EN				GPIO_PORT_P1,GPIO_PIN6
+#define GPIO_FAC_TEST					GPIO_PORT_P2,GPIO_PIN6
+#define GPIO_ERROR_OUT					GPIO_PORT_P1,GPIO_PIN0
+#define GPIO_LED_R						GPIO_PORT_P1,GPIO_PIN0
+#define GPIO_LED_G						GPIO_PORT_P4,GPIO_PIN7
+#define GPIO_IW_FAULT_IN				GPIO_PORT_P2,GPIO_PIN1
+#define GPIO_IW_CS_0					GPIO_PORT_P6,GPIO_PIN0
+#define GPIO_IW_CS_1					GPIO_PORT_P6,GPIO_PIN1
+#define GPIO_IW_CS_2					GPIO_PORT_P6,GPIO_PIN2
+#define GPIO_IW_CS_3					GPIO_PORT_P6,GPIO_PIN3
+#define GPIO_IW_CS_4					GPIO_PORT_P6,GPIO_PIN4
+#define GPIO_IW_CS_5					GPIO_PORT_P7,GPIO_PIN0
+#define GPIO_IW_CS_6					GPIO_PORT_P3,GPIO_PIN6
+#define GPIO_IW_CS_7					GPIO_PORT_P3,GPIO_PIN5
+#endif
+
+#ifdef __MSP430F5247__
+//GPIO NO. define for MSP430F5247
+#define GPIO_STB_IN						1,1
+#define GPIO_IW_POWER_EN				1,6
+#define GPIO_FAC_TEST					2,6
+#define GPIO_ERROR_OUT					4,6
+#define GPIO_LED_R						4,6
+#define GPIO_LED_G						4,7
+#define GPIO_IW_FAULT_IN				6,0
+#define GPIO_IW_CS_0					7,0
+#define GPIO_IW_CS_1					7,1
+#define GPIO_IW_CS_2					7,2
+#define GPIO_IW_CS_3					7,3
+#define GPIO_IW_CS_4					7,4
+#define GPIO_IW_CS_5					7,5
+#define GPIO_IW_CS_6					7,6
+#define GPIO_IW_CS_7					7,7
+#endif
+
+//GPIO operation macro
+#define HAL_GET_STB_IN					(GPIO_getInputPinValue(GPIO_STB_IN))
+#define HAL_GET_IW7027_FAULT_IN			(GPIO_getInputPinValue(GPIO_IW_FAULT_IN))
+#define HAL_SET_IW7027_POWER_ON			(GPIO_setOutputHighOnPin(GPIO_IW_POWER_EN))
+#define HAL_SET_IW7027_POWER_OFF		(GPIO_setOutputLowOnPin(GPIO_IW_POWER_EN))
+#define HAL_SET_LED_G_ON				(GPIO_setOutputHighOnPin(GPIO_LED_G))
+#define HAL_SET_LED_G_OFF				(GPIO_setOutputLowOnPin(GPIO_LED_G))
+#define HAL_TOGGLE_LED_G				(GPIO_toggleOutputOnPin(GPIO_LED_G))
+#define HAL_SET_ERROR_OUT_HIGH			(GPIO_setOutputHighOnPin(GPIO_ERROR_OUT))
+#define HAL_SET_ERROR_OUT_LOW			(GPIO_setOutputLowOnPin(GPIO_ERROR_OUT))
 #define HAL_WATCHDOG_RESET				(WDT_A_resetTimer(WDT_A_BASE))
 #define HAL_WATCHDOG_HOLD				(WDT_A_hold(WDT_A_BASE))
+
+
+
 /***2.2 External Structures **/
 
 //Board I/O information structure.

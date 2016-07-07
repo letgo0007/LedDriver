@@ -21,15 +21,19 @@
 //Driver Software Version
 #define	IW_DRIVER_VERSION				(0x01)
 //IW7027 IC amount to be controled.
-#define IW_DEVICE_AMOUNT				(0x05)
+#define IW_DEVICE_AMOUNT				(8)
 //Total available LED channel amount.
-#define IW_LED_CHANNEL					(78)
+#define IW_LED_CHANNEL					(120)
 //Single chip select bit ,orderd from BIT0~BIT7.
 #define IW_0							(0x01)
 #define IW_1							(0x02)
 #define IW_2							(0x04)
 #define IW_3							(0x08)
 #define IW_4							(0x10)
+#define IW_5							(0x20)
+#define IW_6							(0x40)
+#define IW_7							(0x80)
+
 //All chip select bit .
 #define IW_ALL							(0x1F)
 
@@ -59,7 +63,7 @@ typedef struct Drv_Iw7027Param_t
 	//IW7027 Open/Short Status. Each IW7027 has 6bytes
 	// 6 bytes : 	[open 0~7][open 8~15][short 0~7][short 8~15]
 	// 				[D-S short 0~7][D-S short 8~15]
-	uint8 u8IwOpenShortStatus[IW_DEVICE_AMOUNT * 6];
+	uint8 u8IwOpenShortStatus[5 * 6];
 	//RESERVED , fix the size of the struct to 0x30 bytes for I2C slave access.
 	uint8 RESERVED[0x05];
 } Drv_Iw7027Param_t;

@@ -72,7 +72,7 @@ int main(void)
 			if (tHal_CpuScheduler.fTaskFlagSpiRx)
 			{
 				//Check Spi Rx data validation
-				tHal_BoardInfo.fSpiDataValid = SpiSlave_getDuty(u8Hal_Buf_SpiSlaveRx, u16Hal_Buf_InputDuty, CITRUS_12BIT_78CH);
+				tHal_BoardInfo.fSpiDataValid = SpiSlave_getDuty(u8Hal_Buf_SpiSlaveRx, u16Hal_Buf_InputDuty, MFC11_12BIT_120CH);
 
 				//Do Spi Rx data process when format correct.
 				if (tHal_BoardInfo.fSpiDataValid)
@@ -111,6 +111,13 @@ int main(void)
 		{
 			//Toggle LED as Mcu active marker.
 			HAL_TOGGLE_LED_G;
+
+			tHal_CpuScheduler.fLocalDimmingOn = 0;
+			static uint8 i;
+
+			u16Hal_Buf_TestDuty[i%128] = 0xA0;
+			i++;
+
 #if 1
 			PrintTime(&tHal_Time);
 			PrintString("CPU Locd = ");
@@ -140,7 +147,7 @@ int main(void)
 		Hal_Sch_CpuOff();
 	} //End of while(tHal_CpuScheduler.schSystemOn)
 
-	//Reboot
+//Reboot
 	Hal_Mcu_reset();
 
 }

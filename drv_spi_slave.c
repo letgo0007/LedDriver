@@ -74,7 +74,7 @@ uint8 SpiSlave_getDuty(uint8 *spirx, uint16 *outputduty, enum SpiRxFormatModel m
 		}
 	} //End of Case HISIV600_8BIT
 
-	case MFC11_12BIT_80CH:
+	case MFC11_12BIT_120CH:
 	{
 		/* MFC11 spi format: Data = 12bit
 		 * 					0	 1	  2    3    4    5
@@ -84,14 +84,14 @@ uint8 SpiSlave_getDuty(uint8 *spirx, uint16 *outputduty, enum SpiRxFormatModel m
 		 */
 		uint16 i = 0;
 		uint32 temp = 0;
-		for (i = 0; i < 120; i = i + 3)	//120ch 8bit = 80ch 12bit
+		for (i = 0; i < 180; i = i + 3)	//120ch 8bit = 80ch 12bit
 		{
 			temp = 0x010000 * spirx[i] + 0x000100 * spirx[i + 1] + spirx[i + 2];
 			outputduty[i / 3] = temp >> 12;
 			outputduty[i / 3 + 1] = temp & 0xFFF;
 		}
 		return FLAG_SUCCESS;
-	}	//End of Case MFC11_12BIT_80CH
+	}	//End of Case MFC11_12BIT_120CH
 
 	case CITRUS_12BIT_78CH:
 	{

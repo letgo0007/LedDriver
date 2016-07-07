@@ -22,7 +22,7 @@
 /***2.2 External Structures ***************************************************/
 enum SpiRxFormatModel
 {
-	HISIV600_8BIT, MFC11_12BIT_80CH, CITRUS_12BIT_78CH
+	HISIV600_8BIT, MFC11_12BIT_120CH, CITRUS_12BIT_78CH
 };
 
 /***2.3 External Variables ****************************************************/
