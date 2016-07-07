@@ -27,6 +27,11 @@
 
 /***2.3 Internal Variables ***************************************************/
 
+//Write ISP_INIT_EXIT_FLAG to flash to exit isp mode on 1st run.
+//Note that need open the project Properties - Debug - MSP43x Options - Erase Options = Enable Erase Flash & Info
+#pragma LOCATION(ISP_INIT_EXIT_FLAG,ISP_EXIT_FLAG_ADDRESS)
+volatile static const uint32 ISP_INIT_EXIT_FLAG = 0x20140217;
+
 /***2.4 External Variables ***************************************************/
 
 /***2.5 Internal Functions ***************************************************/
@@ -71,11 +76,6 @@ static inline void SetVcoreUp(unsigned int level)
 	PMMCTL0_H = 0x00;
 }
 
-//Write ISP_INIT_EXIT_FLAG to flash to exit isp mode on 1st run.
-//Note that need open the project Properties - Debug - MSP43x Options - Erase Options = Enable Erase Flash & Info
-#pragma LOCATION(ISP_INIT_EXIT_FLAG,ISP_EXIT_FLAG_ADDRESS)
-volatile static const uint32 ISP_INIT_EXIT_FLAG = 0x20140217;
-
 /**********************************************************
  * @Brief _system_pre_init
  * 		System low level initial before RAM intialization & main().
@@ -115,7 +115,7 @@ int _system_pre_init(void)
 	//Check password on info flash to decide whether go to main().
 	if (ISP_INIT_EXIT_FLAG == ISP_EXIT_PASSWORD32) //Password correct , go to main()
 	{
-		return 0;
+		return 1;
 	}
 	else //Password wrong , run ISP function.
 	{
