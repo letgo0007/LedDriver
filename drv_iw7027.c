@@ -30,10 +30,6 @@
 //Current change max step .
 #define	IW_CURRENT_CHANGE_STEP				(0x30)
 
-//Select model specified const .
-#define Iw7027_DefaultRegMap				(Iw7027_DefaultRegMap_65SX970A)
-#define Iw7027_LedSortMap					(Iw7027_LedSortMap_65SX970A)
-
 /***2.2 Internal Struct ******************************************************/
 
 /***2.3 Internal Variables ***************************************************/
@@ -189,7 +185,7 @@ const uint8 Iw7027_LedSortMap_65SX970A[IW_DEVICE_AMOUNT * 16] =
 
 static const Drv_Iw7027Param_t Iw7027_DefaultParam =
 { .u16IwOutputFreq = 120, .u8IwCurrent = 0x80, .eIwDelayTableSelect = d2D, .u16IwInputFreq = 120, .u16IwOutputDelay = 1,
-		.fIwRunErrorCheck = 1, .fIwIsError = 0 };
+		.fIwRunErrorCheck = 1, .fIwErrorType = 0 };
 
 /***2.4 External Variables ***************************************************/
 
@@ -289,7 +285,7 @@ uint8 Iw7027_checkReadWithTimeout(uint8 chipsel, uint8 regaddress, uint8 checkva
 {
 	uint8 retrytime;
 	uint8 val;
-	uint8 chipmask;
+	uint16 chipmask;
 	uint8 status;
 
 	//Sequence check from IW_0 -> IW_N
@@ -334,68 +330,39 @@ uint8 Iw7027_init(void)
 	uint8 status = 0;
 	uint8 i = 0;
 
-#if UART_DEBUG_ON
-	PrintTime(&tHal_Time);
-	PrintString("[IW7027 INTIAL] Start...\r\n");
-	PrintTime(&tHal_Time);
-	PrintString("[IW7027 INTIAL] -1 : Power On & Delay.\r\n");
-#endif
 	//Step 1: Power ON .
 	//YZF 2016/4/30 : Force power off for 500ms to ensure IW7027 is powerd off AC DIP conditon.
-	HAL_SET_IW7027_POWER_OFF;
+	Gpio_out(GPIO_IW_POWER_EN, 0);
 	DELAY_MS(500);
-	HAL_SET_IW7027_POWER_ON;
+	Gpio_out(GPIO_IW_POWER_EN, 1);
 	DELAY_MS(200);
 
-	//Step 2: check chip ID to ensure IW7027 is working .
-	do
+	//Step 2: Check chip ID.
+	while (FLAG_FAIL == Iw7027_checkChipId(IW_ALL))
 	{
-#if UART_DEBUG_ON
-		PrintTime(&tHal_Time);
-		PrintString("[IW7027 INTIAL] -2 : Read Chip ID\r\n");
-#endif
-		status = Iw7027_checkReadWithTimeout(IW_ALL, 0x6B, 0x24, 0xFF);
-	} while (status == 0);
+		DELAY_MS(200);
+	}
 
-	//Step 3 : Write Initial setting in sequence  from chip IW0 to IW_N
+	//Step 3: Write initial setting.
 	for (i = 0; i < IW_DEVICE_AMOUNT; i++)
 	{
 		Iw7027_writeMultiByte(IW_0 << i, 0x00, 0x60, (uint8 *) &Iw7027_DefaultRegMap[0x60 * i]);
-#if UART_DEBUG_ON
-		PrintTime(&tHal_Time);
-		PrintString("[IW7027 INTIAL] -3 : Write Initial Reg Map\r\n");
-#endif
 	}
 
-	//Step 4 :wait STB
-	do
+	//Step 4: Wait STB_IN.
+	while (0 == Gpio_in(GPIO_STB_IN))
 	{
-#if UART_DEBUG_ON
-		PrintTime(&tHal_Time);
-		PrintString("[IW7027 INTIAL] -4 : Wait STB ...\r\n");
-#endif
 		DELAY_MS(200);
-	} while ( HAL_GET_STB_IN == 0);
+	}
 
-	//Step 5 : Set IW7027 status using default param.
+	//Step 5: Update default parameters to IW7027.
 	tDrv_Iw7027Param = Iw7027_DefaultParam;
 	Iw7027_updateWorkParams(&tDrv_Iw7027Param);
-	DELAY_MS(200);		//wait 200ms for pwm stable.
-#if UART_DEBUG_ON
-	PrintTime(&tHal_Time);
-	PrintString("[IW7027 INTIAL] -5 : Get STB , Set work status ...\r\n");
-	PrintString("Initial IW7027 work status:\r\n");
-	PrintArray((uint8 *) &tDrv_Iw7027Param, sizeof(tDrv_Iw7027Param));
-	PrintEnter();
-#endif
+	//wait 200ms for pwm stable.
+	DELAY_MS(200);
 
 	//Step 6 : Initialize Done ,turn on BL
 	Iw7027_writeSingleByte(IW_ALL, 0x00, 0x07);
-#if UART_DEBUG_ON
-	PrintTime(&tHal_Time);
-	PrintString("[IW7027 INTIAL] -6 : Initialize finish , turn on BL..\r\n");
-	PrintString("\e[32mBL on ,enter main loop.\r\n\e[30m");
-#endif
 
 	//Return status
 	return status;
@@ -544,30 +511,80 @@ uint8 Iw7027_updateWorkParams(Drv_Iw7027Param_t *param_in)
 
 uint8 Iw7027_checkOpenShortStatus(Drv_Iw7027Param_t *iwparam)
 {
-	//Reset Is error
-	iwparam->fIwIsError = 0;
 	uint8 i;
+	uint8 statusbuf[6];
+
+	//Reset Is error
+	iwparam->fIwErrorType = 0;
 
 	//Enable Error Read
 	Iw7027_writeSingleByte( IW_ALL, 0x78, 0x80);
 
-	//Read Open/Short/DSShort status from 0x85~0x8A
+	//Read Open/Short/DSShort status from 0x85~0x8A for all device
 	for (i = 0; i < IW_DEVICE_AMOUNT; i++)
 	{
-		Iw7027_readMultiByte(IW_0 << i, 0x85, 6, iwparam->u8IwOpenShortStatus + i * 6);
+		Iw7027_readMultiByte(IW_0 << i, 0x85, 6, statusbuf);
+
+		//Set error type
+		if (statusbuf[0] || statusbuf[1])
+		{
+			iwparam->fIwErrorType |= IW_ERR_OPEN;
+		}
+		if (statusbuf[2] || statusbuf[3])
+		{
+			iwparam->fIwErrorType |= IW_ERR_SHORT;
+		}
+		if (statusbuf[4] || statusbuf[5])
+		{
+			iwparam->fIwErrorType |= IW_ERR_DSSHORT;
+		}
+
+		//Set error channel
+		iwparam->u8IwOpenShortStatus[i * 2] = statusbuf[0] | statusbuf[2] | statusbuf[4];
+		iwparam->u8IwOpenShortStatus[i * 2 + 1] = statusbuf[1] | statusbuf[3] | statusbuf[5];
 	}
 
 	//Disable Error¡¡Read
 	Iw7027_writeSingleByte( IW_ALL, 0x78, 0x00);
 
-	for (i = 0; i < IW_DEVICE_AMOUNT * 6; i++)
+	//Rrturn error status.
+	return iwparam->fIwErrorType;
+}
+
+flag Iw7027_checkChipId(uint16 iw_all)
+{
+	uint8 status;
+	uint8 i;
+	uint8 retval = 0;
+
+	//Check from IW_0 ~ IW_N
+	for (i = 0; (IW_0 << i) <= iw_all; i++)
 	{
-		if (iwparam->u8IwOpenShortStatus[i])
+		if ((IW_0 << i) & iw_all)
 		{
-			iwparam->fIwIsError |= 1;
+			status = Iw7027_checkReadWithTimeout(IW_0 << i, 0x68, 0x24, 0xFF);
+			retval |= (IW_0 << i) && status;
 		}
 	}
 
-	//Rrturn error status.
-	return iwparam->fIwIsError;
+#if UART_DEBUG_ON
+	PrintTime(&tHal_Time);
+	PrintString("[IW7027 Chip ID Check Result] = ");
+	PrintChar(retval);
+	PrintEnter();
+#endif
+
+	if (retval == iw_all)
+	{
+		return FLAG_SUCCESS;
+	}
+	else
+	{
+		return FLAG_FAIL;
+	}
+}
+
+void Iw7027_disableChannel(uint8 ch_id)
+{
+	;
 }

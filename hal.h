@@ -5,9 +5,10 @@
  *
  * Copyright (c) 2016 SHARP CORPORATION
  *
- * @change 	[DATE]	 [EDITOR] 		[MODEL] [TYPE] 	[COMMENT]
+ * [DATE]	[EDITOR]	[COMMENT]
  * ----------------------------------------------------------------------------
- * 1		20160527 Yang Zhifang	ALL		Init	Initial Version
+ * 20160527	Yang.Zf		Inital Version
+ * 20160708	Yang.Zf		Modify GPIO operation macros to inline functions.
  *
  *****************************************************************************/
 #ifndef HAL_H_
@@ -18,74 +19,37 @@
 #include "std.h"
 
 /***2.1 External Macros ******************************************************/
-//Firmware Version
-#define HAL_VERSION						(0x1606080A)
-//CPU working frequency (Hz)
-#define HAL_CPU_F 						(24000000)
-//Error Info flash address
+/*MCU working const & macros */
+#define HAL_CPU_F			24000000
 #define HAL_ERROR_INFO_FLASH_PTR		((uint8 *)0x1800)
 //Software delay Marcos
-#define DELAY_US(x) 					__delay_cycles((uint64)(HAL_CPU_F*(uint64)x/1000000))
-#define DELAY_MS(x) 					__delay_cycles((uint64)(HAL_CPU_F*(uint64)x/1000))
-//ADC define
-#define ADC_DC60V						4
-#define ADC_DC13V						5
+#define DELAY_US(x)			__delay_cycles((uint64)(HAL_CPU_F*(uint64)x/1000000))
+#define DELAY_MS(x)			__delay_cycles((uint64)(HAL_CPU_F*(uint64)x/1000))
+#define HAL_WATCHDOG_RESET	(WDT_A_resetTimer(WDT_A_BASE))
+#define HAL_WATCHDOG_HOLD	(WDT_A_hold(WDT_A_BASE))
 
-#ifdef __MSP430F5529__
-//GPIO NO. define for MSP430F5247
-#define GPIO_STB_IN						GPIO_PORT_P1,GPIO_PIN1
-#define GPIO_IW_POWER_EN				GPIO_PORT_P1,GPIO_PIN6
-#define GPIO_FAC_TEST					GPIO_PORT_P2,GPIO_PIN6
-#define GPIO_ERROR_OUT					GPIO_PORT_P1,GPIO_PIN0
-#define GPIO_LED_R						GPIO_PORT_P1,GPIO_PIN0
-#define GPIO_LED_G						GPIO_PORT_P4,GPIO_PIN7
-#define GPIO_IW_FAULT_IN				GPIO_PORT_P2,GPIO_PIN1
-#define GPIO_IW_CS_0					GPIO_PORT_P6,GPIO_PIN0
-#define GPIO_IW_CS_1					GPIO_PORT_P6,GPIO_PIN1
-#define GPIO_IW_CS_2					GPIO_PORT_P6,GPIO_PIN2
-#define GPIO_IW_CS_3					GPIO_PORT_P6,GPIO_PIN3
-#define GPIO_IW_CS_4					GPIO_PORT_P6,GPIO_PIN4
-#define GPIO_IW_CS_5					GPIO_PORT_P7,GPIO_PIN0
-#define GPIO_IW_CS_6					GPIO_PORT_P3,GPIO_PIN6
-#define GPIO_IW_CS_7					GPIO_PORT_P3,GPIO_PIN5
-#endif
-
-#ifdef __MSP430F5247__
-//GPIO NO. define for MSP430F5247
-#define GPIO_STB_IN						1,1
-#define GPIO_IW_POWER_EN				1,6
-#define GPIO_FAC_TEST					2,6
-#define GPIO_ERROR_OUT					4,6
-#define GPIO_LED_R						4,6
-#define GPIO_LED_G						4,7
-#define GPIO_IW_FAULT_IN				6,0
-#define GPIO_IW_CS_0					7,0
-#define GPIO_IW_CS_1					7,1
-#define GPIO_IW_CS_2					7,2
-#define GPIO_IW_CS_3					7,3
-#define GPIO_IW_CS_4					7,4
-#define GPIO_IW_CS_5					7,5
-#define GPIO_IW_CS_6					7,6
-#define GPIO_IW_CS_7					7,7
-#endif
-
-//GPIO operation macro
-#define HAL_GET_STB_IN					(GPIO_getInputPinValue(GPIO_STB_IN))
-#define HAL_GET_IW7027_FAULT_IN			(GPIO_getInputPinValue(GPIO_IW_FAULT_IN))
-#define HAL_SET_IW7027_POWER_ON			(GPIO_setOutputHighOnPin(GPIO_IW_POWER_EN))
-#define HAL_SET_IW7027_POWER_OFF		(GPIO_setOutputLowOnPin(GPIO_IW_POWER_EN))
-#define HAL_SET_LED_G_ON				(GPIO_setOutputHighOnPin(GPIO_LED_G))
-#define HAL_SET_LED_G_OFF				(GPIO_setOutputLowOnPin(GPIO_LED_G))
-#define HAL_TOGGLE_LED_G				(GPIO_toggleOutputOnPin(GPIO_LED_G))
-#define HAL_SET_ERROR_OUT_HIGH			(GPIO_setOutputHighOnPin(GPIO_ERROR_OUT))
-#define HAL_SET_ERROR_OUT_LOW			(GPIO_setOutputLowOnPin(GPIO_ERROR_OUT))
-#define HAL_WATCHDOG_RESET				(WDT_A_resetTimer(WDT_A_BASE))
-#define HAL_WATCHDOG_HOLD				(WDT_A_hold(WDT_A_BASE))
-
-
+//Board Hadware Info
+#define HAL_VERSION		0x1606080A
+//ADC & GPIO define
+#define ADC_DC60V		4
+#define ADC_DC13V		5
+#define GPIO_STB_IN		GPIO_PORT_P1,GPIO_PIN1
+#define GPIO_IW_POWER_EN	GPIO_PORT_P1,GPIO_PIN6
+#define GPIO_FAC_TEST	GPIO_PORT_P2,GPIO_PIN6
+#define GPIO_ERROR_OUT	GPIO_PORT_P1,GPIO_PIN0
+#define GPIO_LED_R		GPIO_PORT_P1,GPIO_PIN0
+#define GPIO_LED_G		GPIO_PORT_P4,GPIO_PIN7
+#define GPIO_IW_FAULT_IN	GPIO_PORT_P2,GPIO_PIN1
+#define GPIO_IW_CS_0	GPIO_PORT_P6,GPIO_PIN0
+#define GPIO_IW_CS_1	GPIO_PORT_P6,GPIO_PIN1
+#define GPIO_IW_CS_2	GPIO_PORT_P6,GPIO_PIN2
+#define GPIO_IW_CS_3	GPIO_PORT_P6,GPIO_PIN3
+#define GPIO_IW_CS_4	GPIO_PORT_P6,GPIO_PIN4
+#define GPIO_IW_CS_5	GPIO_PORT_P7,GPIO_PIN0
+#define GPIO_IW_CS_6	GPIO_PORT_P3,GPIO_PIN6
+#define GPIO_IW_CS_7	GPIO_PORT_P3,GPIO_PIN5
 
 /***2.2 External Structures **/
-
 //Board I/O information structure.
 typedef struct Hal_BoardInfo_t
 {
@@ -524,5 +488,40 @@ inline void Hal_Flash_eraseSegment(uint8_t *flash_ptr);
  * 		NONE
  **********************************************************/
 inline void Hal_Flash_write(uint8 *data_ptr, uint8 *flash_ptr, uint16 count);
+
+/**********************************************************
+ * @Brief Gpio_in
+ * 		Get GPIO input value on pin
+ * @Param
+ * 		port : GPIO port
+ * 		pin : GPIO pin
+ * @Return
+ * 		1 : GPIO is high on pin
+ * 		0 : GPIO is low on pin
+ **********************************************************/
+uint8 Gpio_in(uint8 port, uint16 pin);
+
+/**********************************************************
+ * @Brief Gpio_in
+ * 		Set GPIO level on pin
+ * @Param
+ * 		port : GPIO port
+ * 		pin : GPIO pin
+ * 		value : 1 = Set High on pin ; 0 = Set Low on pin ;
+ * @Return
+ * 		NONE
+ **********************************************************/
+void Gpio_out(uint8 port, uint16 pin, flag value);
+
+/**********************************************************
+ * @Brief Gpio_in
+ * 		Toggle GPIO level on pin
+ * @Param
+ * 		port : GPIO port
+ * 		pin : GPIO pin
+ * @Return
+ * 		NONE
+ **********************************************************/
+void Gpio_toggle(uint8 port, uint16 pin);
 
 #endif /* HAL_H_ */

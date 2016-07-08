@@ -308,7 +308,7 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) Hal_Isr_Gpio_P1 (void)
 		PrintString("\e[31m***STB falling edge detect***\r\n\e[30m");
 #endif
 		DELAY_US(500);
-		if (!HAL_GET_STB_IN)
+		if (0 == Gpio_in(GPIO_STB_IN))
 		{
 			//Mute Backlight
 			Hal_Mem_set8((uint32) &u16Hal_Buf_TestDuty, 0x00, sizeof(u16Hal_Buf_TestDuty));
@@ -316,7 +316,7 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) Hal_Isr_Gpio_P1 (void)
 
 			//Hold CPU till STB get High , if STB = L for 1s, reset Mcu.
 			uint16 timeout = 0;
-			while (!HAL_GET_STB_IN)
+			while (0 == Gpio_in(GPIO_STB_IN))
 			{
 				DELAY_MS(10);
 				timeout++;
@@ -617,7 +617,7 @@ uint8 Hal_Mcu_checkBoardStatus(Hal_BoardInfo_t *boardinfo, Hal_BoardErrorParam_t
 	uint8 retval = 0;
 
 	//Load Board Hardware Info
-	boardinfo->fIw7027Fault = HAL_GET_IW7027_FAULT_IN;
+	boardinfo->fIw7027Fault = Gpio_in(GPIO_IW_FAULT_IN);
 	boardinfo->u8Dc60v = (uint32) Hal_Adc_getResult(ADC_DC60V) * 84 / 0x3FF;
 	boardinfo->u8Dc13v = (uint32) Hal_Adc_getResult(ADC_DC13V) * 19 / 0x3FF;
 	boardinfo->su8McuTemperature = Hal_Adc_getMcuTemperature();
@@ -647,7 +647,7 @@ uint8 Hal_Mcu_checkBoardStatus(Hal_BoardInfo_t *boardinfo, Hal_BoardErrorParam_t
 	//Set Error Out
 	if (retval)
 	{
-		HAL_SET_ERROR_OUT_LOW;
+		Gpio_out(GPIO_ERROR_OUT, 0);
 		errorparam->u8ErrorType = retval;
 //1st time error happen
 		if (!iserror)
@@ -682,7 +682,7 @@ uint8 Hal_Mcu_checkBoardStatus(Hal_BoardInfo_t *boardinfo, Hal_BoardErrorParam_t
 #endif
 		}
 
-		HAL_SET_ERROR_OUT_HIGH;
+		Gpio_out(GPIO_ERROR_OUT, 1);
 		errorparam->u8ErrorType = retval;
 		iserror = 0;
 	}
@@ -1456,3 +1456,27 @@ inline void Hal_Flash_write(uint8 *data_ptr, uint8 *flash_ptr, uint16 count)
 {
 	FlashCtl_write8(data_ptr, flash_ptr, count);
 }
+
+uint8 Gpio_in(uint8 port, uint16 pin)
+{
+	return GPIO_getInputPinValue(port, pin);
+}
+
+void Gpio_out(uint8 port, uint16 pin, flag value)
+{
+	if (value)
+	{
+		GPIO_setOutputHighOnPin(port, pin);
+	}
+	else
+	{
+		GPIO_setOutputLowOnPin(port, pin);
+	}
+}
+
+void Gpio_toggle(uint8 port, uint16 pin)
+{
+	GPIO_toggleOutputOnPin(port, pin);
+}
+
+

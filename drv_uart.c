@@ -111,8 +111,12 @@ void Uart_Console(uint8 *uartrxbuf)
 	{
 		tDrv_Iw7027Param.fIwRunErrorCheck = 1;
 		Iw7027_updateWorkParams(&tDrv_Iw7027Param);
-		PrintString("IW7027 Error Status");
-		PrintArray((uint8 *) &tDrv_Iw7027Param, sizeof(tDrv_Iw7027Param));
+		PrintString("IW7027 Parameters:\r\n");
+		PrintArray((uint8 *) &tDrv_Iw7027Param, 10);
+		PrintString("IW7027 Error Type:\r\n");
+		PrintChar(tDrv_Iw7027Param.fIwErrorType);
+		PrintString("IW7027 Error Channel:\r\n");
+		PrintArray((uint8 *) &tDrv_Iw7027Param.u8IwOpenShortStatus, 16);
 		PrintEnter();
 	}
 	else if (!memcmp(uartrxbuf, "error", 5))

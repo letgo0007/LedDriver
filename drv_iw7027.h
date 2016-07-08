@@ -18,24 +18,30 @@
 #include "std.h"
 
 /***2.1 External Macros ******************************************************/
-//Driver Software Version
-#define	IW_DRIVER_VERSION				(0x01)
-//IW7027 IC amount to be controled.
+/* Model information
+ * 65SX970A + MSP430F5529 LaunchPad
+ * 8*15(120ch) LED Matrix
+ */
 #define IW_DEVICE_AMOUNT				(8)
-//Total available LED channel amount.
-#define IW_LED_CHANNEL					(120)
-//Single chip select bit ,orderd from BIT0~BIT7.
-#define IW_0							(0x01)
-#define IW_1							(0x02)
-#define IW_2							(0x04)
-#define IW_3							(0x08)
-#define IW_4							(0x10)
-#define IW_5							(0x20)
-#define IW_6							(0x40)
-#define IW_7							(0x80)
-
-//All chip select bit .
-#define IW_ALL							(0x1F)
+#define IW_LED_COL						(15)
+#define IW_LED_ROW						(8)
+#define IW_LED_CHANNEL					(IW_LED_COL * IW_LED_ROW)
+#define Iw7027_DefaultRegMap			(Iw7027_DefaultRegMap_65SX970A)
+#define Iw7027_LedSortMap				(Iw7027_LedSortMap_65SX970A)
+//Chip select bit ,orderd from BIT0~BIT7.
+#define IW_0							(0x0001)
+#define IW_1							(0x0002)
+#define IW_2							(0x0004)
+#define IW_3							(0x0008)
+#define IW_4							(0x0010)
+#define IW_5							(0x0020)
+#define IW_6							(0x0040)
+#define IW_7							(0x0080)
+#define IW_ALL							(0x00FF)
+//Error return type
+#define IW_ERR_SHORT					(0x01)
+#define IW_ERR_OPEN						(0x02)
+#define IW_ERR_DSSHORT					(0x04)
 
 /***2.2 External Structures **************************************************/
 //IW7027 delay table select.
@@ -58,12 +64,10 @@ typedef struct Drv_Iw7027Param_t
 	enum Iw7027_Delay_e eIwDelayTableSelect;
 	//IW7027 Open/Short check enable. Set to 1 to run error check once.
 	flag fIwRunErrorCheck;
-	//IW7027 Error status , [1] = Error , [0] = Normal.
-	flag fIwIsError;
-	//IW7027 Open/Short Status. Each IW7027 has 6bytes
-	// 6 bytes : 	[open 0~7][open 8~15][short 0~7][short 8~15]
-	// 				[D-S short 0~7][D-S short 8~15]
-	uint8 u8IwOpenShortStatus[5 * 6];
+	//IW7027 Error status , [BIT0] = Open , [BIT1] = Short , [BIT2] = DS Short
+	uint8 fIwErrorType;
+	//IW7027 Open/Short Status , max 128 channel , 16 byte = 128 bit.
+	uint8 u8IwOpenShortStatus[16];
 	//RESERVED , fix the size of the struct to 0x30 bytes for I2C slave access.
 	uint8 RESERVED[0x05];
 } Drv_Iw7027Param_t;
@@ -229,16 +233,15 @@ extern uint8 Iw7027_checkOpenShortStatus(Drv_Iw7027Param_t *iwparam);
 extern uint8 Iw7027_updateWorkParams(Drv_Iw7027Param_t *iwparam);
 
 /**********************************************************
- * @Brief Dpl_GammaUpdate
- * 		Update Input Gamma curve accroding to 5 Gamma point input.
+ * @Brief Iw7027_checkChipId
+ * 		Check IW7027 Chip ID to get validation status of IC with timeout.
+ * 		If can not read chip ID for 10 times retry , set as fail.
  * @Param
- * 		gp0				: Gamma point @ 0
- * 		gp63			: Gamma point @ 63
- * 		gp127			: Gamma point @ 127
- * 		gp191			: Gamma point @ 191
- * 		gp255			: Gamma point @ 255
+ * 		iw_all			: All IW7027 device that need check,usually put IW_ALL.
  * @Return
- * 		NONE
+ * 		FLAG_SUCCESS 	: All IW7027 chip ID read OK.
+ * 		FLAG_FAIL		: 1 or more IW7027 chip ID read fail.
  **********************************************************/
+extern flag Iw7027_checkChipId(uint16 iw_all);
 
 #endif /* DRV_IW7027_H_ */

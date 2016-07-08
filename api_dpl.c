@@ -17,14 +17,14 @@
 
 /***2.1 Internal Marcos ******************************************************/
 //Default param & tables when start up.
-#define Dpl_DefaultParam			Dpl_DefaultParam_70XU30A
-#define Dpl_TempCalibratineTable	Dpl_TempCalibratineTable_70XU30A
-#define Dpl_ZoneOffsetTable			Dpl_ZoneOffsetTable_70XU30A
+#define Dpl_DefaultParam			Dpl_DefaultParam_65SX970A
+#define Dpl_TempCalibratineTable	Dpl_TempCalibratineTable_65SX970A
+#define Dpl_ZoneOffsetTable			Dpl_ZoneOffsetTable_65SX970A
 //Dc power share area define .
-#define Dpl_Dc0ShareChAmount		78
-#define Dpl_Dc1ShareChAmount		0
-#define Dpl_Dc0ShareIndex			Dpl_Dc0ShareIndex_70XU30A
-#define Dpl_Dc1ShareIndex			Dpl_Dc1ShareIndex_70XU30A
+#define Dpl_Dc0ShareChAmount		Dpl_Dc0ShareChAmount_65SX970A
+#define Dpl_Dc1ShareChAmount		Dpl_Dc1ShareChAmount_65SX970A
+#define Dpl_Dc0ShareIndex			Dpl_Dc0ShareIndex_65SX970A
+#define Dpl_Dc1ShareIndex			Dpl_Dc1ShareIndex_65SX970A
 /***2.2 Internal Struct ******************************************************/
 
 /***2.3 Internal Variables ***************************************************/
@@ -40,8 +40,13 @@ uint16 u16Dpl_tempDutyLimitTable[DPL_LED_CH_MAX] =
 uint16 u16Dpl_InputGamma[0x100] =
 { 0 };
 
-//Default params.
-static const Dpl_Prama_t Dpl_DefaultParam_70XU30A =
+/************************************************
+ * 70XU30A DPL parameters :
+ ************************************************/
+#define Dpl_Dc0ShareChAmount_70XU30A	78
+#define Dpl_Dc1ShareChAmount_70XU30A	0
+//Default DPL parameters.
+const Dpl_Prama_t Dpl_DefaultParam_70XU30A =
 { .dplOn = 1, .dplChannelAmount = 78, .dplInputGammaEnable = 1, .dplSampleFrames = 120, .dplUpdateFrames = 1200,
 		.dplLimitUpStep = 0x0080, .dplLimitDownStep = 0x0080, .dplGdDutyMax = 0x0800, .dplLdDutyMax = 0x1500,
 		.dplTemperatureCalibration = 0x0000, .dplLdDutySumLimitHighTemp = 0x0800, .dplLdDutySumLimitLowTemp = 0x0700,
@@ -49,12 +54,12 @@ static const Dpl_Prama_t Dpl_DefaultParam_70XU30A =
 				0x0BF0, .dplInputGammaGp0xFF0 = 0x0FF0, };
 
 //To balance different enviroment temperature.
-static const int16 Dpl_TempCalibratineTable_70XU30A[60] =
+const int16 Dpl_TempCalibratineTable_70XU30A[60] =
 { 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64,
 		66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94, 96, 98, 100, 102, 104, 106, 108, 110, 112, 114, 116, 118, };
 
 //To balance LED environment temperature on different area of a LED Panel.
-static const uint16 Dpl_ZoneOffsetTable_70XU30A[DPL_LED_CH_MAX] =
+const uint16 Dpl_ZoneOffsetTable_70XU30A[DPL_LED_CH_MAX] =
 {
 /*ROW0*/0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
 /*ROW1*/0x0000, 0x0000, 0x0080, 0x0080, 0x0000, 0x0000,
@@ -71,19 +76,83 @@ static const uint16 Dpl_ZoneOffsetTable_70XU30A[DPL_LED_CH_MAX] =
 /*ROWC*/0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
 /*NC  */0x0000, 0x0000 };
 
-#if Dpl_Dc0ShareChAmount
+#if Dpl_Dc0ShareChAmount_70XU30A
 //DC power supply 0 share area number , 70XU30A use only 1 DC power for all area.
-static const uint8 Dpl_Dc0ShareIndex_70XU30A[Dpl_Dc0ShareChAmount] =
+const uint8 Dpl_Dc0ShareIndex_70XU30A[Dpl_Dc0ShareChAmount_70XU30A] =
 { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14,
 		0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
 		0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3A, 0x3B, 0x3C,
 		0x3D, 0x3E, 0x3F, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, };
 #endif
 
+#if Dpl_Dc1ShareChAmount_70XU30A
+//DC power supply 1 share area number
+const uint8 Dpl_Dc1ShareIndex_70XU30A[Dpl_Dc1ShareChAmount_70XU30A] =
+{ 0 };
+#endif
+
+/************************************************
+ * 65SX970A DPL parameters :
+ ************************************************/
+#define Dpl_Dc0ShareChAmount_65SX970A	60
+#define Dpl_Dc1ShareChAmount_65SX970A	60
+//Default DPL parameters.
+const Dpl_Prama_t Dpl_DefaultParam_65SX970A =
+{ .dplOn = 1, .dplChannelAmount = 120, .dplInputGammaEnable = 0, .dplSampleFrames = 120, .dplUpdateFrames = 1200,
+		.dplLimitUpStep = 0x0080, .dplLimitDownStep = 0x0080, .dplGdDutyMax = 0x0800, .dplLdDutyMax = 0x1500,
+		.dplTemperatureCalibration = 0x0000, .dplLdDutySumLimitHighTemp = 0x0800, .dplLdDutySumLimitLowTemp = 0x0700,
+		.dplInputGammaGp0x000 = 0x0000, .dplInputGammaGp0x3F0 = 0x03F0, .dplInputGammaGp0x7F0 = 0x07F0, .dplInputGammaGp0xBF0 =
+				0x0BF0, .dplInputGammaGp0xFF0 = 0x0FF0, };
+
+//To balance different enviroment temperature.
+const int16 Dpl_TempCalibratineTable_65SX970A[60] =
+{ 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64,
+		66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94, 96, 98, 100, 102, 104, 106, 108, 110, 112, 114, 116, 118, };
+
+//To balance LED environment temperature on different area of a LED Panel.
+const uint16 Dpl_ZoneOffsetTable_65SX970A[DPL_LED_CH_MAX] =
+{ 0 };
+
+#if Dpl_Dc0ShareChAmount
+//DC power supply 0 share area number , 70XU30A use only 1 DC power for all area.
+const uint8 Dpl_Dc0ShareIndex_65SX970A[Dpl_Dc0ShareChAmount] =
+{
+/*ROW0*/0x00, 0x01, 0x02, 0x03,
+/*ROW1*/0x08, 0x09, 0x0A, 0x0B,
+/*ROW2*/0x10, 0x11, 0x12, 0x13,
+/*ROW3*/0x18, 0x19, 0x1A, 0x1B,
+/*ROW4*/0x20, 0x21, 0x22, 0x23,
+/*ROW5*/0x28, 0x29, 0x2A, 0x2B,
+/*ROW6*/0x30, 0x31, 0x32, 0x33,
+/*ROW7*/0x38, 0x39, 0x3A, 0x3B,
+/*ROW8*/0x40, 0x41, 0x42, 0x43,
+/*ROW9*/0x48, 0x49, 0x4A, 0x4B,
+/*ROWA*/0x50, 0x51, 0x52, 0x53,
+/*ROWB*/0x58, 0x59, 0x5A, 0x5B,
+/*ROWC*/0x60, 0x61, 0x62, 0x63,
+/*ROWD*/0x68, 0x69, 0x6A, 0x6B,
+/*ROWE*/0x70, 0x71, 0x72, 0x73, };
+#endif
+
 #if Dpl_Dc1ShareChAmount
 //DC power supply 1 share area number
-static const uint8 Dpl_Dc1ShareIndex_70XU30A[Dpl_Dc1ShareChAmount] =
-{	0};
+const uint8 Dpl_Dc1ShareIndex_65SX970A[Dpl_Dc1ShareChAmount] =
+{
+/*ROW0*/0x04, 0x05, 0x06, 0x07,
+/*ROW1*/0x0C, 0x0D, 0x0E, 0x0F,
+/*ROW2*/0x14, 0x15, 0x16, 0x17,
+/*ROW3*/0x1C, 0x1D, 0x1E, 0x1F,
+/*ROW4*/0x24, 0x25, 0x26, 0x27,
+/*ROW5*/0x2C, 0x2D, 0x2E, 0x2F,
+/*ROW6*/0x34, 0x35, 0x36, 0x37,
+/*ROW7*/0x3C, 0x3D, 0x3E, 0x3F,
+/*ROW8*/0x44, 0x45, 0x46, 0x47,
+/*ROW9*/0x4C, 0x4D, 0x4E, 0x4F,
+/*ROWA*/0x54, 0x55, 0x56, 0x57,
+/*ROWB*/0x5C, 0x5D, 0x5E, 0x5F,
+/*ROWC*/0x64, 0x65, 0x66, 0x67,
+/*ROWD*/0x6C, 0x6D, 0x6E, 0x6F,
+/*ROWE*/0x74, 0x75, 0x76, 0x77, };
 #endif
 
 /***2.4 External Variables ***************************************************/

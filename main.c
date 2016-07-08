@@ -109,13 +109,13 @@ int main(void)
 		//Task4 Test command & report
 		if (tHal_CpuScheduler.fTestFlag1Hz)
 		{
-			//Toggle LED as Mcu active marker.
-			HAL_TOGGLE_LED_G;
+			//Toggle LED as Mcu Heart Beat.
+			Gpio_toggle(GPIO_LED_G);
 
 			tHal_CpuScheduler.fLocalDimmingOn = 0;
 			static uint8 i;
 
-			u16Hal_Buf_TestDuty[i%128] = 0xA0;
+			u16Hal_Buf_TestDuty[i % 128] = 0xA0;
 			i++;
 
 #if 1
